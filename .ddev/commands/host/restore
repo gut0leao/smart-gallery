@@ -21,7 +21,7 @@ fi
 RESTORE_DATE="$1"
 
 # Restaurar banco de dados
-BACKUP_DB="$BACKUP_DIR/${RESTORE_DATE}-db.sql"
+BACKUP_DB="$BACKUP_DIR/${RESTORE_DATE}-db.sql.gz"
 if [ -f "$BACKUP_DB" ]; then
     echo "Restaurando banco de dados de $BACKUP_DB..."
     ddev import-db --file="$BACKUP_DB"

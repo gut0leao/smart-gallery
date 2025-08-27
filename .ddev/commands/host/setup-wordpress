@@ -6,13 +6,13 @@ set -e
 echo "📥 Baixando arquivos do WordPress..."
 ddev wp core download --force
 
-echo "🛠️ Instalando WordPress..."
+echo "🛠️  Instalando WordPress..."
 ddev wp core install --url="https://smart-gallery-filter.ddev.site" --title="Smart Gallery Filter" --admin_user="admin" --admin_password="admin" --admin_email="admin@local.test"
 
-echo "🔌Ativando plugins smart-gallery-filter"
+echo "🔌 Ativando plugins smart-gallery-filter"
 ddev wp plugin activate smart-gallery-filter
 
-echo "🔌🗑️ Desinstalando plugins: akismet, hello..."
+echo "🔌🗑️  Desinstalando plugins: akismet, hello..."
 ddev wp plugin uninstall akismet hello
 
 echo "🔌📥 Instalando e ativando plugins: elementor, pods"

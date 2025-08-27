@@ -34,7 +34,7 @@ fi
 BACKUP_UPLOADS="$BACKUP_DIR/${RESTORE_DATE}-uploads.tar.gz"
 if [ -f "$BACKUP_UPLOADS" ]; then
     echo "🗂️  Restaurando uploads de $BACKUP_UPLOADS..."
-    tar xzf "$BACKUP_UPLOADS" -C wp-content/
+    tar xzf "$BACKUP_UPLOADS"
 else
     echo "❌ Arquivo de uploads não encontrado para a data $RESTORE_DATE."
 fi
@@ -43,7 +43,7 @@ fi
 BACKUP_PLUGINS="$BACKUP_DIR/${RESTORE_DATE}-plugins.tar.gz"
 if [ -f "$BACKUP_PLUGINS" ]; then
     echo "🗂️  Restaurando plugins de $BACKUP_PLUGINS..."
-    tar xzf "$BACKUP_PLUGINS" -C wp-content/
+    tar xzf "$BACKUP_PLUGINS"
 else
     echo "❌ Arquivo de plugins não encontrado para a data $RESTORE_DATE."
 fi
@@ -52,7 +52,7 @@ fi
 BACKUP_THEMES="$BACKUP_DIR/${RESTORE_DATE}-themes.tar.gz"
 if [ -f "$BACKUP_THEMES" ]; then
     echo "🗂️  Restaurando temas de $BACKUP_THEMES..."
-    tar xzf "$BACKUP_THEMES" -C wp-content/
+    tar xzf "$BACKUP_THEMES"
 else
     echo " ❌ Arquivo de temas não encontrado para a data $RESTORE_DATE."
 fi

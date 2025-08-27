@@ -5,11 +5,28 @@
 #
 # Note: if you want to stage/commit WP core files
 # you can delete this whole section/until Configuration.
+# /wp-admin/
+# /wp-content/index.php
+# /wp-content/languages
+# /wp-content/plugins/index.php
+# /wp-content/themes/index.php
+# /wp-includes/
+# /index.php
+# /license.txt
+# /readme.html
+# /wp-*.php
+# /xmlrpc.php
+
+# ajustado para ignorar tudo do Wordpress
+# exceto o plugin smart-galery-filter
+# !!!Adicionar aqui outros plugins instalados!!!
 /wp-admin/
 /wp-content/index.php
-/wp-content/languages
-/wp-content/plugins/index.php
-/wp-content/themes/index.php
+/wp-content/plugins/*
+!/wp-content/plugins/smart-gallery-filter/
+/wp-content/themes/
+/wp-content/upgrade/
+/wp-content/uploads/
 /wp-includes/
 /index.php
 /license.txt

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Script para automatizar a configuração inicial do WordPress no DDEV
+# Script para automatizar a configuração inicial do WordPress
 
 set -e
 
@@ -9,13 +9,16 @@ ddev wp core download --force
 echo "🛠️ Instalando WordPress..."
 ddev wp core install --url="https://smart-gallery-filter.ddev.site" --title="Smart Gallery Filter" --admin_user="admin" --admin_password="admin" --admin_email="admin@local.test"
 
+echo "🔌Ativando plugins smart-gallery-filter"
+ddev wp plugin activate smart-gallery-filter
+
 echo "🔌🗑️ Desinstalando plugins: akismet, hello..."
 ddev wp plugin uninstall akismet hello
 
-echo "🔌📥 Instalando plugins: elementor, pods"
-ddev wp plugin install elementor pods
+echo "🔌📥 Instalando e ativando plugins: elementor, pods"
+ddev wp plugin install elementor pods --activate
 
-echo "🔌 Ativando plugins: elementor, pods, smart-gallery-filter"
-ddev wp plugin activate elementor pods smart-gallery-filter
+echo "🎨📥 Instalando e ativando tema hello-biz"
+ddev wp theme install hello-biz --activate
 
-echo "🎉 Ambiente WordPress configurado!"
+ddev describe

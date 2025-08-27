@@ -5,7 +5,8 @@
 set -e
 
 if [ ! -d "./backups" ]; then
-    echo "⚠️ Diretório ./backups não encontrado! Execute primeiro o script map_backup_dir para configurar o destino dos backups."
+    echo "⚠️  Diretório ./backups não encontrado! Execute antes:"
+    echo "$ ddev map_backup_dir /caminho/do/diretorio/dos/backups"
     exit 1
 fi
 
@@ -53,7 +54,7 @@ if [ -f "$BACKUP_THEMES" ]; then
     echo "🗂️  Restaurando temas de $BACKUP_THEMES..."
     tar xzf "$BACKUP_THEMES" -C wp-content/
 else
-    echo " ❌Arquivo de temas não encontrado para a data $RESTORE_DATE."
+    echo " ❌ Arquivo de temas não encontrado para a data $RESTORE_DATE."
 fi
 
 echo "✅ Restauração concluída."

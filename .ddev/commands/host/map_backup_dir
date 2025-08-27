@@ -14,9 +14,6 @@ fi
 ORIG_DIR="$1"
 DEST_DIR="$(pwd)/backups"
 
-# Cria o diretório de destino se não existir
-mkdir -p "$DEST_DIR"
-
 # Remove symlink antigo, se existir
 if [ -L "$DEST_DIR" ]; then
   rm "$DEST_DIR"

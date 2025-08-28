@@ -1,18 +1,26 @@
 <?php
 class Smart_Gallery_Filter {
     public function __construct() {
-        // Hooks para inicializar o plugin
-        add_action('init', [$this, 'init']);
-        add_action('elementor/widgets/register', [$this, 'register_widget']);
+        add_action('plugins_loaded', [$this, 'init']);
     }
 
     public function init() {
-        // Inicialização custom post types, taxonomias, Pods, etc
+        // Verifica se Elementor está ativo
+        if (!did_action('elementor/loaded')) {
+            add_action('admin_notices', [$this, 'admin_notice_missing_elementor']);
+            return;
+        }
+
+        add_action('elementor/widgets/widgets_registered', [$this, 'register_widget']);
     }
 
-    public function register_widget($widgets_manager) {
-        // Registro do widget Elementor
-        // $widgets_manager->register(new \Elementor\Widget_Smart_Gallery_Filter());
+    public function admin_notice_missing_elementor() {
+        echo '<div class="notice notice-warning is-dismissible"><p>Smart Gallery Filter requer o Elementor para funcionar.</p></div>';
+    }
+
+    public function register_widget() {
+        require_once __DIR__ . '/class-elementor-smart-gallery-widget.php';
+        \Elementor\Plugin::instance()->widgets_manager->register(new Elementor_Smart_Gallery_Widget());
     }
 }
 

@@ -169,15 +169,13 @@ class Car_Import_Command {
                     'type' => 'text'
                 ],
                 [
-                    'name' => 'status',
+                    'name' => 'car_status',
                     'label' => 'Status',
                     'type' => 'pick',
                     'options' => [
                         'pick_format_type' => 'single',
                         'pick_format_single' => 'dropdown',
-                        'pick_custom' => 'available|Available
-sold|Sold
-reserved|Reserved'
+                        'pick_custom' => 'available|Available\nsold|Sold\nreserved|Reserved'
                     ]
                 ],
                 [
@@ -187,9 +185,7 @@ reserved|Reserved'
                     'options' => [
                         'pick_format_type' => 'single',
                         'pick_format_single' => 'dropdown',
-                        'pick_custom' => 'new|New
-seminew|Semi-New
-used|Used'
+                        'pick_custom' => 'new|New\nseminew|Semi-New\nused|Used'
                     ]
                 ]
             ]
@@ -198,10 +194,10 @@ used|Used'
         $car_pod_id = $pods_api->save_pod( $car_pod_params );
         
         if ( ! $car_pod_id ) {
-            WP_CLI::error( 'Failed to create Car post type in Pods' );
+            WP_CLI::line( '   ❌ Failed to create Car post type in Pods' );
+        } else {
+            WP_CLI::line( '   ✅ Car post type created in Pods' );
         }
-
-        WP_CLI::line( '   ✅ Car post type created in Pods' );
     }
 
     /**
@@ -305,17 +301,17 @@ used|Used'
             $data = array_combine( $header, $row );
             
             if ( $dry_run ) {
-                WP_CLI::line( "   [DRY RUN] Would import: {$data['name']}" );
+                WP_CLI::line( "   [DRY RUN] Would import: {$data['car_name']}" );
                 $imported++;
                 continue;
             }
 
             try {
                 $this->create_car_post( $data );
-                WP_CLI::line( "   ✅ Imported: {$data['name']}" );
+                WP_CLI::line( "   ✅ Imported: {$data['car_name']}" );
                 $imported++;
             } catch ( Exception $e ) {
-                WP_CLI::line( "   ❌ Failed: {$data['name']} - {$e->getMessage()}" );
+                WP_CLI::line( "   ❌ Failed: {$data['car_name']} - {$e->getMessage()}" );
                 $skipped++;
             }
         }
@@ -335,7 +331,7 @@ used|Used'
         // Check if post already exists
         $existing = get_posts( [
             'post_type' => 'car',
-            'title' => $data['name'],
+            'title' => $data['car_name'],
             'posts_per_page' => 1,
             'post_status' => 'any'
         ] );
@@ -346,7 +342,7 @@ used|Used'
 
         // Create post
         $post_id = wp_insert_post( [
-            'post_title' => $data['name'],
+            'post_title' => $data['car_name'],
             'post_content' => $data['description'],
             'post_type' => 'car',
             'post_status' => 'publish',
@@ -359,7 +355,7 @@ used|Used'
                 'color' => $data['color'],
                 'doors' => intval( $data['doors'] ),
                 'model' => $data['model'],
-                'status' => $data['status'],
+                'car_status' => $data['car_status'],
                 'condition' => $data['condition'],
                 'featured_image' => $data['featured_image'],
             ]
@@ -472,7 +468,7 @@ used|Used'
             wp_delete_post( $car->ID, true );
         }
 
-        WP_CLI::line( "   ✅ Deleted {count($cars)} car posts" );
+        WP_CLI::line( "   ✅ Deleted " . count($cars) . " car posts" );
 
         // Clean up taxonomies
         $taxonomies = [ 'car_brand', 'car_category', 'car_fuel_type', 'car_transmission' ];
@@ -482,8 +478,10 @@ used|Used'
                 'hide_empty' => false
             ] );
             
-            foreach ( $terms as $term ) {
-                wp_delete_term( $term->term_id, $taxonomy );
+            if ( ! is_wp_error( $terms ) ) {
+                foreach ( $terms as $term ) {
+                    wp_delete_term( $term->term_id, $taxonomy );
+                }
             }
         }
 

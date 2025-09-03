@@ -1,10 +1,17 @@
 <?php
 /**
- * Car import functionality for WordPress
+ * Car Demo Data Import Command for WordPress
+ * 
+ * Creates a complete car catalog demo using Pods Framework:
+ * - Custom Post Type: Car
+ * - Taxonomies: Brand, Body Type, Fuel Type, Transmission
+ * - Sample data from CSV with images
+ * 
+ * Usage: wp car-demo import [--dry-run] [--file=cars.csv]
  */
 
 /**
- * Import cars from CSV file to WordPress
+ * Main import command class
  */
 class Car_Import_Command {
 
@@ -38,50 +45,47 @@ class Car_Import_Command {
             WP_CLI::line( '🔍 DRY RUN MODE - No changes will be made' );
         }
 
-        // Check if file exists
+        // Validate file exists
         if ( ! file_exists( $file ) ) {
             WP_CLI::error( "CSV file not found: {$file}" );
         }
 
         WP_CLI::line( "📂 Reading CSV file: {$file}" );
 
-        // Setup CPT and taxonomies
+        // Run import steps in order
         $this->setup_post_types( $dry_run );
         $this->setup_taxonomies( $dry_run );
-
-        // Import cars
+        $this->connect_taxonomies_to_cpt( $dry_run );
         $this->import_cars_from_csv( $file, $dry_run );
 
         WP_CLI::success( 'Import completed!' );
     }
 
     /**
-     * Setup car custom post type in Pods
+     * Create Car Custom Post Type with Pods
      */
     private function setup_post_types( $dry_run = false ) {
-        WP_CLI::line( '🚗 Setting up Car post type in Pods...' );
+        WP_CLI::line( '🚗 Setting up Car post type...' );
 
         if ( $dry_run ) {
-            WP_CLI::line( '   [DRY RUN] Would create "car" post type in Pods' );
+            WP_CLI::line( '   [DRY RUN] Would create "car" post type' );
             return;
         }
 
-        // Check if Pods is active
+        // Ensure Pods is available
         if ( ! function_exists( 'pods_api' ) ) {
             WP_CLI::error( 'Pods plugin is not active!' );
         }
 
         $pods_api = pods_api();
 
-        // Check if car post type already exists
-        $existing_pod = $pods_api->load_pod( [ 'name' => 'car' ] );
-        
-        if ( $existing_pod ) {
-            WP_CLI::line( '   ⚠️  Car post type already exists in Pods' );
+        // Skip if already exists
+        if ( $pods_api->load_pod( [ 'name' => 'car' ] ) ) {
+            WP_CLI::line( '   ⚠️  Car post type already exists' );
             return;
         }
 
-        // Create Car post type in Pods
+        // Create car post type with all necessary fields
         $car_pod_params = [
             'name' => 'car',
             'label' => 'Cars',
@@ -102,159 +106,123 @@ class Car_Import_Command {
                 'has_archive' => '1',
                 'show_in_rest' => '1',
             ],
-            'fields' => [
-                [
-                    'name' => 'price',
-                    'label' => 'Price',
-                    'type' => 'currency',
-                    'options' => [
-                        'currency_format' => 'usd',
-                        'currency_format_sign' => '$',
-                        'currency_format_placement' => 'before',
-                    ]
-                ],
-                [
-                    'name' => 'year',
-                    'label' => 'Year',
-                    'type' => 'number',
-                    'options' => [
-                        'number_format_type' => 'number',
-                        'number_decimals' => '0'
-                    ]
-                ],
-                [
-                    'name' => 'mileage',
-                    'label' => 'Mileage',
-                    'type' => 'number',
-                    'options' => [
-                        'number_format_type' => 'number',
-                        'number_decimals' => '0'
-                    ]
-                ],
-                [
-                    'name' => 'engine_size',
-                    'label' => 'Engine Size',
-                    'type' => 'number',
-                    'options' => [
-                        'number_format_type' => 'number',
-                        'number_decimals' => '1'
-                    ]
-                ],
-                [
-                    'name' => 'power_hp',
-                    'label' => 'Power (HP)',
-                    'type' => 'number',
-                    'options' => [
-                        'number_format_type' => 'number',
-                        'number_decimals' => '0'
-                    ]
-                ],
-                [
-                    'name' => 'color',
-                    'label' => 'Color',
-                    'type' => 'text'
-                ],
-                [
-                    'name' => 'doors',
-                    'label' => 'Doors',
-                    'type' => 'number',
-                    'options' => [
-                        'number_format_type' => 'number',
-                        'number_decimals' => '0'
-                    ]
-                ],
-                [
-                    'name' => 'model',
-                    'label' => 'Model',
-                    'type' => 'text'
-                ],
-                [
-                    'name' => 'car_status',
-                    'label' => 'Status',
-                    'type' => 'pick',
-                    'options' => [
-                        'pick_format_type' => 'single',
-                        'pick_format_single' => 'dropdown',
-                        'pick_custom' => 'available|Available\nsold|Sold\nreserved|Reserved'
-                    ]
-                ],
-                [
-                    'name' => 'condition',
-                    'label' => 'Condition',
-                    'type' => 'pick',
-                    'options' => [
-                        'pick_format_type' => 'single',
-                        'pick_format_single' => 'dropdown',
-                        'pick_custom' => 'new|New\nseminew|Semi-New\nused|Used'
-                    ]
-                ]
-            ]
+            'fields' => $this->get_car_fields()
         ];
 
-        $car_pod_id = $pods_api->save_pod( $car_pod_params );
+        $result = $pods_api->save_pod( $car_pod_params );
         
-        if ( ! $car_pod_id ) {
-            WP_CLI::line( '   ❌ Failed to create Car post type in Pods' );
+        if ( $result ) {
+            WP_CLI::line( '   ✅ Car post type created successfully' );
         } else {
-            WP_CLI::line( '   ✅ Car post type created in Pods' );
+            WP_CLI::error( 'Failed to create Car post type' );
         }
     }
 
     /**
-     * Setup taxonomies in Pods
+     * Get car custom fields configuration
+     */
+    private function get_car_fields() {
+        return [
+            [
+                'name' => 'price',
+                'label' => 'Price',
+                'type' => 'currency',
+                'options' => [
+                    'currency_format' => 'usd',
+                    'currency_format_sign' => '$',
+                    'currency_format_placement' => 'before',
+                ]
+            ],
+            [
+                'name' => 'year',
+                'label' => 'Year',
+                'type' => 'number',
+                'options' => [ 'number_format_type' => 'number', 'number_decimals' => '0' ]
+            ],
+            [
+                'name' => 'mileage',
+                'label' => 'Mileage',
+                'type' => 'number',
+                'options' => [ 'number_format_type' => 'number', 'number_decimals' => '0' ]
+            ],
+            [
+                'name' => 'engine_size',
+                'label' => 'Engine Size',
+                'type' => 'number',
+                'options' => [ 'number_format_type' => 'number', 'number_decimals' => '1' ]
+            ],
+            [
+                'name' => 'power_hp',
+                'label' => 'Power (HP)',
+                'type' => 'number',
+                'options' => [ 'number_format_type' => 'number', 'number_decimals' => '0' ]
+            ],
+            [
+                'name' => 'color',
+                'label' => 'Color',
+                'type' => 'text'
+            ],
+            [
+                'name' => 'doors',
+                'label' => 'Doors',
+                'type' => 'number',
+                'options' => [ 'number_format_type' => 'number', 'number_decimals' => '0' ]
+            ],
+            [
+                'name' => 'model',
+                'label' => 'Model',
+                'type' => 'text'
+            ],
+            [
+                'name' => 'car_status',
+                'label' => 'Status',
+                'type' => 'pick',
+                'options' => [
+                    'pick_format_type' => 'single',
+                    'pick_format_single' => 'dropdown',
+                    'pick_custom' => 'available|Available\nsold|Sold\nreserved|Reserved'
+                ]
+            ],
+            [
+                'name' => 'condition',
+                'label' => 'Condition',
+                'type' => 'pick',
+                'options' => [
+                    'pick_format_type' => 'single',
+                    'pick_format_single' => 'dropdown',
+                    'pick_custom' => 'new|New\nseminew|Semi-New\nused|Used'
+                ]
+            ]
+        ];
+    }
+
+    /**
+     * Create taxonomies for car categorization
      */
     private function setup_taxonomies( $dry_run = false ) {
-        WP_CLI::line( '🏷️  Setting up taxonomies in Pods...' );
+        WP_CLI::line( '🏷️  Setting up taxonomies...' );
 
         if ( $dry_run ) {
-            WP_CLI::line( '   [DRY RUN] Would create taxonomies in Pods: brand, category, fuel_type, transmission' );
+            WP_CLI::line( '   [DRY RUN] Would create taxonomies: brand, body_type, fuel_type, transmission' );
             return;
         }
 
         $pods_api = pods_api();
-
-        $taxonomies = [
-            [
-                'name' => 'car_brand',
-                'label' => 'Car Brands',
-                'label_singular' => 'Car Brand',
-                'object' => [ 'car' ]
-            ],
-            [
-                'name' => 'car_category', 
-                'label' => 'Car Categories',
-                'label_singular' => 'Car Category',
-                'object' => [ 'car' ]
-            ],
-            [
-                'name' => 'car_fuel_type',
-                'label' => 'Fuel Types',
-                'label_singular' => 'Fuel Type', 
-                'object' => [ 'car' ]
-            ],
-            [
-                'name' => 'car_transmission',
-                'label' => 'Transmissions',
-                'label_singular' => 'Transmission',
-                'object' => [ 'car' ]
-            ]
-        ];
+        $taxonomies = $this->get_taxonomy_definitions();
 
         foreach ( $taxonomies as $taxonomy ) {
-            // Check if taxonomy already exists
-            $existing_tax = $pods_api->load_pod( [ 'name' => $taxonomy['name'] ] );
-            
-            if ( $existing_tax ) {
+            // Skip if already exists
+            if ( $pods_api->load_pod( [ 'name' => $taxonomy['name'] ] ) ) {
                 WP_CLI::line( "   ⚠️  Taxonomy {$taxonomy['name']} already exists" );
                 continue;
             }
 
+            // Create taxonomy
             $tax_params = [
                 'name' => $taxonomy['name'],
                 'label' => $taxonomy['label'],
                 'type' => 'taxonomy',
                 'storage' => 'none',
-                'object' => $taxonomy['object'],
                 'options' => [
                     'label_singular' => $taxonomy['label_singular'],
                     'public' => '1',
@@ -267,57 +235,147 @@ class Car_Import_Command {
                 ]
             ];
 
-            $tax_id = $pods_api->save_pod( $tax_params );
+            $result = $pods_api->save_pod( $tax_params );
             
-            if ( ! $tax_id ) {
-                WP_CLI::line( "   ❌ Failed to create taxonomy: {$taxonomy['name']}" );
-            } else {
+            if ( $result ) {
                 WP_CLI::line( "   ✅ Created taxonomy: {$taxonomy['name']}" );
+            } else {
+                WP_CLI::line( "   ❌ Failed to create taxonomy: {$taxonomy['name']}" );
             }
         }
     }
 
     /**
-     * Import cars from CSV
+     * Get taxonomy definitions
+     */
+    private function get_taxonomy_definitions() {
+        return [
+            [
+                'name' => 'car_brand',
+                'label' => 'Brands',
+                'label_singular' => 'Brand'
+            ],
+            [
+                'name' => 'car_body_type', 
+                'label' => 'Body Types',
+                'label_singular' => 'Body Type'
+            ],
+            [
+                'name' => 'car_fuel_type',
+                'label' => 'Fuel Types',
+                'label_singular' => 'Fuel Type'
+            ],
+            [
+                'name' => 'car_transmission',
+                'label' => 'Transmissions',
+                'label_singular' => 'Transmission'
+            ]
+        ];
+    }
+
+    /**
+     * Connect taxonomies to car post type
+     */
+    private function connect_taxonomies_to_cpt( $dry_run = false ) {
+        WP_CLI::line( '🔗 Connecting taxonomies to car post type...' );
+        
+        if ( $dry_run ) {
+            WP_CLI::line( '   [DRY RUN] Would connect all taxonomies to car post type' );
+            return;
+        }
+
+        $taxonomy_names = $this->get_taxonomy_names();
+        
+        foreach ( $taxonomy_names as $taxonomy_name ) {
+            // Ensure taxonomy is registered in WordPress
+            $this->ensure_taxonomy_registration( $taxonomy_name );
+            
+            // Connect to car post type
+            register_taxonomy_for_object_type( $taxonomy_name, 'car' );
+            WP_CLI::line( "   ✅ Connected {$taxonomy_name} to car post type" );
+        }
+        
+        // Refresh WordPress
+        flush_rewrite_rules();
+        WP_CLI::line( "   🎉 All taxonomies connected successfully!" );
+    }
+
+    /**
+     * Ensure taxonomy is registered in WordPress (fallback for Pods)
+     */
+    private function ensure_taxonomy_registration( $taxonomy_name ) {
+        if ( taxonomy_exists( $taxonomy_name ) ) {
+            return; // Already registered
+        }
+
+        WP_CLI::line( "   ⚠️  Registering {$taxonomy_name} directly in WordPress..." );
+        
+        // Create readable label from taxonomy name
+        $label = ucwords( str_replace( ['car_', '_'], ['', ' '], $taxonomy_name ) );
+        
+        register_taxonomy( $taxonomy_name, 'car', [
+            'labels' => [
+                'name' => $label,
+                'singular_name' => $label,
+            ],
+            'public' => true,
+            'show_ui' => true,
+            'show_admin_column' => true,
+            'hierarchical' => false,
+            'rewrite' => [ 'slug' => str_replace( 'car_', '', $taxonomy_name ) ],
+        ] );
+    }
+
+    /**
+     * Get list of taxonomy names
+     */
+    private function get_taxonomy_names() {
+        return [ 'car_brand', 'car_body_type', 'car_fuel_type', 'car_transmission' ];
+    }
+
+    /**
+     * Import cars from CSV file
      */
     private function import_cars_from_csv( $file, $dry_run = false ) {
         WP_CLI::line( '📊 Importing cars from CSV...' );
 
+        // Open and validate CSV file
         $handle = fopen( $file, 'r' );
         if ( ! $handle ) {
             WP_CLI::error( 'Could not open CSV file' );
         }
 
-        // Read header
         $header = fgetcsv( $handle );
         if ( ! $header ) {
             WP_CLI::error( 'Could not read CSV header' );
         }
 
+        // Process each row
         $imported = 0;
         $skipped = 0;
 
         while ( ( $row = fgetcsv( $handle ) ) !== false ) {
-            $data = array_combine( $header, $row );
+            $car_data = array_combine( $header, $row );
             
             if ( $dry_run ) {
-                WP_CLI::line( "   [DRY RUN] Would import: {$data['car_name']}" );
+                WP_CLI::line( "   [DRY RUN] Would import: {$car_data['car_name']}" );
                 $imported++;
                 continue;
             }
 
             try {
-                $this->create_car_post( $data );
-                WP_CLI::line( "   ✅ Imported: {$data['car_name']}" );
+                $this->create_car_post( $car_data );
+                WP_CLI::line( "   ✅ Imported: {$car_data['car_name']}" );
                 $imported++;
             } catch ( Exception $e ) {
-                WP_CLI::line( "   ❌ Failed: {$data['car_name']} - {$e->getMessage()}" );
+                WP_CLI::line( "   ❌ Failed: {$car_data['car_name']} - {$e->getMessage()}" );
                 $skipped++;
             }
         }
 
         fclose( $handle );
 
+        // Show summary
         WP_CLI::line( '' );
         WP_CLI::line( "📈 Import Summary:" );
         WP_CLI::line( "   Imported: {$imported}" );
@@ -325,13 +383,13 @@ class Car_Import_Command {
     }
 
     /**
-     * Create a car post from CSV data
+     * Create a single car post from CSV data
      */
-    private function create_car_post( $data ) {
-        // Check if post already exists
+    private function create_car_post( $car_data ) {
+        // Check for duplicates
         $existing = get_posts( [
             'post_type' => 'car',
-            'title' => $data['car_name'],
+            'title' => $car_data['car_name'],
             'posts_per_page' => 1,
             'post_status' => 'any'
         ] );
@@ -340,25 +398,13 @@ class Car_Import_Command {
             throw new Exception( 'Car already exists' );
         }
 
-        // Create post
+        // Create the post
         $post_id = wp_insert_post( [
-            'post_title' => $data['car_name'],
-            'post_content' => $data['description'],
+            'post_title' => $car_data['car_name'],
+            'post_content' => $car_data['description'],
             'post_type' => 'car',
             'post_status' => 'publish',
-            'meta_input' => [
-                'price' => intval( $data['price'] ),
-                'year' => intval( $data['year'] ),
-                'mileage' => intval( $data['mileage'] ),
-                'engine_size' => floatval( $data['engine_size'] ),
-                'power_hp' => intval( $data['power_hp'] ),
-                'color' => $data['color'],
-                'doors' => intval( $data['doors'] ),
-                'model' => $data['model'],
-                'car_status' => $data['car_status'],
-                'condition' => $data['condition'],
-                'featured_image' => $data['featured_image'],
-            ]
+            'meta_input' => $this->prepare_car_meta( $car_data )
         ] );
 
         if ( is_wp_error( $post_id ) ) {
@@ -366,15 +412,80 @@ class Car_Import_Command {
         }
 
         // Set taxonomies
-        wp_set_object_terms( $post_id, $data['brand'], 'car_brand' );
-        wp_set_object_terms( $post_id, $data['category'], 'car_category' );
-        wp_set_object_terms( $post_id, $data['fuel_type'], 'car_fuel_type' );
-        wp_set_object_terms( $post_id, $data['transmission'], 'car_transmission' );
+        $this->assign_car_taxonomies( $post_id, $car_data );
 
-        // Set featured image if exists
-        $this->set_featured_image( $post_id, $data['featured_image'] );
+        // Set featured image
+        $this->set_featured_image( $post_id, $car_data['featured_image'] );
 
         return $post_id;
+    }
+
+    /**
+     * Prepare car metadata from CSV data
+     */
+    private function prepare_car_meta( $car_data ) {
+        return [
+            'price' => intval( $car_data['price'] ),
+            'year' => intval( $car_data['year'] ),
+            'mileage' => intval( $car_data['mileage'] ),
+            'engine_size' => floatval( $car_data['engine_size'] ),
+            'power_hp' => intval( $car_data['power_hp'] ),
+            'color' => $car_data['color'],
+            'doors' => intval( $car_data['doors'] ),
+            'model' => $car_data['model'],
+            'car_status' => $car_data['car_status'],
+            'condition' => $car_data['condition'],
+            'featured_image' => $car_data['featured_image'],
+        ];
+    }
+
+    /**
+     * Assign taxonomies to car post
+     */
+    private function assign_car_taxonomies( $post_id, $car_data ) {
+        $taxonomy_mappings = [
+            'car_brand' => $car_data['brand'],
+            'car_body_type' => $car_data['body_type'],
+            'car_fuel_type' => $car_data['fuel_type'],
+            'car_transmission' => $car_data['transmission']
+        ];
+
+        foreach ( $taxonomy_mappings as $taxonomy => $term_name ) {
+            $this->set_taxonomy_term( $post_id, $term_name, $taxonomy );
+        }
+    }
+
+    /**
+     * Set taxonomy term for a post (creates term if needed)
+     */
+    private function set_taxonomy_term( $post_id, $term_name, $taxonomy ) {
+        if ( empty( $term_name ) ) {
+            return;
+        }
+
+        // Try to find existing term
+        $term = get_term_by( 'name', $term_name, $taxonomy );
+        
+        if ( ! $term ) {
+            // Create new term
+            $term_result = wp_insert_term( $term_name, $taxonomy );
+            
+            if ( is_wp_error( $term_result ) ) {
+                WP_CLI::line( "   ⚠️  Failed to create term '{$term_name}' in {$taxonomy}: " . $term_result->get_error_message() );
+                return;
+            }
+            
+            $term_id = $term_result['term_id'];
+        } else {
+            $term_id = $term->term_id;
+        }
+
+        // Assign term to post
+        $result = wp_set_object_terms( $post_id, $term_id, $taxonomy );
+        
+        if ( is_wp_error( $result ) ) {
+            WP_CLI::line( "   ⚠️  Failed to assign term '{$term_name}' to post {$post_id}: " . $result->get_error_message() );
+        }
     }
 
     /**
@@ -471,7 +582,7 @@ class Car_Import_Command {
         WP_CLI::line( "   ✅ Deleted " . count($cars) . " car posts" );
 
         // Clean up taxonomies
-        $taxonomies = [ 'car_brand', 'car_category', 'car_fuel_type', 'car_transmission' ];
+        $taxonomies = [ 'car_brand', 'car_body_type', 'car_fuel_type', 'car_transmission' ];
         foreach ( $taxonomies as $taxonomy ) {
             $terms = get_terms( [
                 'taxonomy' => $taxonomy,
@@ -486,6 +597,83 @@ class Car_Import_Command {
         }
 
         WP_CLI::success( 'Cleanup completed!' );
+    }
+    
+    /**
+     * Debug taxonomies connections
+     *
+     * ## EXAMPLES
+     *
+     *     wp car-demo debug
+     *
+     * @when after_wp_load
+     */
+    public function debug( $args, $assoc_args ) {
+        WP_CLI::line( '🔍 Debugging taxonomy connections...' );
+        
+        $taxonomies = [ 'car_brand', 'car_body_type', 'car_fuel_type', 'car_transmission' ];
+        $pods_api = pods_api();
+        
+        foreach ( $taxonomies as $taxonomy_name ) {
+            $taxonomy_pod = $pods_api->load_pod( [ 'name' => $taxonomy_name ] );
+            
+            if ( $taxonomy_pod ) {
+                WP_CLI::line( "📋 {$taxonomy_name}:" );
+                WP_CLI::line( "   ID: {$taxonomy_pod['id']}" );
+                WP_CLI::line( "   Type: {$taxonomy_pod['type']}" );
+                WP_CLI::line( "   Object: " . ( isset( $taxonomy_pod['object'] ) ? json_encode( $taxonomy_pod['object'] ) : 'not set' ) );
+                
+                // Show full pod data for debugging
+                if ( isset( $taxonomy_pod['object'] ) && !empty( $taxonomy_pod['object'] ) ) {
+                    WP_CLI::line( "   Full Object Data: " . var_export( $taxonomy_pod['object'], true ) );
+                }
+                
+                // Check WordPress registration
+                $wp_tax = get_taxonomy( $taxonomy_name );
+                if ( $wp_tax ) {
+                    WP_CLI::line( "   WP Object Types: " . json_encode( $wp_tax->object_type ) );
+                } else {
+                    WP_CLI::line( "   ❌ Not registered in WordPress" );
+                }
+                
+                // Check direct WordPress registration
+                if ( taxonomy_exists( $taxonomy_name ) ) {
+                    $taxonomy_obj = get_taxonomy( $taxonomy_name );
+                    WP_CLI::line( "   WP Taxonomy Exists: YES" );
+                    WP_CLI::line( "   WP Post Types: " . json_encode( $taxonomy_obj->object_type ) );
+                } else {
+                    WP_CLI::line( "   WP Taxonomy Exists: NO" );
+                }
+                
+                WP_CLI::line( "" );
+            } else {
+                WP_CLI::line( "❌ {$taxonomy_name} not found" );
+            }
+        }
+        
+        // Check car CPT
+        $car_pod = $pods_api->load_pod( [ 'name' => 'car' ] );
+        if ( $car_pod ) {
+            WP_CLI::line( "🚗 Car CPT:" );
+            WP_CLI::line( "   ID: {$car_pod['id']}" );
+            WP_CLI::line( "   Type: {$car_pod['type']}" );
+            
+            // Show full car pod object data
+            if ( isset( $car_pod['object'] ) ) {
+                WP_CLI::line( "   Object: " . json_encode( $car_pod['object'] ) );
+            }
+            
+            // Check WordPress CPT registration
+            if ( post_type_exists( 'car' ) ) {
+                $post_type_obj = get_post_type_object( 'car' );
+                WP_CLI::line( "   WP CPT Exists: YES" );
+                WP_CLI::line( "   WP CPT Taxonomies: " . json_encode( get_object_taxonomies( 'car' ) ) );
+            } else {
+                WP_CLI::line( "   WP CPT Exists: NO" );
+            }
+        }
+        
+        WP_CLI::success( 'Debug completed!' );
     }
 }
 

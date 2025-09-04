@@ -12,8 +12,8 @@ ddev wp core install --url="https://smart-gallery-filter.ddev.site" --title="Sma
 echo "🔌 Ativando plugins smart-gallery-filter"
 ddev wp plugin activate smart-gallery-filter
 
-echo "🔌🗑️  Desinstalando plugins: akismet, hello-plus..."
-ddev wp plugin uninstall akismet hello-plus
+echo "🔌🗑️  Desinstalando plugins: akismet, hello..."
+ddev wp plugin uninstall akismet hello
 
 echo "🔌📥 Instalando e ativando plugins: elementor, pods"
 ddev wp plugin install elementor pods --activate

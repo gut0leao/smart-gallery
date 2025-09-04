@@ -1,16 +1,16 @@
 <?php
 /*
 Plugin Name: Smart Gallery Filter
-Description: Widget de galeria gratuito para Elementor integrado com CPT, taxonomias e campos personalizados do Pods Elementor.
+Description: Free gallery widget for Elementor integrated with CPTs, taxonomies and custom fields from Pods Framework.
 Version: 1.0.0
 Author: gut0leao
 License: GPL2
 */
 
-// Evita acesso direto
+// Prevent direct access
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-// Carrega arquivos principais do plugin
+// Load main plugin files
 require_once __DIR__ . '/includes/class-smart-gallery-filter.php';

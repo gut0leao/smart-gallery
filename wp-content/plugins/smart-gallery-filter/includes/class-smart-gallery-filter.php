@@ -5,7 +5,7 @@ class Smart_Gallery_Filter {
     }
 
     public function init() {
-        // Verifica se Elementor está ativo
+        // Check if Elementor is active
         if (!did_action('elementor/loaded')) {
             add_action('admin_notices', [$this, 'admin_notice_missing_elementor']);
             return;
@@ -15,7 +15,7 @@ class Smart_Gallery_Filter {
     }
 
     public function admin_notice_missing_elementor() {
-        echo '<div class="notice notice-warning is-dismissible"><p>Smart Gallery Filter requer o Elementor para funcionar.</p></div>';
+        echo '<div class="notice notice-warning is-dismissible"><p>Smart Gallery Filter requires Elementor to work.</p></div>';
     }
 
     public function register_widget() {
@@ -24,5 +24,5 @@ class Smart_Gallery_Filter {
     }
 }
 
-// Inicializa o plugin
+// Initialize the plugin
 new Smart_Gallery_Filter();

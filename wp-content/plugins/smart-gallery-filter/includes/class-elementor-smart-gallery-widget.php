@@ -25,7 +25,7 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
         $this->start_controls_section(
             'content_section',
             [
-                'label' => 'Configurações',
+                'label' => 'Settings',
                 'tab' => \Elementor\Controls_Manager::TAB_CONTENT,
             ]
         );
@@ -33,7 +33,7 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
         $this->add_control(
             'taxonomy',
             [
-                'label' => 'Taxonomia (Pods)',
+                'label' => 'Taxonomy (Pods)',
                 'type' => \Elementor\Controls_Manager::SELECT,
                 'default' => '',
                 'options' => $this->get_pods_taxonomies(),
@@ -43,7 +43,7 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
         $this->add_control(
             'root_term',
             [
-                'label' => 'Termo Raiz',
+                'label' => 'Root Term',
                 'type' => \Elementor\Controls_Manager::SELECT,
                 'default' => '',
                 'options' => [],
@@ -57,7 +57,7 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
     }
 
     private function get_pods_taxonomies() {
-        $options = ['' => 'Selecione uma taxonomia'];
+        $options = ['' => 'Select a taxonomy'];
         
         if (!function_exists('pods_api')) {
             return $options;
@@ -74,7 +74,7 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
     }
     
     private function get_taxonomy_terms($taxonomy) {
-        $options = ['' => 'Selecione um termo'];
+        $options = ['' => 'Select a term'];
         
         if (empty($taxonomy)) {
             return $options;
@@ -101,7 +101,7 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
         echo '<h3>Smart Gallery Filter</h3>';
         
         if (empty($settings['taxonomy']) || empty($settings['root_term'])) {
-            echo '<p>Configure a taxonomia e o termo raiz nas configurações do widget.</p>';
+            echo '<p>Configure the taxonomy and root term in the widget settings.</p>';
             echo '</div>';
             return;
         }
@@ -109,7 +109,7 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
         $posts = $this->get_filtered_posts($settings['taxonomy'], $settings['root_term']);
         
         if (empty($posts)) {
-            echo '<p>Nenhum post encontrado.</p>';
+            echo '<p>No posts found.</p>';
         } else {
             echo '<ul>';
             foreach ($posts as $post) {
@@ -122,14 +122,14 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
     }
     
     private function get_filtered_posts($taxonomy, $root_term_id) {
-        // Busca o termo raiz e seus descendentes
+        // Search for root term and its descendants
         $term_ids = [$root_term_id];
         $children = get_term_children($root_term_id, $taxonomy);
         if (!is_wp_error($children)) {
             $term_ids = array_merge($term_ids, $children);
         }
         
-        // Busca posts associados a esses termos
+        // Search for posts associated with these terms
         $args = [
             'post_type' => 'any',
             'post_status' => 'publish',

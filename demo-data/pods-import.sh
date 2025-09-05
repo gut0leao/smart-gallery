@@ -1,24 +1,20 @@
 #!/bin/bash
 
-# ===============================================================
-# 🚗 Car Catalog Import Script
-# ===============================================================
-# 
-# This script imports a complete car catalog with 196 cars
-# including featured images and taxonomies via Pods Framework
-# 
-# Usage: ./demo-data/pods-import.sh
-# ===============================================================
+# Smart Gallery Filter - Demo Data Import Script
+# This script imports all demo data for the Smart Gallery Filter plugin
 
-echo "🚗 SMART GALLERY FILTER - CAR CATALOG IMPORT"
-echo "============================================="
-echo ""
+echo "� Smart Gallery Filter - Demo Data Import"
+echo "========================================"
 
-# Check if we're in the correct directory
-if [[ ! -f "demo-data/pods-import.php" ]]; then
-    echo "❌ Error: Please run this script from the project root directory"
-    echo "   Current directory: $(pwd)"
-    echo "   Expected file: demo-data/pods-import.php"
+# Check if we're in DDEV environment
+if ! command -v ddev &> /dev/null; then
+    echo "❌ Error: DDEV not found. Please run this script from a DDEV environment."
+    exit 1
+fi
+
+# Check if WordPress is accessible
+if ! ddev exec wp core is-installed --quiet 2>/dev/null; then
+    echo "❌ Error: WordPress is not installed or not accessible."
     exit 1
 fi
 
@@ -29,42 +25,68 @@ if ! ddev status > /dev/null 2>&1; then
     exit 1
 fi
 
-echo "📋 This will:"
-echo "   ✅ Create 'car' CPT with custom fields"
-echo "   ✅ Create car taxonomies (brand, body type, fuel, transmission)"
-echo "   ✅ Import 196 cars with realistic data"
-echo "   ✅ Upload 196 featured images"
-echo "   ✅ Associate taxonomies based on filenames"
-echo ""
-
-read -p "🤔 Do you want to proceed with the import? (y/N): " -n 1 -r
-echo ""
-
-if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    echo "❌ Import cancelled by user"
-    exit 0
+# Check if Pods plugin is active
+if ! ddev exec wp plugin is-active pods --quiet 2>/dev/null; then
+    echo "❌ Error: Pods plugin is not active. Please activate it first:"
+    echo "   ddev exec wp plugin activate pods"
+    exit 1
 fi
 
-echo ""
-echo "🚀 Starting car catalog import..."
-echo ""
+# Check if Smart Gallery Filter plugin is active
+if ! ddev exec wp plugin is-active smart-gallery-filter --quiet 2>/dev/null; then
+    echo "❌ Error: Smart Gallery Filter plugin is not active. Please activate it first:"
+    echo "   ddev exec wp plugin activate smart-gallery-filter"
+    exit 1
+fi
 
-# Execute the import script
+echo
+echo "🚀 Starting demo data import..."
+echo "   This will create:"
+echo "   - Car and Dealer custom post types"
+echo "   - Related taxonomies (brands, body types, etc.)"
+echo "   - Sample cars with images (196 items)"
+echo "   - Sample dealers (5 items)"
+echo "   - Proper taxonomy associations"
+echo
+
+# Check for non-interactive mode
+if [ -t 0 ]; then
+    read -p "🤔 Do you want to proceed with the import? (y/N): " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo "❌ Import cancelled by user"
+        exit 0
+    fi
+else
+    echo "🤖 Running in non-interactive mode, proceeding with import..."
+fi
+
+echo
+echo "� Executing import script..."
+
+# Execute the import using our PHP script
 ddev exec wp eval-file demo-data/pods-import.php
 
-exit_code=$?
+import_exit_code=$?
 
-if [ $exit_code -eq 0 ]; then
-    echo ""
-    echo "🎉 Import completed successfully!"
-    echo ""
-    echo "📋 Next steps:"
-    echo "   1. Visit: https://$(ddev describe | grep URLs | awk '{print $2}' | head -1)/wp-admin/edit.php?post_type=car"
-    echo "   2. Test the gallery plugin with the imported data"
-    echo "   3. Check featured images are properly associated"
+if [ $import_exit_code -eq 0 ]; then
+    echo
+    echo "✅ Demo data import completed!"
+    echo
+    echo "🎯 Next steps:"
+    echo "   1. Visit wp-admin/edit.php?post_type=car to see imported cars"
+    echo "   2. Visit wp-admin/edit.php?post_type=dealer to see imported dealers"
+    echo "   3. Check taxonomy menus in WordPress admin sidebar"
+    echo "   4. Test the Smart Gallery Filter widget in Elementor"
+    echo
+    echo "🔧 Available taxonomies:"
+    echo "   - Car Brand (shared with dealers)"
+    echo "   - Car Body Type, Fuel Type, Transmission"
+    echo "   - Car Location, Dealer Location"
 else
-    echo ""
-    echo "❌ Import failed with exit code: $exit_code"
+    echo
+    echo "❌ Import failed with exit code: $import_exit_code"
     echo "   Please check the error messages above"
-    exit $exit_code
+    echo "   You may need to run './demo-data/pods-reset.sh' first"
+    exit $import_exit_code
 fi

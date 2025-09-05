@@ -28,6 +28,7 @@
 /wp-content/upgrade/
 /wp-content/uploads/
 /wp-content/languages/
+/wp-content/mu-plugins/
 /wp-includes/
 /index.php
 /license.txt

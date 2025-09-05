@@ -1,13 +1,59 @@
-#!/bin/bash
-# Script para automatizar a configuração inicial do WordPress
+#!/biecho "🔐 Configurando HTTPS com mkcert..."
+
+# Verificar se está rodando no WSL
+if [[ -f /proc/version ]] && grep -q Microsoft /proc/version; then
+    echo "🐧 Detectado WSL (Windows Subsystem for Linux)"
+    echo "📝 Instruções para WSL:"
+    echo "   1. Instale mkcert no WSL: sudo apt install mkcert"
+    echo "   2. Instale mkcert no Windows também (via Chocolatey ou GitHub)"
+    echo "   3. Execute mkcert -install no WSL E no Windows"
+    echo "   4. Certifique-se de que o navegador está rodando no Windows"
+    echo ""
+fi
+
+# Verificar se mkcert está instalado
+if ! command -v mkcert &> /dev/null; then
+    echo "❌ mkcert não está instalado."
+    if [[ -f /proc/version ]] && grep -q Microsoft /proc/version; then
+        echo "   Para WSL, instale com: sudo apt update && sudo apt install mkcert"
+        echo "   Também instale no Windows: https://github.com/FiloSottile/mkcert"
+    else
+        echo "   Instale primeiro com: apt install mkcert ou brew install mkcert"
+    fi
+    exit 1
+fi
+
+# Instalar a CA local do mkcert se ainda não estiver instalada
+echo "🔑 Instalando autoridade certificadora local..."
+if [[ -f /proc/version ]] && grep -q Microsoft /proc/version; then
+    echo "⚠️  WSL detectado: Após este comando, execute também 'mkcert -install' no Windows!"
+fi
+mkcert -install 2>/dev/null || trueScript para automatizar a configuração inicial do WordPress
 
 set -e
 
-echo "📥 Baixando arquivos do WordPress..."
+echo "� Configurando HTTPS com mkcert..."
+# Verificar se mkcert está instalado
+if ! command -v mkcert &> /dev/null; then
+    echo "❌ mkcert não está instalado. Instale primeiro com: apt install mkcert ou brew install mkcert"
+    exit 1
+fi
+
+# Instalar a CA local do mkcert se ainda não estiver instalada
+mkcert -install 2>/dev/null || true
+
+echo "🔄 Reiniciando DDEV para aplicar certificados SSL..."
+ddev restart
+
+echo "�📥 Baixando arquivos do WordPress..."
 ddev wp core download --force
 
 echo "🛠️  Instalando WordPress..."
 ddev wp core install --url="https://smart-gallery-filter.ddev.site" --title="Smart Gallery Filter" --admin_user="admin" --admin_password="admin" --admin_email="admin@local.test"
+
+echo "🔒 Configurando WordPress para usar HTTPS..."
+ddev wp option update home "https://smart-gallery-filter.ddev.site"
+ddev wp option update siteurl "https://smart-gallery-filter.ddev.site"
 
 echo "🔌 Ativando plugins smart-gallery-filter"
 ddev wp plugin activate smart-gallery-filter
@@ -20,5 +66,9 @@ ddev wp plugin install elementor pods --activate
 
 echo "🎨📥 Instalando e ativando tema hello-biz"
 ddev wp theme install hello-biz --activate
+
+echo "✅ Configuração concluída! Site disponível em:"
+echo "🔗 https://smart-gallery-filter.ddev.site"
+echo "👤 Admin: admin / admin"
 
 ddev describe

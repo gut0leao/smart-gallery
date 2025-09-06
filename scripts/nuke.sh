@@ -3,8 +3,16 @@
 # Smart Gallery Filter - Complete Environment Destruction
 # This script completely removes the DDEV and Docker environment
 
-echo "💥 Smart Gallery Filter - Environment Destroyer"
-echo "==============================================="
+# Check if called from init.sh (less alarming mode)
+CALLED_FROM_INIT=${CALLED_FROM_INIT:-false}
+
+if [ "$CALLED_FROM_INIT" = "true" ]; then
+    echo "🧹 Smart Gallery Filter - Environment Cleanup"
+    echo "=============================================="
+else
+    echo "💥 Smart Gallery Filter - Environment Destroyer"
+    echo "==============================================="
+fi
 
 # Colors for output
 RED='\033[0;31m'
@@ -13,30 +21,54 @@ GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-echo -e "${RED}⚠️  COMPLETE ENVIRONMENT DESTRUCTION${NC}"
-echo ""
-echo -e "${YELLOW}This script will:${NC}"
-echo "🗑️ Stop and remove project containers"
-echo "🗑️ Remove project-specific images"
-echo "🗑️ Clean project volumes and networks"
-echo "🗑️ Remove DDEV project"
-echo "🧹 Conservative cleanup (preserves base images)"
-echo ""
-echo -e "${GREEN}✅ Docker base images will be preserved${NC}"
-echo -e "${YELLOW}ℹ️ This speeds up future environment recreations${NC}"
-echo ""
-echo -e "${RED}⚠️  THIS ACTION IS IRREVERSIBLE!${NC}"
-echo -e "${RED}⚠️  ALL YOUR WORK WILL BE LOST!${NC}"
-echo ""
+if [ "$CALLED_FROM_INIT" = "true" ]; then
+    echo -e "${BLUE}🔄 Preparing clean environment for initialization...${NC}"
+    echo ""
+    echo -e "${YELLOW}This cleanup will:${NC}"
+    echo "🧹 Stop and remove existing project containers"
+    echo "🧹 Remove project-specific images and volumes"
+    echo "🧹 Clean project networks"
+    echo "🧹 Reset DDEV project to fresh state"
+    echo ""
+    echo -e "${GREEN}✅ Docker base images will be preserved${NC}"
+    echo -e "${CYAN}ℹ️ This is normal for initialization - creating a clean slate${NC}"
+    echo ""
+else
+    echo -e "${RED}⚠️  COMPLETE ENVIRONMENT DESTRUCTION${NC}"
+    echo ""
+    echo -e "${YELLOW}This script will:${NC}"
+    echo "🗑️ Stop and remove project containers"
+    echo "🗑️ Remove project-specific images"
+    echo "🗑️ Clean project volumes and networks"
+    echo "🗑️ Remove DDEV project"
+    echo "🧹 Conservative cleanup (preserves base images)"
+    echo ""
+    echo -e "${GREEN}✅ Docker base images will be preserved${NC}"
+    echo -e "${YELLOW}ℹ️ This speeds up future environment recreations${NC}"
+    echo ""
+    echo -e "${RED}⚠️  THIS ACTION IS IRREVERSIBLE!${NC}"
+    echo -e "${RED}⚠️  ALL YOUR WORK WILL BE LOST!${NC}"
+    echo ""
+fi
 
-read -p "Are you ABSOLUTELY SURE you want to destroy everything? (type 'DESTROY'): " confirm
-if [ "$confirm" != "DESTROY" ]; then
-    echo -e "${GREEN}😌 Cancelled. Environment preserved.${NC}"
-    exit 0
+if [ "$CALLED_FROM_INIT" = "true" ]; then
+    # Skip confirmation when called from init.sh (user already confirmed)
+    echo -e "${BLUE}🚀 Proceeding with environment cleanup...${NC}"
+    confirm="DESTROY"
+else
+    read -p "Are you ABSOLUTELY SURE you want to destroy everything? (type 'DESTROY'): " confirm
+    if [ "$confirm" != "DESTROY" ]; then
+        echo -e "${GREEN}😌 Cancelled. Environment preserved.${NC}"
+        exit 0
+    fi
 fi
 
 echo ""
-echo -e "${RED}💀 STARTING DESTRUCTION...${NC}"
+if [ "$CALLED_FROM_INIT" = "true" ]; then
+    echo -e "${BLUE}🧹 STARTING CLEANUP...${NC}"
+else
+    echo -e "${RED}💀 STARTING DESTRUCTION...${NC}"
+fi
 echo ""
 
 # Step 1: Stop DDEV project
@@ -130,11 +162,17 @@ docker system prune -f 2>/dev/null
 echo "   ✅ System cleaned (base images preserved)"
 
 echo ""
-echo -e "${GREEN}💀 COMPLETE DESTRUCTION!${NC}"
-echo ""
-echo -e "${YELLOW}To recreate the environment:${NC}"
-echo "1. ddev start"
-echo "2. ./wp-setup.sh"
-echo "3. ./demo-data/pods-import.sh"
-echo ""
-echo -e "${GREEN}🎉 Environment completely destroyed and cleaned!${NC}"
+if [ "$CALLED_FROM_INIT" = "true" ]; then
+    echo -e "${GREEN}🧹 ENVIRONMENT CLEANUP COMPLETE!${NC}"
+    echo ""
+    echo -e "${CYAN}✅ Clean slate ready for initialization${NC}"
+else
+    echo -e "${GREEN}💀 COMPLETE DESTRUCTION!${NC}"
+    echo ""
+    echo -e "${YELLOW}To recreate the environment:${NC}"
+    echo "1. ddev start"
+    echo "2. ./wp-setup.sh"
+    echo "3. ./demo-data/pods-import.sh"
+    echo ""
+    echo -e "${GREEN}🎉 Environment completely destroyed and cleaned!${NC}"
+fi

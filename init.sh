@@ -14,22 +14,28 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
-echo -e "${CYAN}This script will perform a COMPLETE initialization:${NC}"
+echo -e "${CYAN}Welcome! This script will set up your complete development environment:${NC}"
 echo ""
-echo -e "${YELLOW}📋 Steps to be executed:${NC}"
-echo "1. 💥 Complete environment destruction (nuke)"
-echo "2. 🐳 DDEV initialization"
-echo "3. 🔧 WordPress configuration"
-echo "4. 🧹 Pods data reset"
-echo "5. 📦 Demo data import"
+echo -e "${GREEN}📋 What will be created:${NC}"
+echo "1. 🧹 Clean development environment (removes any existing setup)"
+echo "2. 🐳 Fresh DDEV Docker containers"
+echo "3. 🔧 WordPress installation with required plugins"
+echo "4. 🗄️ Database preparation for demo data"
+echo "5. 📦 Import 196 cars + 5 dealerships with images"
 echo ""
-echo -e "${RED}⚠️  ALL EXISTING DATA WILL BE LOST!${NC}"
+echo -e "${BLUE}💡 Perfect for:${NC}"
+echo "   • First-time setup"
+echo "   • Getting a clean development environment"
+echo "   • Resetting to factory defaults"
+echo ""
+echo -e "${YELLOW}⚠️ Important: This will replace any existing local WordPress data${NC}"
+echo -e "${YELLOW}   (Your source code and configuration files are safe)${NC}"
 echo ""
 
-read -p "Do you want to proceed with complete initialization? (y/N): " -n 1 -r
+read -p "Ready to initialize your Smart Gallery Filter environment? (Y/n): " -n 1 -r
 echo
-if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    echo -e "${GREEN}😌 Cancelled by user.${NC}"
+if [[ ! $REPLY =~ ^[Yy]$ ]] && [[ ! -z $REPLY ]]; then
+    echo -e "${GREEN}😌 Setup cancelled. You can run this script anytime!${NC}"
     exit 0
 fi
 
@@ -46,21 +52,21 @@ check_success() {
     fi
 }
 
-# Step 1: Nuclear cleanup
+# Step 1: Environment preparation
 echo -e "${BLUE}═══════════════════════════════════════${NC}"
-echo -e "${BLUE}   STEP 1/5: 💥 COMPLETE CLEANUP${NC}"
+echo -e "${BLUE}   STEP 1/5: 🧹 ENVIRONMENT PREPARATION${NC}"
 echo -e "${BLUE}═══════════════════════════════════════${NC}"
 echo ""
 
 if [ -f "./scripts/nuke.sh" ]; then
-    echo "DESTROY" | ./scripts/nuke.sh
-    check_success "Environment cleanup"
+    CALLED_FROM_INIT=true ./scripts/nuke.sh
+    check_success "Environment preparation"
 else
-    echo -e "${YELLOW}⚠️ Script nuke.sh not found. Skipping cleanup.${NC}"
+    echo -e "${YELLOW}⚠️ Cleanup script not found. Skipping preparation.${NC}"
 fi
 
 echo ""
-echo -e "${GREEN}✅ Cleanup completed!${NC}"
+echo -e "${GREEN}✅ Environment prepared!${NC}"
 
 # Step 2: Initialize DDEV
 echo ""

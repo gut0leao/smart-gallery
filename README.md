@@ -23,6 +23,27 @@ WordPress plugin that adds ##### 2. `pods-reset.sh` - Complete Data Removal
 
 ## ⚡ Environment Setup
 
+### 🚀 Quick Start (Automatizado)
+
+**Para inicialização completa automatizada:**
+
+```sh
+git clone https://github.com/your-username/smart-gallery-filter.git
+cd smart-gallery-filter
+./init.sh
+```
+
+O script `init.sh` executa automaticamente:
+- ✅ **Limpeza completa** (nuke do ambiente existente)
+- ✅ **Inicialização DDEV** (containers Docker)
+- ✅ **Setup WordPress** (instalação + plugins)
+- ✅ **Reset Pods** (limpeza dos dados Pods)
+- ✅ **Importação de dados** (196 carros + 5 concessionárias)
+
+⚠️ **Atenção:** Todos os dados existentes serão perdidos durante a inicialização.
+
+### 🔧 Setup Manual (Passo a Passo)
+
 1. Clone the repository:
 	```sh
 	git clone https://github.com/your-username/smart-gallery-filter.git
@@ -44,7 +65,12 @@ WordPress plugin that adds ##### 2. `pods-reset.sh` - Complete Data Removal
 	- Ativar smart-gallery-filter plugin
 	- Configurar HTTPS com mkcert
 
-4. Access the site:
+4. Import demo data (optional):
+	```sh
+	./scripts/pods-import.sh
+	```
+
+5. Access the site:
 	- [https://smart-gallery-filter.ddev.site](https://smart-gallery-filter.ddev.site)
 
 ## 🔑 Default Access Data
@@ -64,7 +90,38 @@ WordPress plugin that adds ##### 2. `pods-reset.sh` - Complete Data Removal
 - [DDEV Docs](https://ddev.readthedocs.io/en/stable/)
 - [WordPress CLI](https://developer.wordpress.org/cli/commands/)
 
-## 🚗 Test Data Mass for Development
+## � Scripts de Automação
+
+### 🚀 `init.sh` - Inicialização Completa
+
+**Script master que automatiza todo o processo de configuração:**
+
+```bash
+./init.sh
+```
+
+**O que faz:**
+1. 💥 **Limpeza completa** (`nuke.sh`) - Remove ambiente existente
+2. 🐳 **Inicialização DDEV** - Starta containers Docker
+3. 🔧 **Setup WordPress** (`wp-setup.sh`) - Instala WP + plugins
+4. 🧹 **Reset Pods** (`pods-reset.sh`) - Limpa dados Pods existentes
+5. 📦 **Importação dados** (`pods-import.sh`) - Carrega 196 carros
+
+**Características:**
+- ✅ **Processo totalmente automatizado** (zero interação manual)
+- ✅ **Verificação de erros** em cada etapa
+- ✅ **Output colorido** com progresso visual
+- ✅ **Confirmação de segurança** antes da execução
+- ⚠️ **Destrutivo** - Remove todos os dados existentes
+
+**Ideal para:**
+- 🆕 **Primeira instalação**
+- 🔄 **Reset completo do ambiente**
+- 🏃‍♂️ **Setup rápido para novos desenvolvedores**
+
+---
+
+## �🚗 Test Data Mass for Development
 
 The project includes scripts to generate test data mass with a complete car catalog to test gallery and filter functionalities.
 
@@ -205,5 +262,34 @@ ddev exec wp eval-file demo-data/pods-reset.php
 
 3. **Reset when necessary:**
    ```bash
-   ./demo-data/pods-reset.sh
+   ./scripts/pods-reset.sh
    ```
+
+---
+
+## 📋 Resumo de Scripts Disponíveis
+
+### 🏠 Raiz do Projeto
+- **`init.sh`** - Inicialização completa automatizada (nuke + setup + dados)
+
+### 📁 `scripts/` - Scripts de Automação
+- **`wp-setup.sh`** - Setup WordPress com plugins
+- **`pods-import.sh`** - Importação de dados demo (196 carros)
+- **`pods-reset.sh`** - Reset completo dos dados Pods
+- **`nuke.sh`** - Destruição completa do ambiente
+- **`backup.sh`** - Backup do WordPress
+- **`restore.sh`** - Restauração de backups
+
+### ⚡ Comandos DDEV Disponíveis
+- **`ddev phpmyadmin`** - Acesso ao phpMyAdmin
+- **`ddev start`** - Iniciar ambiente
+- **`ddev stop`** - Parar ambiente
+- **`ddev ssh`** - Acesso SSH ao container
+
+---
+
+## 🎯 Desenvolvimento
+
+Este projeto usa uma estrutura modular com scripts automatizados para facilitar o desenvolvimento e testes do widget Elementor Smart Gallery Filter.
+
+**Happy coding! 🚀**

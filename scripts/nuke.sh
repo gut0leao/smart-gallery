@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Smart Gallery Filter - Complete Environment Destruction
-# Este script remove completamente o ambiente DDEV e Docker
+# This script completely removes the DDEV and Docker environment
 
 echo "💥 Smart Gallery Filter - Environment Destroyer"
 echo "==============================================="
@@ -13,96 +13,128 @@ GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-echo -e "${RED}⚠️  DESTRUIÇÃO COMPLETA DO AMBIENTE${NC}"
+echo -e "${RED}⚠️  COMPLETE ENVIRONMENT DESTRUCTION${NC}"
 echo ""
-echo -e "${YELLOW}Este script vai:${NC}"
-echo "🗑️ Parar e remover todos os containers"
-echo "🗑️ Remover todas as imagens Docker"
-echo "🗑️ Limpar volumes e networks"
-echo "🗑️ Remover projeto DDEV"
-echo "🗑️ Limpar cache Docker"
+echo -e "${YELLOW}This script will:${NC}"
+echo "🗑️ Stop and remove project containers"
+echo "🗑️ Remove project-specific images"
+echo "🗑️ Clean project volumes and networks"
+echo "🗑️ Remove DDEV project"
+echo "🧹 Conservative cleanup (preserves base images)"
 echo ""
-echo -e "${RED}⚠️  ESTA AÇÃO É IRREVERSÍVEL!${NC}"
-echo -e "${RED}⚠️  TODO SEU TRABALHO SERÁ PERDIDO!${NC}"
+echo -e "${GREEN}✅ Docker base images will be preserved${NC}"
+echo -e "${YELLOW}ℹ️ This speeds up future environment recreations${NC}"
+echo ""
+echo -e "${RED}⚠️  THIS ACTION IS IRREVERSIBLE!${NC}"
+echo -e "${RED}⚠️  ALL YOUR WORK WILL BE LOST!${NC}"
 echo ""
 
-read -p "Tem CERTEZA ABSOLUTA que quer destruir tudo? (digite 'DESTROY'): " confirm
+read -p "Are you ABSOLUTELY SURE you want to destroy everything? (type 'DESTROY'): " confirm
 if [ "$confirm" != "DESTROY" ]; then
-    echo -e "${GREEN}😌 Cancelado. Ambiente preservado.${NC}"
+    echo -e "${GREEN}😌 Cancelled. Environment preserved.${NC}"
     exit 0
 fi
 
 echo ""
-echo -e "${RED}💀 INICIANDO DESTRUIÇÃO...${NC}"
+echo -e "${RED}💀 STARTING DESTRUCTION...${NC}"
 echo ""
 
 # Step 1: Stop DDEV project
-echo -e "${BLUE}1/7${NC} 🛑 Parando projeto DDEV..."
+echo -e "${BLUE}1/7${NC} 🛑 Stopping DDEV project..."
 if ddev stop 2>/dev/null; then
-    echo "   ✅ Projeto parado"
+    echo "   ✅ Project stopped"
 else
-    echo "   ⚠️ Projeto já estava parado ou erro"
+    echo "   ⚠️ Project already stopped or error"
 fi
 
 # Step 2: Delete DDEV project
-echo -e "${BLUE}2/7${NC} 🗑️ Removendo projeto DDEV..."
+echo -e "${BLUE}2/7${NC} 🗑️ Removing DDEV project..."
 if ddev delete --yes 2>/dev/null; then
-    echo "   ✅ Projeto removido"
+    echo "   ✅ Project removed"
 else
-    echo "   ⚠️ Projeto já removido ou erro"
+    echo "   ⚠️ Project already removed or error"
 fi
 
-# Step 3: Remove all containers (including stopped ones)
-echo -e "${BLUE}3/7${NC} 📦 Removendo containers..."
-containers=$(docker ps -aq 2>/dev/null)
-if [ ! -z "$containers" ]; then
-    docker rm -f $containers 2>/dev/null
-    echo "   ✅ Containers removidos"
+# Step 3: Remove project containers only
+echo -e "${BLUE}3/7${NC} 📦 Removing project containers..."
+# Remove only DDEV project containers
+project_containers=$(docker ps -aq --filter "name=ddev-smart-gallery-filter" 2>/dev/null)
+if [ ! -z "$project_containers" ]; then
+    docker rm -f $project_containers 2>/dev/null
+    echo "   ✅ Project containers removed"
 else
-    echo "   ℹ️ Nenhum container encontrado"
+    echo "   ℹ️ No project containers found"
 fi
 
-# Step 4: Remove all images
-echo -e "${BLUE}4/7${NC} 🖼️ Removendo imagens Docker..."
-images=$(docker images -aq 2>/dev/null)
-if [ ! -z "$images" ]; then
-    docker rmi -f $images 2>/dev/null
-    echo "   ✅ Imagens removidas"
-else
-    echo "   ℹ️ Nenhuma imagem encontrada"
+# Also remove any exited containers to clean up
+exited_containers=$(docker ps -aq --filter "status=exited" 2>/dev/null)
+if [ ! -z "$exited_containers" ]; then
+    docker rm $exited_containers 2>/dev/null
+    echo "   🧹 Exited containers removed"
 fi
 
-# Step 5: Remove all volumes
-echo -e "${BLUE}5/7${NC} 💾 Removendo volumes..."
-volumes=$(docker volume ls -q 2>/dev/null)
-if [ ! -z "$volumes" ]; then
-    docker volume rm $volumes 2>/dev/null
-    echo "   ✅ Volumes removidos"
+# Step 4: Remove project-specific images only
+echo -e "${BLUE}4/7${NC} 🖼️ Removing project-specific images..."
+# Remove only DDEV project images with project name in tag
+project_images=$(docker images --format "table {{.Repository}}:{{.Tag}}" | grep "smart-gallery-filter-built" | awk '{print $1}' 2>/dev/null)
+if [ ! -z "$project_images" ]; then
+    echo "$project_images" | xargs -r docker rmi -f 2>/dev/null
+    echo "   ✅ Project-specific images removed"
 else
-    echo "   ℹ️ Nenhum volume encontrado"
+    echo "   ℹ️ No project-specific images found"
 fi
 
-# Step 6: Remove all networks
-echo -e "${BLUE}6/7${NC} 🌐 Removendo networks..."
-networks=$(docker network ls --filter type=custom -q 2>/dev/null)
-if [ ! -z "$networks" ]; then
-    docker network rm $networks 2>/dev/null
-    echo "   ✅ Networks removidas"
+# Also remove any dangling/unused images to save space (but keep base images)
+echo "   🧹 Removing orphaned images..."
+docker image prune -f 2>/dev/null
+echo "   ✅ Orphaned images removed"
+
+# Step 5: Remove project volumes only
+echo -e "${BLUE}5/7${NC} 💾 Removing project volumes..."
+# Remove only DDEV project volumes
+project_volumes=$(docker volume ls --filter "name=smart-gallery-filter" -q 2>/dev/null)
+if [ ! -z "$project_volumes" ]; then
+    docker volume rm $project_volumes 2>/dev/null
+    echo "   ✅ Project volumes removed"
 else
-    echo "   ℹ️ Nenhuma network customizada encontrada"
+    echo "   ℹ️ No project volumes found"
 fi
 
-# Step 7: System cleanup
-echo -e "${BLUE}7/7${NC} 🧹 Limpeza final do sistema..."
-docker system prune -af --volumes 2>/dev/null
-echo "   ✅ Sistema limpo"
+# Remove dangling volumes
+dangling_volumes=$(docker volume ls --filter "dangling=true" -q 2>/dev/null)
+if [ ! -z "$dangling_volumes" ]; then
+    docker volume rm $dangling_volumes 2>/dev/null
+    echo "   🧹 Orphaned volumes removed"
+fi
+
+# Step 6: Remove project networks only
+echo -e "${BLUE}6/7${NC} 🌐 Removing project networks..."
+# Remove only DDEV project networks
+project_networks=$(docker network ls --filter "name=ddev-smart-gallery-filter" -q 2>/dev/null)
+if [ ! -z "$project_networks" ]; then
+    docker network rm $project_networks 2>/dev/null
+    echo "   ✅ Project networks removed"
+else
+    echo "   ℹ️ No project networks found"
+fi
+
+# Remove unused networks
+echo "   🧹 Removing unused networks..."
+docker network prune -f 2>/dev/null
+echo "   ✅ Orphaned networks removed"
+
+# Step 7: System cleanup (conservative)
+echo -e "${BLUE}7/7${NC} 🧹 Final system cleanup..."
+# Clean up only unused resources, preserve base images and cache
+docker system prune -f 2>/dev/null
+echo "   ✅ System cleaned (base images preserved)"
 
 echo ""
-echo -e "${GREEN}💀 DESTRUIÇÃO COMPLETA!${NC}"
+echo -e "${GREEN}💀 COMPLETE DESTRUCTION!${NC}"
 echo ""
-echo -e "${YELLOW}Para recriar o ambiente:${NC}"
+echo -e "${YELLOW}To recreate the environment:${NC}"
 echo "1. ddev start"
 echo "2. ./wp-setup.sh"
 echo "3. ./demo-data/pods-import.sh"
 echo ""
-echo -e "${GREEN}🎉 Ambiente completamente destruído e limpo!${NC}"
+echo -e "${GREEN}🎉 Environment completely destroyed and cleaned!${NC}"

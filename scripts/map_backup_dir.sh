@@ -1,27 +1,26 @@
-#!/bin/bif [ -z "$1" ]; then
-  echo "⚠️ Uso: ./scripts/map_backup_dir.sh /caminho/do/diretorio/dos/backups"
-  exit 1
-fi# Script para mapear um diretório local do host para o diretório backups na raiz do projeto
-# Uso: ./scripts/map_backup_dir.sh /caminho/do/diretorio/dos/backups
-# Recomanda-se que o diretório local do host seja um 
-# diretório sincronizado com algum serviço de nuvem, como o OneDrive.
+#!/bin/bash
+
+# Script to map a local host directory to the backups directory at the project root
+# Usage: ./scripts/map_backup_dir.sh /path/to/backup/directory
+# It's recommended that the local host directory be a 
+# directory synchronized with some cloud service, like OneDrive.
 
 set -e
 
 if [ -z "$1" ]; then
-  echo "⚠️ Uso: ./scripts/map_backup_dir /caminho/do/diretorio/dos/backups"
+  echo "⚠️ Usage: ./scripts/map_backup_dir.sh /path/to/backup/directory"
   exit 1
 fi
 
 ORIG_DIR="$1"
 DEST_DIR="$(pwd)/backups"
 
-# Remove symlink antigo, se existir
+# Remove old symlink, if it exists
 if [ -L "$DEST_DIR" ]; then
   rm "$DEST_DIR"
 fi
 
-# Cria symlink
+# Create symlink
 ln -sfn "$ORIG_DIR" "$DEST_DIR"
 
-echo "✅ Diretório de backup mapeado: $ORIG_DIR -> $DEST_DIR"
+echo "✅ Backup directory mapped: $ORIG_DIR -> $DEST_DIR"

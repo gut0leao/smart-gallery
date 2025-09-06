@@ -28,8 +28,14 @@ echo "   - All Pods configurations for demo CPTs"
 echo
 
 # Ask for confirmation
-read -p "Are you sure you want to continue? (y/N): " -n 1 -r
-echo
+if [[ "$PODS_EXECUTE_RESET" == "true" ]]; then
+    echo "🤖 Auto-confirmation enabled. Proceeding with reset..."
+    REPLY="y"
+else
+    read -p "Are you sure you want to continue? (y/N): " -n 1 -r
+    echo
+fi
+
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     echo "❌ Reset cancelled."
     exit 1

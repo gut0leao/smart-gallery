@@ -1,20 +1,34 @@
 #!/bin/bash
 
 # Smart Gallery Filter - WordPress Setup Script
-# Este script configura WordPress do zero com plugins necessários
+# This script configures WordPress from scratch with required plugins
 
 echo "🚀 Smart Gallery Filter - WordPress Setup"
 echo "========================================"
 
-# Verificar se estamos no DDEV
+# Check if we're in DDEV
 if ! command -v ddev &> /dev/null; then
     echo "❌ Error: DDEV not found. Please run this script from a DDEV environment."
     exit 1
 fi
 
-# Verificar se WordPress está acessível
+# Check if WordPress is accessible
 if ! ddev exec wp core is-installed --quiet 2>/dev/null; then
     echo "ℹ️ WordPress not installed. Installing WordPress first..."
+    
+    # First, download WordPress
+    echo "📥 Downloading WordPress core files..."
+    ddev exec wp core download --force
+    
+    echo "🔧 Creating wp-config.php..."
+    ddev exec wp config create \
+        --dbname="db" \
+        --dbuser="db" \
+        --dbpass="db" \
+        --dbhost="db" \
+        --force
+    
+    echo "📦 Installing WordPress..."
     ddev exec wp core install \
         --url="https://smart-gallery-filter.ddev.site" \
         --title="Smart Gallery Filter Demo" \
@@ -22,31 +36,49 @@ if ! ddev exec wp core is-installed --quiet 2>/dev/null; then
         --admin_password="admin" \
         --admin_email="admin@example.com"
 else
-    echo "⚠️  WORDPRESS JÁ ESTÁ INSTALADO!"
+    echo "⚠️  WORDPRESS IS ALREADY INSTALLED!"
     echo ""
-    echo "🚨 ATENÇÃO: Este script fará uma instalação COMPLETA do zero:"
-    echo "   • Todos os dados do WordPress serão PERDIDOS"
-    echo "   • Banco de dados será RECRIADO"
-    echo "   • Posts, páginas, usuários, configurações serão APAGADOS"
-    echo "   • Arquivos de configuração serão SOBRESCRITOS"
+    echo "🚨 ATTENTION: This script will perform a COMPLETE installation from scratch:"
+    echo "   • All WordPress data will be LOST"
+    echo "   • Database will be RECREATED"
+    echo "   • Posts, pages, users, settings will be DELETED"
+    echo "   • Configuration files will be OVERWRITTEN"
     echo ""
-    echo "💡 Se você quer apenas atualizar plugins/temas sem perder dados, cancele e:"
-    echo "   • Use comandos individuais: ddev exec wp plugin install [plugin]"
-    echo "   • Ou use o wp-admin para instalações manuais"
+    echo "💡 If you only want to update plugins/themes without losing data, cancel and:"
+    echo "   • Use individual commands: ddev exec wp plugin install [plugin]"
+    echo "   • Or use wp-admin for manual installations"
     echo ""
-    echo "⚠️  Esta ação é IRREVERSÍVEL!"
+    echo "⚠️  This action is IRREVERSIBLE!"
     echo ""
-    read -p "Tem certeza que quer REINSTALAR WordPress do zero? (y/N): " -n 1 -r
-    echo
+    
+    if [[ "$AUTO_CONFIRM" == "true" ]]; then
+        echo "🤖 Auto-confirmation enabled. Proceeding with reinstallation..."
+        REPLY="y"
+    else
+        read -p "Are you sure you want to REINSTALL WordPress from scratch? (y/N): " -n 1 -r
+        echo
+    fi
+    
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        echo "😌 Cancelado. Sua instalação WordPress permanece intacta."
+        echo "😌 Cancelled. Your WordPress installation remains intact."
         exit 0
     fi
     
-    echo "🗑️ Removendo WordPress existente..."
+    echo "🗑️ Removing existing WordPress..."
     ddev exec wp db reset --yes
     
-    echo "📦 Reinstalando WordPress..."
+    echo "📥 Downloading WordPress core files..."
+    ddev exec wp core download --force
+    
+    echo "🔧 Creating wp-config.php..."
+    ddev exec wp config create \
+        --dbname="db" \
+        --dbuser="db" \
+        --dbpass="db" \
+        --dbhost="db" \
+        --force
+    
+    echo "📦 Reinstalling WordPress..."
     ddev exec wp core install \
         --url="https://smart-gallery-filter.ddev.site" \
         --title="Smart Gallery Filter Demo" \
@@ -56,40 +88,49 @@ else
 fi
 
 echo ""
-echo "🔌 Instalando plugins necessários..."
+echo "🔌 Installing required plugins..."
 
-# Instalar Elementor
-echo "   📦 Instalando Elementor..."
+# Install Elementor
+echo "   📦 Installing Elementor..."
+ddev exec rm -rf /var/www/html/wp-content/plugins/elementor 2>/dev/null || true
 ddev exec wp plugin install elementor --activate
 
-# Instalar Pods
-echo "   📦 Instalando Pods Framework..."  
+# Install Pods
+echo "   📦 Installing Pods Framework..."
+ddev exec rm -rf /var/www/html/wp-content/plugins/pods 2>/dev/null || true
 ddev exec wp plugin install pods --activate
 
-# Ativar plugin principal
-echo "   🎯 Ativando Smart Gallery Filter..."
+# Activate main plugin
+echo "   🎯 Activating Smart Gallery Filter..."
 ddev exec wp plugin activate smart-gallery-filter
 
 echo ""
-echo "🔧 Configurando HTTPS com mkcert..."
+echo "🔧 Configuring HTTPS with mkcert..."
 if command -v mkcert &> /dev/null; then
+    # Create ssl-certs directory if it doesn't exist
+    mkdir -p ssl-certs
+    
+    # Generate certificates in the ssl-certs directory
+    cd ssl-certs
     mkcert -install
     mkcert smart-gallery-filter.ddev.site
-    echo "   ✅ Certificados SSL criados"
+    cd ..
+    
+    echo "   ✅ SSL certificates created in ssl-certs/ directory"
 else
-    echo "   ⚠️ mkcert não encontrado. Instale para HTTPS automático:"
+    echo "   ⚠️ mkcert not found. Install for automatic HTTPS:"
     echo "      https://github.com/FiloSottile/mkcert"
 fi
 
 echo ""
-echo "✅ Setup completo!"
+echo "✅ Setup complete!"
 echo ""
-echo "🌐 Acesse seu site em: https://smart-gallery-filter.ddev.site"
+echo "🌐 Access your site at: https://smart-gallery-filter.ddev.site"
 echo "🔑 Admin: https://smart-gallery-filter.ddev.site/wp-admin"
 echo "   User: admin"
 echo "   Pass: admin"
 echo ""
-echo "📋 Próximos passos:"
-echo "1. Execute: ./scripts/pods-import.sh (para importar dados demo)"
-echo "2. Configure seu widget Elementor"
-echo "3. Teste as funcionalidades"
+echo "📋 Next steps:"
+echo "1. Run: ./scripts/pods-import.sh (to import demo data)"
+echo "2. Configure your Elementor widget"
+echo "3. Test the functionalities"

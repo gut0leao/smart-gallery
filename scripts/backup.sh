@@ -1,18 +1,18 @@
 #!/bin/bash
-# Script para backup completo do site WordPress
-# Salva banco de dados e uploads em diretório sincronizado (OneDrive)
+# Script for complete WordPress site backup
+# Saves database and uploads to synchronized directory (OneDrive)
 
 set -e
 
 if [ ! -d "./backups" ]; then
-	echo "⚠️ Diretório ./backups não encontrado! Execute primeiro o script ./scripts/map_backup_dir.sh para configurar o destino dos backups."
+	echo "⚠️ Directory ./backups not found! Run first the script ./scripts/map_backup_dir.sh to configure backup destination."
 	exit 1
 fi
 
-# Caminho do diretório de backup (ajuste conforme necessário)
+# Backup directory path (adjust as needed)
 BACKUP_DIR="./backups/"
 
-# Cria diretório se não existir
+# Create directory if it doesn't exist
 mkdir -p "$BACKUP_DIR"
 
 BACKUP_DATE="$(date +%Y%m%d-%H%M%S)"
@@ -21,16 +21,16 @@ BACKUP_UPLOADS="$BACKUP_DIR/${BACKUP_DATE}-uploads.tar.gz"
 BACKUP_PLUGINS="$BACKUP_DIR/${BACKUP_DATE}-plugins.tar.gz"
 BACKUP_THEMES="$BACKUP_DIR/${BACKUP_DATE}-themes.tar.gz"
 
-echo "🗄️  Exportando banco de dados para $BACKUP_DB ..."
+echo "🗄️  Exporting database to $BACKUP_DB ..."
 ddev export-db --file="$BACKUP_DB"
 
-echo "🗂️  Compactando uploads para $BACKUP_UPLOADS ..."
+echo "🗂️  Compressing uploads to $BACKUP_UPLOADS ..."
 tar czf "$BACKUP_UPLOADS" wp-content/uploads
 
-echo "🗂️  Compactando temas para $BACKUP_THEMES ..."
+echo "🗂️  Compressing themes to $BACKUP_THEMES ..."
 tar czf "$BACKUP_THEMES" wp-content/themes
 
-echo "🗂️  Compactando plugins para $BACKUP_PLUGINS ..."
+echo "🗂️  Compressing plugins to $BACKUP_PLUGINS ..."
 tar czf "$BACKUP_PLUGINS" wp-content/plugins
 
-echo "✅ Backup concluído."
+echo "✅ Backup completed."

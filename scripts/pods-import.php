@@ -273,7 +273,7 @@ function create_car_pod() {
 
 // Function to upload image and return attachment ID
 function upload_car_image($image_filename) {
-    $images_dir = __DIR__ . '/images';
+    $images_dir = __DIR__ . '/../demo-data/images';
     $image_path = $images_dir . '/' . $image_filename;
     
     if (!file_exists($image_path)) {
@@ -672,7 +672,7 @@ $dealer_ids = create_sample_dealers();
 
 // Generate data directly from images
 function generate_car_data_from_images() {
-    $images_dir = __DIR__ . '/images';
+    $images_dir = __DIR__ . '/../demo-data/images';
     $images = glob($images_dir . '/*.{jpg,jpeg,png,gif}', GLOB_BRACE);
     
     if (empty($images)) {
@@ -754,7 +754,7 @@ function generate_car_data_from_images() {
 $cars_data = generate_car_data_from_images();
 
 if (empty($cars_data)) {
-    echo "❌ No images found in images/ directory\n";
+    echo "❌ No images found in demo-data/images/ directory\n";
     exit(1);
 }
 

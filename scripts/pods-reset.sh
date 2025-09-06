@@ -18,48 +18,66 @@ if ! ddev exec wp core is-installed --quiet 2>/dev/null; then
     exit 1
 fi
 
-echo
-echo "⚠️  WARNING: This will delete ALL demo data!"
-echo "   - All Cars posts"
-echo "   - All Dealers posts" 
-echo "   - All related taxonomies and terms"
-echo "   - All uploaded demo images"
-echo "   - All Pods configurations for demo CPTs"
-echo
-
-# Ask for confirmation
-if [[ "$PODS_EXECUTE_RESET" == "true" ]]; then
-    echo "🤖 Auto-confirmation enabled. Proceeding with reset..."
-    REPLY="y"
-else
-    read -p "Are you sure you want to continue? (y/N): " -n 1 -r
-    echo
+# Check if DDEV is running
+if ! ddev status > /dev/null 2>&1; then
+    echo "❌ Error: DDEV is not running"
+    echo "   Please start DDEV first: ddev start"
+    exit 1
 fi
 
-if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    echo "❌ Reset cancelled."
+# Check if Pods plugin is active
+if ! ddev exec wp plugin is-active pods --quiet 2>/dev/null; then
+    echo "❌ Error: Pods plugin is not active. Please activate it first:"
+    echo "   ddev exec wp plugin activate pods"
     exit 1
 fi
 
 echo
-echo "🗑️  Starting demo data cleanup..."
+echo "🚨 WARNING: This will completely reset all demo data!"
+echo "   This action will:"
+echo "   • Delete all cars and dealers"
+echo "   • Remove custom post types"
+echo "   • Clear custom fields"
+echo "   • Reset taxonomies"
+echo "   • Clear all sample data"
+echo
+echo "⚠️  This action is IRREVERSIBLE!"
+echo
 
-# Execute the reset using our PHP script with the execute flag
-ddev exec wp eval "define('PODS_EXECUTE_RESET', true); include 'scripts/pods-reset.php';"
+if [[ "$AUTO_CONFIRM" == "true" ]]; then
+    echo "🤖 Auto-confirmation enabled. Proceeding with reset..."
+    REPLY="y"
+else
+    read -p "Are you sure you want to RESET all demo data? (y/N): " -n 1 -r
+    echo
+fi
+
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo "😌 Cancelled. Demo data preserved."
+    exit 0
+fi
+
+echo
+echo "🗑️ Starting demo data reset..."
+
+# Execute the reset using our PHP script
+echo "📦 Executing reset script..."
+ddev exec wp eval-file scripts/pods-reset.php
 
 reset_exit_code=$?
 
 if [ $reset_exit_code -eq 0 ]; then
     echo
-    echo "✅ Demo data reset completed!"
+    echo "✅ Demo data reset completed successfully!"
     echo
-    echo "📋 Summary:"
-    echo "   - All car and dealer posts removed"
-    echo "   - All demo taxonomies and terms deleted"
-    echo "   - Pods configurations cleaned up"
-    echo "   - Rewrite rules flushed"
+    echo "🧹 Reset summary:"
+    echo "   • All cars and dealers removed"
+    echo "   • Custom post types reset"
+    echo "   • Custom fields cleared"
+    echo "   • Taxonomies reset"
     echo
-    echo "🎯 Next step: Run './scripts/pods-import.sh' to import fresh demo data"
+    echo "💡 To import fresh demo data:"
+    echo "   ./scripts/pods-import.sh"
 else
     echo
     echo "❌ Reset failed with exit code: $reset_exit_code"

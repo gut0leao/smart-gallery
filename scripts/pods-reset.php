@@ -7,8 +7,8 @@
  * 🎯 REPLICATES EXACTLY: "Pods Admin > Settings > Cleanup & Reset > Reset Pods entirely"
  * 
  * 📋 USAGE:
- *   ./demo-data/pods-reset.sh        # Interactive script with confirmations
- *   wp eval-file demo-data/pods-reset.php        # Dry run mode (safe analysis only)
+ *   ./scripts/pods-reset.sh        # Interactive script with confirmations
+ *   wp eval-file scripts/pods-reset.php        # Dry run mode (safe analysis only)
  * 
  * ===================================================================
  */
@@ -167,11 +167,11 @@ echo "   📁 Pod groups: $pods_groups_count\n";
 
 // Check if we should only run dry run (default behavior)
 // Can be overridden by PHP constant PODS_EXECUTE_RESET
-$is_dry_run = !defined('PODS_EXECUTE_RESET') || !PODS_EXECUTE_RESET;
+$is_dry_run = !defined('PODS_EXECUTE_RESET');
 
 if ($is_dry_run) {
     echo "\n💡 DRY RUN COMPLETE - NO CHANGES MADE\n";
-    echo "   🔥 To execute reset, use: ./demo-data/pods-reset.sh\n";
+    echo "   🔥 To execute reset, use: ./scripts/pods-reset.sh\n";
     exit;
 }
 

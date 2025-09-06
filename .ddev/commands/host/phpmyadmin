@@ -1,19 +1,25 @@
 #!/bin/bash
 
-## #ddev-generated: If you want to edit and own this file, remove this line.
-## Description: Launch a browser with PhpMyAdmin
+## Description: Launch phpMyAdmin in your browser
 ## Usage: phpmyadmin
 ## Example: "ddev phpmyadmin"
 
-DDEV_PHPMYADMIN_PORT=8036
-DDEV_PHPMYADMIN_HTTPS_PORT=8037
-if [ ${DDEV_PRIMARY_URL%://*} = "http" ] || [ -n "${GITPOD_WORKSPACE_ID:-}" ] || [ "${CODESPACES:-}" = "true" ]; then
-    # Gitpod: "gp preview" opens a blank page for PhpMyAdmin, use "xdg-open" instead
-    if [ "${OSTYPE:-}" = "linux-gnu" ] && [ -n "${GITPOD_WORKSPACE_ID:-}" ] && [ -z "${DDEV_DEBUG:-}" ]; then
-        xdg-open "$(DDEV_DEBUG=true ddev launch :$DDEV_PHPMYADMIN_PORT | grep "FULLURL" | awk '{print $2}')"
-    else
-        ddev launch :$DDEV_PHPMYADMIN_PORT
-    fi
+if [ ${DDEV_PROJECT_STATUS} != "running" ]; then
+  echo "Project ${DDEV_PROJECT} is not running, starting it"
+  ddev start
+fi
+
+DDEV_PHPMYADMIN_PORT=$(ddev describe -j | docker run -i --rm ddev/ddev-utilities jq -r '.raw.services.dba.host_ports | split(",") | .[0]')
+DDEV_PHPMYADMIN_HTTPS_PORT=$(ddev describe -j | docker run -i --rm ddev/ddev-utilities jq -r '.raw.services.dba.host_https_ports | split(",") | .[0]')
+
+if command -v xdg-open >/dev/null 2>&1; then
+    xdg-open "http://127.0.0.1:${DDEV_PHPMYADMIN_PORT}"
+elif command -v open >/dev/null 2>&1; then
+    open "http://127.0.0.1:${DDEV_PHPMYADMIN_PORT}"
 else
-    ddev launch :$DDEV_PHPMYADMIN_HTTPS_PORT
+    echo "phpMyAdmin: http://127.0.0.1:${DDEV_PHPMYADMIN_PORT}"
+    echo "Server: db"
+    echo "Username: db"  
+    echo "Password: db"
+    echo "Or use your phpMyAdmin snapshot URL if you have that configured."
 fi

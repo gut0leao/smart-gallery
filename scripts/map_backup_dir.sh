@@ -1,13 +1,15 @@
-#!/bin/bash
-# Script para mapear um diretório local do host para o diretório backups na raiz do projeto
-# Uso: ddev map_backup_dir /caminho/do/diretorio/dos/backups
+#!/bin/bif [ -z "$1" ]; then
+  echo "⚠️ Uso: ./scripts/map_backup_dir.sh /caminho/do/diretorio/dos/backups"
+  exit 1
+fi# Script para mapear um diretório local do host para o diretório backups na raiz do projeto
+# Uso: ./scripts/map_backup_dir.sh /caminho/do/diretorio/dos/backups
 # Recomanda-se que o diretório local do host seja um 
 # diretório sincronizado com algum serviço de nuvem, como o OneDrive.
 
 set -e
 
 if [ -z "$1" ]; then
-  echo "⚠️ Uso: ddev map_backup_dir /caminho/do/diretorio/dos/backups"
+  echo "⚠️ Uso: ./scripts/map_backup_dir /caminho/do/diretorio/dos/backups"
   exit 1
 fi
 

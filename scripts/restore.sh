@@ -6,7 +6,7 @@ set -e
 
 if [ ! -d "./backups" ]; then
     echo "⚠️  Diretório ./backups não encontrado! Execute antes:"
-    echo "$ ddev map_backup_dir /caminho/do/diretorio/dos/backups"
+    echo "$ ./scripts/map_backup_dir.sh /caminho/do/diretorio/dos/backups"
     exit 1
 fi
 

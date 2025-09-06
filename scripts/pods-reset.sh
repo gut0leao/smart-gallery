@@ -38,8 +38,8 @@ fi
 echo
 echo "🗑️  Starting demo data cleanup..."
 
-# Execute the reset using our PHP script
-ddev exec wp eval-file demo-data/pods-reset.php
+# Execute the reset using our PHP script with the execute flag
+ddev exec wp eval "define('PODS_EXECUTE_RESET', true); include 'scripts/pods-reset.php';"
 
 reset_exit_code=$?
 
@@ -53,7 +53,7 @@ if [ $reset_exit_code -eq 0 ]; then
     echo "   - Pods configurations cleaned up"
     echo "   - Rewrite rules flushed"
     echo
-    echo "🎯 Next step: Run './demo-data/pods-import.sh' to import fresh demo data"
+    echo "🎯 Next step: Run './scripts/pods-import.sh' to import fresh demo data"
 else
     echo
     echo "❌ Reset failed with exit code: $reset_exit_code"

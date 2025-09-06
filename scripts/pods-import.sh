@@ -1,7 +1,12 @@
 #!/bin/bash
 
 # Smart Gallery Filter - Demo Data Import Script
-# This script imports all demo data for the Smart Gallery Filter plugin
+# echo "📦 Executing import script..."
+
+# Execute the import using our PHP script
+ddev exec wp eval-file scripts/pods-import.php
+
+import_exit_code=$?cript imports all demo data for the Smart Gallery Filter plugin
 
 echo "� Smart Gallery Filter - Demo Data Import"
 echo "========================================"
@@ -65,7 +70,7 @@ echo
 echo "� Executing import script..."
 
 # Execute the import using our PHP script
-ddev exec wp eval-file demo-data/pods-import.php
+ddev exec wp eval-file scripts/pods-import.php
 
 import_exit_code=$?
 
@@ -87,6 +92,6 @@ else
     echo
     echo "❌ Import failed with exit code: $import_exit_code"
     echo "   Please check the error messages above"
-    echo "   You may need to run './demo-data/pods-reset.sh' first"
+    echo "   You may need to run './scripts/pods-reset.sh' first"
     exit $import_exit_code
 fi

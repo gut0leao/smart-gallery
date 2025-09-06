@@ -5,7 +5,7 @@
 set -e
 
 if [ ! -d "./backups" ]; then
-	echo "⚠️ Diretório ./backups não encontrado! Execute primeiro o script map_backup_dir para configurar o destino dos backups."
+	echo "⚠️ Diretório ./backups não encontrado! Execute primeiro o script ./scripts/map_backup_dir.sh para configurar o destino dos backups."
 	exit 1
 fi
 

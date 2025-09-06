@@ -5,7 +5,7 @@
  * Generates data directly from images and imports to Pods
  * without dependency on external JSON files
  * 
- * Usage: ddev exec wp eval-file demo-data/pods-import.php
+ * Usage: ddev exec wp eval-file scripts/pods-import.php
  */
 
 // Check if we're in WordPress context

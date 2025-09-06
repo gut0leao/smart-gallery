@@ -1,45 +1,41 @@
 # Smart Gallery Filter - Demo Data
 
-This directory contains scripts and assets for managing demo data for the Smart Gallery Filter plugin.
+Este diretório contém arquivos e assets para gerenciamento de dados demo do Smart Gallery Filter plugin.
 
-## 📁 Directory Structure
+## 📁 Estrutura do Diretório
 
 ```
 demo-data/
-├── README.md           # This documentation
-├── images/            # Car images for demo data (196 images)
-├── pods-import.php    # PHP script for importing demo data
-├── pods-import.sh     # Bash script wrapper for import
-├── pods-reset.php     # PHP script for resetting demo data  
-└── pods-reset.sh      # Bash script wrapper for reset
+├── README.md           # Esta documentação
+└── images/            # Imagens de carros para dados demo (196 imagens)
 ```
 
-## 🚀 Usage
+> **Nota:** O script `pods-import.php` foi movido para o diretório `scripts/` para melhor organização.
 
-### Import Demo Data
+## 🚀 Uso
 
-Imports complete demo data including:
-- Car and Dealer custom post types
-- Related taxonomies (brands, body types, fuel types, etc.)
-- 196 sample cars with featured images
-- 5 sample dealers
-- Proper taxonomy associations
+### Importar Dados Demo
+
+Para importar dados demo completos, use o script na pasta scripts:
 
 ```bash
-./demo-data/pods-import.sh
+./scripts/pods-import.sh
 ```
 
-### Reset Demo Data
+### Reset dos Dados Demo
 
-Completely removes all demo data:
-- All car and dealer posts
-- All demo taxonomies and terms
-- Pods configurations for demo CPTs
-- Associated media files
+Para remover completamente todos os dados demo:
 
 ```bash
-./demo-data/pods-reset.sh
+./scripts/pods-reset.sh
 ```
+
+### Scripts Relacionados
+
+Os scripts de gerenciamento foram movidos para o diretório `scripts/` na raiz do projeto:
+- `./scripts/pods-import.sh` - Script wrapper para importação
+- `./scripts/pods-reset.sh` - Script wrapper para reset  
+- `./scripts/pods-reset.php` - Script PHP para reset (usado internamente)
 
 ## 📋 Requirements
 

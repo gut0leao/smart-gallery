@@ -1,5 +1,8 @@
 # Smart Gallery Filter WordPress Plugin (Elementor + Pods)
-WordPress plugin that adds a widget for Elementor that enabl- 🚀 **Faster** than web interface
+WordPress plugin that adds ##### 2. `pods-reset.sh` - Complete Data Removal
+```bash
+./scripts/pods-reset.sh
+```dget for Elementor that enabl- 🚀 **Faster** than web interface
 - 📊 **Detailed report** of what would be removed
 - 🛡️ **Safe mode** for analysis first
 - 🔄 **Automation** via scripts
@@ -33,12 +36,13 @@ WordPress plugin that adds a widget for Elementor that enabl- 🚀 **Faster** th
 
 3. Execute WordPress setup script:
 	```sh
-	ddev exec setup-wordpress
+	./scripts/wp-setup.sh
 	```
-	This script will:
-	- Download WordPress files
-	- Install WordPress with default data
-	- Activate smart-gallery-filter plugin
+	Este script irá:
+	- Instalar WordPress com dados padrão
+	- Instalar e ativar plugins necessários (Elementor, Pods)
+	- Ativar smart-gallery-filter plugin
+	- Configurar HTTPS com mkcert
 
 4. Access the site:
 	- [https://smart-gallery-filter.ddev.site](https://smart-gallery-filter.ddev.site)
@@ -72,7 +76,7 @@ The project includes scripts to generate test data mass with a complete car cata
 
 ##### 1. `pods-import.sh` - Car Catalog Import
 ```bash
-./demo-data/pods-import.sh
+./scripts/pods-import.sh
 ```
 - ✅ Interactive script with user confirmation
 - ✅ Automatic DDEV status check
@@ -99,7 +103,7 @@ The project includes scripts to generate test data mass with a complete car cata
 
 ##### 1. `pods-import.php` - Direct Car Catalog Import
 ```bash
-ddev exec wp eval-file demo-data/pods-import.php
+ddev exec wp eval-file scripts/pods-import.php
 ```
 - ✅ Creates 'car' CPT with taxonomies (brand, type, fuel, transmission)
 - ✅ Imports **196 cars** with realistic data
@@ -191,12 +195,12 @@ ddev exec wp eval-file demo-data/pods-reset.php
 
 1. **Import test data (Direct):**
    ```bash
-   ddev exec wp eval-file demo-data/pods-import.php
+   ddev exec wp eval-file scripts/pods-import.php
    ```
 
 2. **Dry run before reset (Direct):**
    ```bash
-   ddev exec wp eval-file demo-data/pods-reset.php
+   ddev exec wp eval-file scripts/pods-reset.php
    ```
 
 3. **Reset when necessary:**

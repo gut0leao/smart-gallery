@@ -52,11 +52,12 @@ Completely removes all demo data:
 
 ### Import Process
 1. Creates Car and Dealer CPTs with Pods
-2. Creates and configures taxonomies
-3. Generates realistic car data from image filenames
-4. Associates dealers with cars based on location
-5. Fixes taxonomy associations with CPTs
-6. Uploads and associates featured images
+2. Creates and configures taxonomies (including hierarchical car_location)
+3. **Creates hierarchical location structure**: Country → State/Region → City
+4. Generates realistic car data from image filenames
+5. Associates cars with dealers based on brand specializations
+6. Uploads and associates WordPress native featured images
+7. Fixes taxonomy associations with CPTs
 
 ### Reset Process
 1. Deletes all car and dealer posts
@@ -70,21 +71,25 @@ Completely removes all demo data:
 **Cars**: 196 vehicles with:
 - Realistic prices ($15,000 - $150,000)
 - Years (1990-2024)
-- Mileage (10,000 - 200,000 miles)
+- Mileage (5,000 - 80,000 miles)
 - Engine specs and features
-- Associated with dealers by location
+- Associated with dealers by location/brand specialization
+- WordPress native featured images
 
-**Dealers**: 5 dealerships:
-- Premium Motors (New York) - Luxury brands
-- City Auto Center (California) - Popular brands  
-- Sports Car Depot (Florida) - Sports cars
-- Family Auto Sales (Texas) - Family vehicles
-- Electric Future Motors (Washington) - Eco-friendly
+**Dealers**: 5 dealerships with specializations:
+- Premium Motors (New York) - Luxury brands (BMW, Mercedes-Benz, Audi)
+- City Auto Center (California) - Popular brands (Toyota, Honda, Nissan)
+- Sports Car Depot (Florida) - Sports cars (Ferrari, Porsche, Lamborghini)  
+- Family Auto Sales (Texas) - Family vehicles (Ford, Chevrolet, Hyundai)
+- Electric Future Motors (Washington) - Eco-friendly (Tesla, Prius, Leaf)
 
 **Taxonomies**:
-- Car Brand (52 terms, shared with dealers)
-- Car Body Type (22 terms)
-- Car Fuel Type (4 terms)
-- Car Transmission (3 terms)
-- Car Location (7 terms)
+- Car Brand (~52 terms, shared with dealers)
+- Car Body Type (~22 terms)
+- Car Fuel Type (4 terms: gasoline, diesel, hybrid, electric)
+- Car Transmission (3 terms: automatic, manual, cvt)
+- **Car Location** (58 terms, **hierarchical**):
+  - 3 Countries: United States, Canada, United Kingdom
+  - 11 States/Regions: California, New York, Texas, Florida, Washington, Ontario, Quebec, British Columbia, England, Scotland, Wales
+  - 44 Cities: All properly nested under their respective states/regions
 - Dealer Location (5 terms)

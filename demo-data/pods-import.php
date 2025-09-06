@@ -365,7 +365,8 @@ function create_car_taxonomies() {
             'name' => 'car_location',
             'label' => 'Car Locations',
             'label_singular' => 'Car Location',
-            'post_types' => ['car']
+            'post_types' => ['car'],
+            'hierarchical' => true  // Tornar hierárquica
         ],
         [
             'name' => 'dealer_location',
@@ -376,6 +377,9 @@ function create_car_taxonomies() {
     ];
     
     foreach ($taxonomies as $tax_data) {
+        // Determinar se a taxonomia deve ser hierárquica
+        $is_hierarchical = isset($tax_data['hierarchical']) ? $tax_data['hierarchical'] : false;
+        
         // First register the taxonomy with WordPress directly
         if (!taxonomy_exists($tax_data['name'])) {
             register_taxonomy($tax_data['name'], $tax_data['post_types'], [
@@ -395,7 +399,7 @@ function create_car_taxonomies() {
                 'show_ui' => true,
                 'show_in_menu' => true,
                 'show_admin_column' => true,
-                'hierarchical' => false,
+                'hierarchical' => $is_hierarchical,  // Usar valor dinâmico
                 'rewrite' => ['slug' => $tax_data['name']],
                 'query_var' => true,
                 'show_in_nav_menus' => true,
@@ -413,7 +417,7 @@ function create_car_taxonomies() {
             'storage' => 'taxonomy',
             'public' => 1,
             'show_ui' => 1,
-            'hierarchical' => 0,
+            'hierarchical' => $is_hierarchical ? 1 : 0,  // Usar valor dinâmico para Pods
             'rewrite' => 1,
             'query_var' => 1,
             'show_tagcloud' => 1,
@@ -634,6 +638,9 @@ if (empty($existing_pod)) {
     refresh_taxonomy_cache();
 }
 
+// Always ensure hierarchical location structure exists (moved outside the conditional)
+create_hierarchical_locations();
+
 // Remove old data first (only if CPT exists)
 echo "\n🧹 Cleaning old data...\n";
 $old_cars = get_posts([
@@ -673,7 +680,24 @@ function generate_car_data_from_images() {
     }
     
     $cars_data = [];
-    $car_locations = ['New York', 'California', 'Florida', 'Texas', 'Washington', 'Nevada', 'Arizona'];
+    
+    // Usar cidades hierárquicas mais realistas (consistente com a estrutura hierárquica)
+    $car_locations = [
+        // US Cities
+        'Los Angeles', 'San Francisco', 'San Diego', 'Sacramento',
+        'New York City', 'Albany', 'Buffalo', 'Rochester', 
+        'Houston', 'Dallas', 'Austin', 'San Antonio',
+        'Miami', 'Orlando', 'Tampa', 'Jacksonville',
+        'Seattle', 'Spokane', 'Tacoma', 'Bellingham',
+        // Canadian Cities  
+        'Toronto', 'Ottawa', 'Hamilton', 'Kingston',
+        'Montreal', 'Quebec City', 'Gatineau', 'Sherbrooke',
+        'Vancouver', 'Victoria', 'Surrey', 'Burnaby',
+        // UK Cities
+        'London', 'Manchester', 'Birmingham', 'Liverpool',
+        'Edinburgh', 'Glasgow', 'Aberdeen', 'Dundee',
+        'Cardiff', 'Swansea', 'Newport', 'Wrexham'
+    ];
     
     foreach ($images as $image_path) {
         $filename = basename($image_path);
@@ -736,8 +760,8 @@ if (empty($cars_data)) {
 
 echo "📊 Generated data: " . count($cars_data) . " cars from images\n\n";
 
-// Function to create or get taxonomy term
-function get_or_create_term($term_name, $taxonomy) {
+// Function to create or get taxonomy term with hierarchy support
+function get_or_create_term($term_name, $taxonomy, $parent_id = 0) {
     // Static cache to avoid repeated taxonomy existence checks
     static $taxonomy_cache = [];
     static $warnings_shown = [];
@@ -772,7 +796,8 @@ function get_or_create_term($term_name, $taxonomy) {
     $term = get_term_by('name', $term_name, $taxonomy);
     
     if (!$term) {
-        $result = wp_insert_term($term_name, $taxonomy);
+        $args = ['parent' => $parent_id];
+        $result = wp_insert_term($term_name, $taxonomy, $args);
         if (!is_wp_error($result)) {
             $term = get_term($result['term_id'], $taxonomy);
         } else {
@@ -782,6 +807,120 @@ function get_or_create_term($term_name, $taxonomy) {
         }
     }
     
+    return $term;
+}
+
+// Function to create hierarchical location structure
+function create_hierarchical_locations() {
+    echo "\n🌍 Creating hierarchical location structure...\n";
+    
+    // Ensure taxonomy is fully registered before creating hierarchy
+    if (!taxonomy_exists('car_location')) {
+        echo "   ⚠️ Waiting for car_location taxonomy to be fully registered...\n";
+        sleep(1);
+        
+        if (!taxonomy_exists('car_location')) {
+            echo "   ❌ car_location taxonomy not found after wait\n";
+            return false;
+        }
+    }
+    
+    // Define hierarchical location structure: Country > State/Region > Cities
+    $locations_hierarchy = [
+        'United States' => [
+            'California' => ['Los Angeles', 'San Francisco', 'San Diego', 'Sacramento'],
+            'New York' => ['New York City', 'Albany', 'Buffalo', 'Rochester'], 
+            'Texas' => ['Houston', 'Dallas', 'Austin', 'San Antonio'],
+            'Florida' => ['Miami', 'Orlando', 'Tampa', 'Jacksonville'],
+            'Washington' => ['Seattle', 'Spokane', 'Tacoma', 'Bellingham']
+        ],
+        'Canada' => [
+            'Ontario' => ['Toronto', 'Ottawa', 'Hamilton', 'Kingston'],
+            'Quebec' => ['Montreal', 'Quebec City', 'Gatineau', 'Sherbrooke'],
+            'British Columbia' => ['Vancouver', 'Victoria', 'Surrey', 'Burnaby']
+        ],
+        'United Kingdom' => [
+            'England' => ['London', 'Manchester', 'Birmingham', 'Liverpool'],
+            'Scotland' => ['Edinburgh', 'Glasgow', 'Aberdeen', 'Dundee'],
+            'Wales' => ['Cardiff', 'Swansea', 'Newport', 'Wrexham']
+        ]
+    ];
+    
+    $location_terms = [];
+    
+    foreach ($locations_hierarchy as $country => $states) {
+        // Create country term
+        $country_term = get_or_create_term_hierarchical($country, 'car_location', 0);
+        if ($country_term) {
+            $location_terms[] = $country_term;
+            echo "   🌍 Created country: $country (ID: {$country_term->term_id})\n";
+            
+            foreach ($states as $state => $cities) {
+                // Create state term with country as parent
+                $state_term = get_or_create_term_hierarchical($state, 'car_location', $country_term->term_id);
+                if ($state_term) {
+                    $location_terms[] = $state_term;
+                    echo "     📍 Created state: $state (ID: {$state_term->term_id}, Parent: {$country_term->term_id})\n";
+                    
+                    foreach ($cities as $city) {
+                        // Create city term with state as parent
+                        $city_term = get_or_create_term_hierarchical($city, 'car_location', $state_term->term_id);
+                        if ($city_term) {
+                            $location_terms[] = $city_term;
+                            echo "       🏙️ Created city: $city (ID: {$city_term->term_id}, Parent: {$state_term->term_id})\n";
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    echo "   ✅ Created " . count($location_terms) . " hierarchical location terms\n";
+    return $location_terms;
+}
+
+// Specialized function for hierarchical term creation with better error handling
+function get_or_create_term_hierarchical($term_name, $taxonomy, $parent_id = 0) {
+    // Check if taxonomy exists
+    if (!taxonomy_exists($taxonomy)) {
+        echo "   ❌ Taxonomy '$taxonomy' does not exist\n";
+        return false;
+    }
+    
+    // First try to get existing term
+    $term = get_term_by('name', $term_name, $taxonomy);
+    
+    if ($term) {
+        // If term exists but has wrong parent, update it
+        if ($term->parent != $parent_id) {
+            $update_result = wp_update_term($term->term_id, $taxonomy, [
+                'parent' => $parent_id
+            ]);
+            
+            if (!is_wp_error($update_result)) {
+                // Reload term with updated parent
+                $term = get_term($term->term_id, $taxonomy);
+                echo "   🔄 Updated parent for '$term_name' to $parent_id\n";
+            }
+        }
+        return $term;
+    }
+    
+    // Create new term with specified parent
+    $args = [];
+    if ($parent_id > 0) {
+        $args['parent'] = $parent_id;
+    }
+    
+    $result = wp_insert_term($term_name, $taxonomy, $args);
+    
+    if (is_wp_error($result)) {
+        echo "   ❌ Error creating term '$term_name': " . $result->get_error_message() . "\n";
+        return false;
+    }
+    
+    // Get the newly created term
+    $term = get_term($result['term_id'], $taxonomy);
     return $term;
 }
 
@@ -814,9 +953,7 @@ function import_car_simple($car_data, $available_dealers = []) {
         if ($attachment_id) {
             // Set as WordPress native featured image (not custom field)
             $result = set_post_thumbnail($post_id, $attachment_id);
-            if ($result) {
-                echo "   🖼️ Featured image (ID: $attachment_id) associated with post $post_id\n";
-            } else {
+            if (!$result) {
                 echo "   ⚠️ Error setting featured image for post $post_id\n";
             }
         } else {

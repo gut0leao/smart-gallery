@@ -1,0 +1,135 @@
+#!/bin/bash
+
+## Description: Completely destroy and clean DDEV environment and Docker resources
+## Usage: ddev nuke
+## Example: ddev nuke
+
+set -e
+
+# Colors for output
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+echo -e "${RED}🚨 NUCLEAR OPTION - COMPLETE ENVIRONMENT DESTRUCTION 🚨${NC}"
+echo ""
+echo -e "${YELLOW}⚠️  WARNING: This will completely destroy and clean:${NC}"
+echo "   • Stop and delete ALL DDEV containers for this project"
+echo "   • Remove ALL Docker volumes, networks, and images related to this project"
+echo "   • Clean Docker build cache"
+echo "   • Remove all database data and uploads"
+echo "   • Clean unused Docker resources system-wide"
+echo ""
+echo -e "${RED}⚠️  This action is IRREVERSIBLE!${NC}"
+echo -e "${YELLOW}📁 Code files will remain, but all environment and data will be lost.${NC}"
+echo ""
+
+# Confirmation prompt
+read -p "Are you absolutely sure you want to nuke everything? (y/N): " -n 1 -r
+echo ""
+
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo -e "${BLUE}😌 Aborted. Nothing was changed.${NC}"
+    exit 0
+fi
+
+echo ""
+echo -e "${RED}🔥 NUKING ENVIRONMENT... Please wait...${NC}"
+echo ""
+
+# Step 1: Stop all DDEV containers
+echo -e "${YELLOW}Step 1/6: Stopping all DDEV containers...${NC}"
+if ddev poweroff 2>/dev/null; then
+    echo -e "${GREEN}✅ DDEV containers stopped${NC}"
+else
+    echo -e "${YELLOW}⚠️  No DDEV containers to stop${NC}"
+fi
+
+# Step 2: Delete DDEV project completely
+echo -e "${YELLOW}Step 2/6: Deleting DDEV project...${NC}"
+if ddev delete -y 2>/dev/null; then
+    echo -e "${GREEN}✅ DDEV project deleted${NC}"
+else
+    echo -e "${YELLOW}⚠️  DDEV project already deleted${NC}"
+fi
+
+# Step 3: Remove any remaining Docker networks
+echo -e "${YELLOW}Step 3/6: Cleaning Docker networks...${NC}"
+PROJECT_NAME=$(basename "$PWD")
+NETWORKS=$(docker network ls --filter name="$PROJECT_NAME" --format "{{.Name}}" 2>/dev/null || true)
+if [ -n "$NETWORKS" ]; then
+    echo "$NETWORKS" | while read network; do
+        if docker network rm "$network" 2>/dev/null; then
+            echo -e "${GREEN}✅ Removed network: $network${NC}"
+        fi
+    done
+else
+    echo -e "${GREEN}✅ No project networks to remove${NC}"
+fi
+
+# Step 4: Remove any remaining Docker volumes
+echo -e "${YELLOW}Step 4/6: Cleaning Docker volumes...${NC}"
+VOLUMES=$(docker volume ls --filter name="$PROJECT_NAME" --format "{{.Name}}" 2>/dev/null || true)
+if [ -n "$VOLUMES" ]; then
+    echo "$VOLUMES" | while read volume; do
+        if docker volume rm "$volume" 2>/dev/null; then
+            echo -e "${GREEN}✅ Removed volume: $volume${NC}"
+        fi
+    done
+else
+    echo -e "${GREEN}✅ No project volumes to remove${NC}"
+fi
+
+# Step 5: Clean Docker build cache
+echo -e "${YELLOW}Step 5/6: Cleaning Docker build cache...${NC}"
+CACHE_CLEANED=$(docker builder prune -f 2>/dev/null || true)
+if echo "$CACHE_CLEANED" | grep -q "Total reclaimed space"; then
+    echo -e "${GREEN}✅ Docker build cache cleaned${NC}"
+    echo "$CACHE_CLEANED" | grep "Total reclaimed space" | sed 's/^/   /'
+else
+    echo -e "${GREEN}✅ No build cache to clean${NC}"
+fi
+
+# Step 6: General Docker system cleanup
+echo -e "${YELLOW}Step 6/6: General Docker cleanup...${NC}"
+SYSTEM_CLEANED=$(docker system prune -f 2>/dev/null || true)
+if echo "$SYSTEM_CLEANED" | grep -q "Total reclaimed space"; then
+    echo -e "${GREEN}✅ Docker system cleaned${NC}"
+    echo "$SYSTEM_CLEANED" | grep "Total reclaimed space" | sed 's/^/   /'
+else
+    echo -e "${GREEN}✅ Docker system already clean${NC}"
+fi
+
+# Final verification
+echo ""
+echo -e "${BLUE}🔍 Final verification:${NC}"
+
+# Check for remaining containers
+CONTAINERS=$(docker ps -a --filter name="$PROJECT_NAME" --format "{{.Names}}" 2>/dev/null || true)
+if [ -z "$CONTAINERS" ]; then
+    echo -e "${GREEN}✅ No containers remaining${NC}"
+else
+    echo -e "${YELLOW}⚠️  Remaining containers: $CONTAINERS${NC}"
+fi
+
+# Check DDEV project list
+DDEV_PROJECTS=$(ddev list 2>/dev/null | grep -v "No DDEV projects" || true)
+if [ -z "$DDEV_PROJECTS" ]; then
+    echo -e "${GREEN}✅ No DDEV projects remaining${NC}"
+else
+    echo -e "${YELLOW}⚠️  Remaining DDEV projects exist${NC}"
+fi
+
+echo ""
+echo -e "${RED}💥 NUCLEAR CLEANUP COMPLETE! 💥${NC}"
+echo ""
+echo -e "${GREEN}✅ Environment completely destroyed and cleaned${NC}"
+echo -e "${BLUE}📁 Your code files remain untouched${NC}"
+echo -e "${YELLOW}🔄 You can now safely recreate the environment from scratch${NC}"
+echo ""
+echo -e "${BLUE}Next steps:${NC}"
+echo "   1. Run 'ddev start' to recreate the environment"
+echo "   2. Or delete this directory and clone fresh from Git"
+echo ""

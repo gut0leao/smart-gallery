@@ -1,295 +1,308 @@
-# Smart Gallery Filter WordPress Plugin (Elementor + Pods)
-WordPress plugin that adds ##### 2. `pods-reset.sh` - Complete Data Removal
-```bash
-./scripts/pods-reset.sh
-```dget for Elementor that enabl- 🚀 **Faster** than web interface
-- 📊 **Detailed report** of what would be removed
-- 🛡️ **Safe mode** for analysis first
-- 🔄 **Automation** via scripts
-- 📝 **Complete log** of process
-- 🎯 **Automatic detection** of Pods CPTs
-- 🖼️ **Removes featured images** automatically
-- 🧹 **Advanced cleanup** of orphans and metadata
+# Smart Gallery Filter
 
-> **⚠️ WARNING:** This operation is **IRREVERSIBLE**!
-> 
-> Always execute first in analysis mode to check what would be affected.ion of a filterable gallery by taxonomies, CPTs and custom fields from Pods Framework. Easy, free and flexible for WordPress.
+A powerful WordPress plugin that creates filterable galleries using Elementor widgets with Pods Framework integration. Features hierarchical taxonomies, custom fields, and comprehensive car catalog management.
 
-## 📋 Development Environment Prerequisites
+![WordPress](https://img.shields.io/badge/WordPress-6.7+-blue?logo=wordpress)
+![Elementor](https://img.shields.io/badge/Elementor-3.31+-purple?logo=elementor)
+![Pods](https://img.shields.io/badge/Pods-3.3+-green)
+![DDEV](https://img.shields.io/badge/DDEV-Docker-blue?logo=docker)
+
+## 🚀 Features
+
+- **Elementor Widget Integration** - Native widget for page builders
+- **Pods Framework Support** - Custom post types and fields
+- **Hierarchical Taxonomies** - Multi-level location filtering (Country → State → City)
+- **Advanced Filtering** - Brand, body type, fuel type, transmission, location
+- **Comprehensive Demo Data** - 196 cars + 5 dealerships with real images
+- **Automated Development Environment** - One-command setup with DDEV
+
+## 📋 Prerequisites
 
 - [Docker](https://www.docker.com/) installed
-- [DDEV](https://ddev.com/) installed
-- Git
+- [DDEV](https://ddev.com/) installed  
+- [Git](https://git-scm.com/) installed
+- [mkcert](https://github.com/FiloSottile/mkcert) (optional, for HTTPS)
 
-## ⚡ Environment Setup
+## ⚡ Quick Start
 
-### 🚀 Quick Start (Automatizado)
+### 🎯 Complete Automated Setup
 
-**Para inicialização completa automatizada:**
+**For complete environment initialization:**
 
-```sh
-git clone https://github.com/your-username/smart-gallery-filter.git
+```bash
+git clone https://github.com/gut0leao/smart-gallery-filter.git
 cd smart-gallery-filter
 ./init.sh
 ```
 
-O script `init.sh` executa automaticamente:
-- ✅ **Limpeza completa** (nuke do ambiente existente)
-- ✅ **Inicialização DDEV** (containers Docker)
-- ✅ **Setup WordPress** (instalação + plugins)
-- ✅ **Reset Pods** (limpeza dos dados Pods)
-- ✅ **Importação de dados** (196 carros + 5 concessionárias)
+The `init.sh` script automatically executes:
+1. 💥 **Complete cleanup** (nuke existing environment)
+2. 🐳 **DDEV initialization** (Docker containers)
+3. 🔧 **WordPress setup** (installation + plugins)
+4. 🧹 **Pods data reset** (clean Pods data)
+5. 📦 **Demo data import** (196 cars + 5 dealerships)
 
-⚠️ **Atenção:** Todos os dados existentes serão perdidos durante a inicialização.
+⚠️ **Warning:** All existing data will be lost during initialization.
 
-### 🔧 Setup Manual (Passo a Passo)
+### 🔧 Manual Setup (Step by Step)
 
-1. Clone the repository:
-	```sh
-	git clone https://github.com/your-username/smart-gallery-filter.git
-	cd smart-gallery-filter
-	```
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/gut0leao/smart-gallery-filter.git
+   cd smart-gallery-filter
+   ```
 
-2. Start DDEV environment:
-	```sh
-	ddev start
-	```
+2. **Start DDEV environment:**
+   ```bash
+   ddev start
+   ```
 
-3. Execute WordPress setup script:
-	```sh
-	./scripts/wp-setup.sh
-	```
-	Este script irá:
-	- Instalar WordPress com dados padrão
-	- Instalar e ativar plugins necessários (Elementor, Pods)
-	- Ativar smart-gallery-filter plugin
-	- Configurar HTTPS com mkcert
+3. **Execute WordPress setup:**
+   ```bash
+   ./scripts/wp-setup.sh
+   ```
+   This script will:
+   - Install WordPress with default data
+   - Install and activate required plugins (Elementor, Pods)
+   - Activate smart-gallery-filter plugin
+   - Configure HTTPS with mkcert
 
-4. Import demo data (optional):
-	```sh
-	./scripts/pods-import.sh
-	```
+4. **Import demo data (optional):**
+   ```bash
+   ./scripts/pods-import.sh
+   ```
 
-5. Access the site:
-	- [https://smart-gallery-filter.ddev.site](https://smart-gallery-filter.ddev.site)
+## 🌐 Access Information
 
-## 🔑 Default Access Data
-- User: `admin`
-- Password: `admin`
-- Email: `admin@local.test`
+### Default Credentials
+- **Site:** [https://smart-gallery-filter.ddev.site](https://smart-gallery-filter.ddev.site)
+- **Admin:** [https://smart-gallery-filter.ddev.site/wp-admin](https://smart-gallery-filter.ddev.site/wp-admin)
+- **Username:** `admin`
+- **Password:** `admin`
+- **Email:** `admin@example.com`
 
-## 📝 Notes
-- The plugin will be automatically activated after WordPress installation.
-- To install other plugins or themes, use the commands:
-  ```sh
-  ddev wp plugin install <plugin-name>
-  ddev wp theme install <theme-name>
-  ```
+### Additional Access
+- **phpMyAdmin:** `ddev phpmyadmin`
+- **Mailhog:** `ddev launch -m`
+- **DDEV Info:** `ddev describe`
 
-## 📄 Documentação oficial
-- [DDEV Docs](https://ddev.readthedocs.io/en/stable/)
-- [WordPress CLI](https://developer.wordpress.org/cli/commands/)
+## 🛠️ Automation Scripts
 
-## � Scripts de Automação
+### 🏠 Root Directory
 
-### 🚀 `init.sh` - Inicialização Completa
-
-**Script master que automatiza todo o processo de configuração:**
+#### `init.sh` - Complete Initialization
+**Master script that automates the entire setup process:**
 
 ```bash
 ./init.sh
 ```
 
-**O que faz:**
-1. 💥 **Limpeza completa** (`nuke.sh`) - Remove ambiente existente
-2. 🐳 **Inicialização DDEV** - Starta containers Docker
-3. 🔧 **Setup WordPress** (`wp-setup.sh`) - Instala WP + plugins
-4. 🧹 **Reset Pods** (`pods-reset.sh`) - Limpa dados Pods existentes
-5. 📦 **Importação dados** (`pods-import.sh`) - Carrega 196 carros
+**What it does:**
+1. 💥 **Complete cleanup** (`nuke.sh`) - Removes existing environment
+2. 🐳 **DDEV initialization** - Starts Docker containers  
+3. 🔧 **WordPress setup** (`wp-setup.sh`) - Installs WP + plugins
+4. 🧹 **Pods reset** (`pods-reset.sh`) - Cleans existing Pods data
+5. 📦 **Data import** (`pods-import.sh`) - Loads 196 cars + 5 dealerships
 
-**Características:**
-- ✅ **Processo totalmente automatizado** (zero interação manual)
-- ✅ **Verificação de erros** em cada etapa
-- ✅ **Output colorido** com progresso visual
-- ✅ **Confirmação de segurança** antes da execução
-- ⚠️ **Destrutivo** - Remove todos os dados existentes
+**Features:**
+- ✅ **Fully automated process** (zero manual interaction)
+- ✅ **Error checking** at each step
+- ✅ **Colored output** with visual progress
+- ✅ **Safety confirmation** before execution
+- ⚠️ **Destructive** - Removes all existing data
 
-**Ideal para:**
-- 🆕 **Primeira instalação**
-- 🔄 **Reset completo do ambiente**
-- 🏃‍♂️ **Setup rápido para novos desenvolvedores**
+**Ideal for:**
+- 🆕 **First installation**
+- 🔄 **Complete environment reset**  
+- 🏃‍♂️ **Quick setup for new developers**
 
----
+### 📁 `scripts/` Directory
 
-## �🚗 Test Data Mass for Development
+#### `wp-setup.sh` - WordPress Configuration
+```bash
+./scripts/wp-setup.sh
+```
+- ✅ Downloads and installs WordPress
+- ✅ Creates wp-config.php with DDEV settings
+- ✅ Installs and activates Elementor + Pods
+- ✅ Activates Smart Gallery Filter plugin
+- ✅ Configures HTTPS with mkcert (SSL certificates)
+- ✅ Provides complete setup summary
 
-The project includes scripts to generate test data mass with a complete car catalog to test gallery and filter functionalities.
-
-### 📦 Available Scripts
-
-**Location:** `demo-data/`
-
-#### 🚀 Interactive Scripts (Recommended)
-
-##### 1. `pods-import.sh` - Car Catalog Import
+#### `pods-import.sh` - Demo Data Import  
 ```bash
 ./scripts/pods-import.sh
 ```
-- ✅ Interactive script with user confirmation
-- ✅ Automatic DDEV status check
-- ✅ Creates 'car' CPT with taxonomies (brand, type, fuel, transmission)
+- ✅ Interactive script with environment validation
+- ✅ Creates 'car' and 'dealer' custom post types
 - ✅ Imports **196 cars** with realistic data
-- ✅ Automatic upload of **196 featured images**
-- ✅ Associates taxonomies based on filenames
-- ✅ Provides admin URL after completion
-- 🖼️ Uses real images from `demo-data/images/` (included in repository)
+- ✅ Imports **5 specialized dealerships**
+- ✅ Uploads **196 featured images** automatically
+- ✅ Creates **hierarchical location taxonomy** (58 terms)
+- ✅ Associates cars with dealers by location
+- 🖼️ Uses real images from `demo-data/images/`
 
-##### 2. `pods-reset.sh` - Complete Pods Reset
+#### `pods-reset.sh` - Complete Data Reset
 ```bash
-./demo-data/pods-reset.sh
+./scripts/pods-reset.sh
 ```
 - ✅ Interactive script with **double confirmation**
 - ✅ Shows analysis first (what will be removed)
-- ✅ Requires typing "DELETE" to confirm
-- ✅ 3-second countdown with abort option
-- ✅ Automatic DDEV status check
-- ✅ No need to manually edit PHP files
+- ✅ Complete removal of Pods data and structures
+- ✅ Removes featured images automatically
+- ✅ Advanced cleanup of orphans and metadata
 - ⚠️ **IRREVERSIBLE** operation with safety prompts
 
-#### 🛠️ Direct Scripts (Advanced Users)
-
-##### 1. `pods-import.php` - Direct Car Catalog Import
+#### `nuke.sh` - Environment Destroyer
 ```bash
-ddev exec wp eval-file scripts/pods-import.php
+./scripts/nuke.sh
 ```
-- ✅ Creates 'car' CPT with taxonomies (brand, type, fuel, transmission)
-- ✅ Imports **196 cars** with realistic data
-- ✅ Automatic upload of **196 featured images**
-- ✅ Associates taxonomies based on filenames
-- 🖼️ Uses real images from `demo-data/images/` (included in repository)
+- 💥 Stops and removes DDEV project
+- 🗑️ Removes project-specific containers and images
+- 🧹 Cleans volumes and networks
+- 🛡️ Conservative cleanup (preserves Docker base images)
+- ⚠️ **Complete environment destruction**
 
-##### 2. `pods-reset.php` - Direct Complete Pods Reset
-
-This script replicates **exactly** the functionality **"Pods Admin > Settings > Cleanup & Reset > Reset Pods entirely"** via WP-CLI.
-
-##### 📋 Usage
-
-**Analysis (Safe Mode):**
+#### `backup.sh` - WordPress Backup
 ```bash
-ddev exec wp eval-file demo-data/pods-reset.php
+./scripts/backup.sh
 ```
-- ✅ Dry run mode only (always safe)
-- ✅ Shows everything that would be removed
-- ✅ No manual configuration needed
-- 🔍 Use for analysis before using interactive script
+- 💾 Creates complete WordPress backup
+- 📦 Includes database and files
+- 🏷️ Timestamped backup files
 
-**Real Execution:**
+#### `restore.sh` - WordPress Restore
 ```bash
-# Use interactive script (RECOMMENDED)
-./demo-data/pods-reset.sh
+./scripts/restore.sh
 ```
-- ✅ Safe interactive script with confirmations
-- ✅ No manual file editing required
-- ✅ Analysis first, then execution with double confirmation
+- 🔄 Restores WordPress from backup
+- 📋 Lists available backups
+- ✅ Complete environment restoration
 
-##### ⚠️ What will be removed
+#### `map_backup_dir.sh` - Backup Directory Mapping
+```bash
+./scripts/map_backup_dir.sh /path/to/backup/directory
+```
+- 🔗 Maps local directory to project backups
+- ☁️ Recommended for cloud-synchronized directories
+- 📁 Creates symbolic link for backup storage
 
-**CUSTOM DATA:**
-- ✅ All posts from CPTs created by Pods
-- ✅ All terms from custom taxonomies
-- ✅ **Featured images** from posts (via `_thumbnail_id`)
-- ✅ **Direct attachments** (via `post_parent`)
-- ✅ Metadata related to CPTs
+## 🚗 Demo Data Details
 
-**PODS STRUCTURES:**
-- ✅ CPT definitions (`_pods_pod`)
-- ✅ Field group definitions (`_pods_group`) 
-- ✅ Field definitions (`_pods_field`)
+### Cars Database
+- **196 vehicles** with real specifications
+- **52 car brands** (Audi, BMW, Ferrari, etc.)
+- **22 body types** (Sedan, SUV, Coupe, etc.)
+- **4 fuel types** (Gasoline, Diesel, Hybrid, Electric)
+- **3 transmission types** (Manual, Automatic, CVT)
 
-**CONFIGURATIONS:**
-- ✅ All Pods options in database
-- ✅ Cache and transients
-- ✅ Custom tables
-- ✅ Pods widgets
+### Dealerships
+- **5 specialized dealerships** across different locations
+- **Premium Motors** (New York) - Luxury brands (Audi, BMW)
+- **City Auto Center** (California) - Reliable brands (Honda, Nissan)  
+- **Sports Car Depot** (Florida) - Performance cars (Ferrari, Lamborghini)
+- **Family Auto Sales** (Texas) - Family vehicles (Chevrolet, Ford)
+- **Electric Future Motors** (Washington) - Electric vehicles (Tesla, Leaf)
 
-**ADVANCED CLEANUP:**
-- ✅ **Orphan posts** that might have remained
-- ✅ **Orphan metadata** (without associated post)
-- ✅ **Related orphan attachments**
+### Hierarchical Locations
+- **58 location terms** organized hierarchically
+- **3 countries:** United States, Canada, United Kingdom
+- **13 states/provinces** with major cities
+- **42 cities** distributed across regions
 
-##### ⚡ Advantages over Admin
+## 🎯 Development Workflow
 
-- 🚀 **Mais rápido** que a interface web
-- 📊 **Relatório detalhado** do que será removido
-- 🛡️ **Modo seguro** para análise primeiro
-- 🔄 **Automação** via scripts
-- 📝 **Log completo** do processo
-- 🎯 **Detecção automática** de CPTs do Pods
-- 🖼️ **Remove featured images** automaticamente
-- 🧹 **Limpeza avançada** de órfãos e metadados
+### Recommended Development Flow
 
-> **⚠️ ATENÇÃO:** Esta operação é **IRREVERSÍVEL**!
-> 
-> Sempre execute primeiro no modo análise para verificar o que será afetado.
-
-### 🎯 Recommended Development Flow
-
-1. **Import test data (Interactive):**
+1. **Complete environment setup:**
    ```bash
-   ./demo-data/pods-import.sh
+   ./init.sh
    ```
 
-2. **Develop and test** plugin functionalities
+2. **Develop and test** widget functionalities
 
-3. **Clean environment when necessary (Interactive):**
-   ```bash
-   ./demo-data/pods-reset.sh
-   ```
-
-4. **Repeat** the process as needed
-
-#### 🔧 Alternative Flow (Direct Commands)
-
-1. **Import test data (Direct):**
-   ```bash
-   ddev exec wp eval-file scripts/pods-import.php
-   ```
-
-2. **Dry run before reset (Direct):**
-   ```bash
-   ddev exec wp eval-file scripts/pods-reset.php
-   ```
-
-3. **Reset when necessary:**
+3. **Reset environment when needed:**
    ```bash
    ./scripts/pods-reset.sh
+   ./scripts/pods-import.sh
    ```
 
+4. **Create backups** of working configurations:
+   ```bash
+   ./scripts/backup.sh
+   ```
+
+### Available DDEV Commands
+
+- `ddev start` - Start environment
+- `ddev stop` - Stop environment  
+- `ddev restart` - Restart environment
+- `ddev ssh` - SSH access to container
+- `ddev logs` - View container logs
+- `ddev phpmyadmin` - Access phpMyAdmin
+- `ddev describe` - Show project information
+
+## 📦 Project Structure
+
+```
+smart-gallery-filter/
+├── wp-content/plugins/smart-gallery-filter/  # Main plugin directory
+│   ├── smart-gallery-filter.php              # Plugin main file
+│   └── ...                                   # Plugin files
+├── scripts/                                  # Automation scripts
+│   ├── wp-setup.sh                           # WordPress setup
+│   ├── pods-import.sh                        # Demo data import
+│   ├── pods-reset.sh                         # Data reset
+│   ├── nuke.sh                               # Environment cleanup
+│   ├── backup.sh                             # Backup creation
+│   ├── restore.sh                            # Backup restoration
+│   └── map_backup_dir.sh                     # Backup directory mapping
+├── demo-data/                                # Demo data and images
+│   ├── images/                               # 196 car images
+│   └── README.md                             # Demo data documentation
+├── ssl-certs/                                # SSL certificates (git ignored)
+│   ├── README.md                             # SSL documentation
+│   └── *.pem                                 # Certificate files
+├── init.sh                                   # Master initialization script
+└── README.md                                 # This file
+```
+
+## 🔒 Security Notes
+
+- SSL certificates are stored in `ssl-certs/` directory
+- Certificate files (*.pem, *.key) are automatically ignored by Git  
+- Only development certificates - not for production use
+- Admin credentials are default - change for production environments
+
+## 🎨 Plugin Development
+
+The Smart Gallery Filter plugin is designed to:
+- Integrate seamlessly with Elementor as a custom widget
+- Leverage Pods Framework for data management
+- Provide flexible filtering options for gallery content
+- Support hierarchical taxonomies for complex categorization
+- Enable easy customization and extension
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- **WordPress** - Content management platform
+- **Elementor** - Page builder integration  
+- **Pods Framework** - Custom content management
+- **DDEV** - Development environment
+- **mkcert** - Local SSL certificates
+
 ---
-
-## 📋 Resumo de Scripts Disponíveis
-
-### 🏠 Raiz do Projeto
-- **`init.sh`** - Inicialização completa automatizada (nuke + setup + dados)
-
-### 📁 `scripts/` - Scripts de Automação
-- **`wp-setup.sh`** - Setup WordPress com plugins
-- **`pods-import.sh`** - Importação de dados demo (196 carros)
-- **`pods-reset.sh`** - Reset completo dos dados Pods
-- **`nuke.sh`** - Destruição completa do ambiente
-- **`backup.sh`** - Backup do WordPress
-- **`restore.sh`** - Restauração de backups
-
-### ⚡ Comandos DDEV Disponíveis
-- **`ddev phpmyadmin`** - Acesso ao phpMyAdmin
-- **`ddev start`** - Iniciar ambiente
-- **`ddev stop`** - Parar ambiente
-- **`ddev ssh`** - Acesso SSH ao container
-
----
-
-## 🎯 Desenvolvimento
-
-Este projeto usa uma estrutura modular com scripts automatizados para facilitar o desenvolvimento e testes do widget Elementor Smart Gallery Filter.
 
 **Happy coding! 🚀**

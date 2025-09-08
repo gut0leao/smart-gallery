@@ -16,10 +16,22 @@ BACKUP_DIR="./backups/"
 mkdir -p "$BACKUP_DIR"
 
 BACKUP_DATE="$(date +%Y%m%d-%H%M%S)"
-BACKUP_DB="$BACKUP_DIR/${BACKUP_DATE}-db.sql.gz"
-BACKUP_UPLOADS="$BACKUP_DIR/${BACKUP_DATE}-uploads.tar.gz"
-BACKUP_PLUGINS="$BACKUP_DIR/${BACKUP_DATE}-plugins.tar.gz"
-BACKUP_THEMES="$BACKUP_DIR/${BACKUP_DATE}-themes.tar.gz"
+TEMP_DIR="$BACKUP_DIR/temp-$BACKUP_DATE"
+BACKUP_DB="$TEMP_DIR/${BACKUP_DATE}-db.sql.gz"
+BACKUP_UPLOADS="$TEMP_DIR/${BACKUP_DATE}-uploads.tar.gz"
+BACKUP_PLUGINS="$TEMP_DIR/${BACKUP_DATE}-plugins.tar.gz"
+BACKUP_THEMES="$TEMP_DIR/${BACKUP_DATE}-themes.tar.gz"
+FINAL_BACKUP="$BACKUP_DIR/${BACKUP_DATE}-complete-backup.tar.gz"
+
+echo "📦 Smart Gallery Filter - Complete Backup"
+echo "========================================"
+echo "📅 Backup timestamp: $BACKUP_DATE"
+echo "📁 Temporary directory: $TEMP_DIR"
+echo "🎯 Final backup file: $FINAL_BACKUP"
+echo ""
+
+# Create temporary directory for individual backups
+mkdir -p "$TEMP_DIR"
 
 echo "🗄️  Exporting database to $BACKUP_DB ..."
 ddev export-db --file="$BACKUP_DB"
@@ -33,4 +45,27 @@ tar czf "$BACKUP_THEMES" wp-content/themes
 echo "🗂️  Compressing plugins to $BACKUP_PLUGINS ..."
 tar czf "$BACKUP_PLUGINS" wp-content/plugins
 
-echo "✅ Backup completed."
+echo ""
+echo "📦 Creating consolidated backup..."
+echo "   Combining all backup files into: $FINAL_BACKUP"
+
+# Create final consolidated backup from temporary directory
+cd "$TEMP_DIR"
+tar czf "../$(basename "$FINAL_BACKUP")" *.gz
+cd - > /dev/null
+
+# Clean up temporary directory
+echo "🧹 Cleaning up temporary files..."
+rm -rf "$TEMP_DIR"
+
+# Show backup info
+BACKUP_SIZE=$(du -h "$FINAL_BACKUP" | cut -f1)
+echo ""
+echo "✅ Backup completed successfully!"
+echo "📊 Backup details:"
+echo "   📁 File: $FINAL_BACKUP"
+echo "   📏 Size: $BACKUP_SIZE"
+echo "   📅 Date: $BACKUP_DATE"
+echo ""
+echo "💡 To restore this backup:"
+echo "   ./scripts/restore.sh $BACKUP_DATE"

@@ -106,6 +106,14 @@ echo "   📦 Installing Elementor..."
 ddev exec rm -rf /var/www/html/wp-content/plugins/elementor 2>/dev/null || true
 ddev exec wp plugin install elementor --activate
 
+# Activate Hello Plus (Elementor's additional plugin)
+echo "   🎨 Activating Hello Plus (Elementor addon)..."
+ddev exec wp plugin activate hello-plus --quiet 2>/dev/null || true
+
+# Activate Hello Biz theme (Elementor's business theme)
+echo "   🎨 Activating Hello Biz theme..."
+ddev exec wp theme activate hello-biz --quiet 2>/dev/null || true
+
 # Install Pods
 echo "   📦 Installing Pods Framework..."
 ddev exec rm -rf /var/www/html/wp-content/plugins/pods 2>/dev/null || true

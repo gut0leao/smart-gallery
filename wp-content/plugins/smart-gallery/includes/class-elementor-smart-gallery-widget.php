@@ -99,6 +99,49 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
             ]
         );
 
+        $this->add_control(
+            'enable_pagination',
+            [
+                'label' => 'Enable Pagination',
+                'type' => \Elementor\Controls_Manager::SWITCHER,
+                'label_on' => 'Yes',
+                'label_off' => 'No',
+                'return_value' => 'yes',
+                'default' => 'no',
+                'description' => 'Enable pagination for large galleries',
+                'separator' => 'before',
+            ]
+        );
+
+        $this->add_control(
+            'pagination_type',
+            [
+                'label' => 'Pagination Type',
+                'type' => \Elementor\Controls_Manager::SELECT,
+                'default' => 'numbers',
+                'options' => [
+                    'numbers' => 'Page Numbers',
+                    'prev_next' => 'Previous/Next Only',
+                    'load_more' => 'Load More Button',
+                    'infinite' => 'Infinite Scroll',
+                ],
+                'condition' => ['enable_pagination' => 'yes'],
+            ]
+        );
+
+        $this->add_control(
+            'items_per_page',
+            [
+                'label' => 'Items per Page',
+                'type' => \Elementor\Controls_Manager::NUMBER,
+                'default' => 12,
+                'min' => 1,
+                'max' => 100,
+                'condition' => ['enable_pagination' => 'yes'],
+                'description' => 'Number of items to show per page (overrides Posts per Page when pagination is enabled)',
+            ]
+        );
+
         $this->end_controls_section();
 
         // Image Settings Section
@@ -405,7 +448,7 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
                     <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; border-left: 4px solid #007cba;">
                         <h4 style="margin: 0 0 10px 0; color: #007cba;">🎯 Smart Gallery</h4>
                         <p style="margin: 0 0 10px 0; font-size: 13px; line-height: 1.4;">
-                            Free alternative to Elementor Pro Posts widget with advanced filtering.
+                            Free alternative to Elementor Pro Posts widget with advanced filtering and pagination.
                         </p>
                         
                         <h5 style="margin: 10px 0 5px 0; font-size: 12px; color: #666;">Required Dependencies:</h5>
@@ -530,7 +573,8 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
             return;
         }
         
-        $posts = $this->get_gallery_posts($settings);
+        $query_data = $this->get_gallery_posts($settings);
+        $posts = $query_data['posts'];
         
         if (empty($posts)) {
             $this->render_message($settings['empty_message'], 'empty', $settings);
@@ -541,7 +585,7 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
         $widget_id = 'sgf-' . $this->get_id();
         
         // Render the complete gallery with filters
-        $this->render_gallery_with_filters($posts, $settings, $widget_id);
+        $this->render_gallery_with_filters($posts, $settings, $widget_id, $query_data);
         
         // Add no-results message for filters (hidden by default)
         if ($settings['enable_filters'] === 'yes') {
@@ -551,9 +595,10 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
         }
     }
     
-    private function render_gallery_with_filters($posts, $settings, $widget_id) {
+    private function render_gallery_with_filters($posts, $settings, $widget_id, $query_data = null) {
         $enable_filters = $settings['enable_filters'] === 'yes';
         $enable_search = $settings['enable_search'] === 'yes';
+        $enable_pagination = $settings['enable_pagination'] === 'yes';
         $filter_position = $settings['filter_position'] ?? 'left';
         $search_position = $settings['search_position'] ?? 'top';
         
@@ -583,7 +628,12 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
         $this->render_gallery($posts, $settings, $widget_id);
         echo '</div>';
         
-        echo '</div>';
+        echo '</div>'; // Close main container
+        
+        // Render pagination outside but after the main container
+        if ($enable_pagination && $query_data) {
+            $this->render_pagination($query_data, $settings, $widget_id);
+        }
         
         // Add JavaScript for filtering and search
         if ($enable_filters || $enable_search) {
@@ -758,10 +808,16 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
     }
     
     private function get_gallery_posts($settings) {
+        $current_page = isset($_GET['sgf_page']) ? max(1, intval($_GET['sgf_page'])) : 1;
+        $items_per_page = $settings['enable_pagination'] === 'yes' 
+            ? $settings['items_per_page'] 
+            : $settings['posts_per_page'];
+        
         $args = [
             'post_type' => $settings['post_type'],
             'post_status' => 'publish',
-            'posts_per_page' => $settings['posts_per_page'],
+            'posts_per_page' => $items_per_page,
+            'paged' => $current_page,
             'meta_query' => [
                 [
                     'key' => '_thumbnail_id',
@@ -770,7 +826,15 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
             ]
         ];
         
-        return get_posts($args);
+        $query = new WP_Query($args);
+        
+        return [
+            'posts' => $query->posts,
+            'total_pages' => $query->max_num_pages,
+            'current_page' => $current_page,
+            'total_posts' => $query->found_posts,
+            'items_per_page' => $items_per_page
+        ];
     }
     
     private function render_gallery($posts, $settings, $widget_id = '') {
@@ -935,6 +999,102 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
         }
         .gallery-item.sgf-hidden {
             display: none !important;
+        }
+        
+        /* Pagination Styles */
+        .sgf-pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            margin: 30px 0;
+            flex-wrap: wrap;
+            width: 100%;
+            clear: both;
+        }
+        
+        .sgf-page-btn {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            background: white;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+            font-size: 14px;
+            min-width: 40px;
+        }
+        
+        .sgf-page-btn:hover {
+            background: #f0f0f0;
+            border-color: #007cba;
+        }
+        
+        .sgf-page-btn.sgf-active {
+            background: #007cba;
+            color: white;
+            border-color: #007cba;
+        }
+        
+        .sgf-page-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .sgf-load-more-btn {
+            padding: 12px 24px;
+            background: #007cba;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s ease;
+        }
+        
+        .sgf-load-more-btn:hover {
+            background: #005a87;
+        }
+        
+        .sgf-load-more-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            background: #666;
+        }
+        
+        .sgf-ellipsis {
+            padding: 8px 4px;
+            color: #666;
+        }
+        
+        .sgf-pagination-info {
+            padding: 8px 12px;
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .sgf-end-message {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-style: italic;
+        }
+        
+        .sgf-loading-indicator {
+            text-align: center;
+            padding: 20px;
+            color: #007cba;
+        }
+        
+        @media (max-width: 768px) {
+            .sgf-pagination {
+                gap: 4px;
+            }
+            
+            .sgf-page-btn {
+                padding: 6px 8px;
+                font-size: 12px;
+                min-width: 32px;
+            }
         }
         </style>';
     }
@@ -1109,5 +1269,196 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
         echo '</div>';
         
         echo '</div>';
+    }
+
+    private function render_pagination($query_data, $settings, $widget_id) {
+        if ($settings['enable_pagination'] !== 'yes' || $query_data['total_pages'] <= 1) {
+            return;
+        }
+        
+        $pagination_type = $settings['pagination_type'];
+        $current_page = $query_data['current_page'];
+        $total_pages = $query_data['total_pages'];
+        
+        echo '<div class="sgf-pagination sgf-pagination-' . $pagination_type . '" data-widget="' . $widget_id . '">';
+        
+        switch ($pagination_type) {
+            case 'numbers':
+                $this->render_numbered_pagination($current_page, $total_pages, $widget_id);
+                break;
+            case 'prev_next':
+                $this->render_prev_next_pagination($current_page, $total_pages, $widget_id);
+                break;
+            case 'load_more':
+                $this->render_load_more_pagination($current_page, $total_pages, $widget_id, $settings);
+                break;
+            case 'infinite':
+                $this->render_infinite_scroll($current_page, $total_pages, $widget_id, $settings);
+                break;
+        }
+        
+        echo '</div>';
+        
+        // Add pagination JavaScript
+        $this->render_pagination_script($widget_id, $settings, $query_data);
+    }
+
+    private function render_numbered_pagination($current_page, $total_pages, $widget_id) {
+        // Previous button
+        if ($current_page > 1) {
+            echo '<button class="sgf-page-btn sgf-prev" data-page="' . ($current_page - 1) . '">‹ Previous</button>';
+        }
+        
+        // Page numbers with ellipsis logic
+        $start = max(1, $current_page - 2);
+        $end = min($total_pages, $current_page + 2);
+        
+        if ($start > 1) {
+            echo '<button class="sgf-page-btn" data-page="1">1</button>';
+            if ($start > 2) echo '<span class="sgf-ellipsis">...</span>';
+        }
+        
+        for ($i = $start; $i <= $end; $i++) {
+            $active_class = $i === $current_page ? ' sgf-active' : '';
+            echo '<button class="sgf-page-btn' . $active_class . '" data-page="' . $i . '">' . $i . '</button>';
+        }
+        
+        if ($end < $total_pages) {
+            if ($end < $total_pages - 1) echo '<span class="sgf-ellipsis">...</span>';
+            echo '<button class="sgf-page-btn" data-page="' . $total_pages . '">' . $total_pages . '</button>';
+        }
+        
+        // Next button
+        if ($current_page < $total_pages) {
+            echo '<button class="sgf-page-btn sgf-next" data-page="' . ($current_page + 1) . '">Next ›</button>';
+        }
+    }
+
+    private function render_prev_next_pagination($current_page, $total_pages, $widget_id) {
+        echo '<div class="sgf-pagination-info">Page ' . $current_page . ' of ' . $total_pages . '</div>';
+        
+        if ($current_page > 1) {
+            echo '<button class="sgf-page-btn sgf-prev" data-page="' . ($current_page - 1) . '">‹ Previous</button>';
+        }
+        
+        if ($current_page < $total_pages) {
+            echo '<button class="sgf-page-btn sgf-next" data-page="' . ($current_page + 1) . '">Next ›</button>';
+        }
+    }
+
+    private function render_load_more_pagination($current_page, $total_pages, $widget_id, $settings) {
+        if ($current_page < $total_pages) {
+            $remaining_items = ($total_pages - $current_page) * $settings['items_per_page'];
+            echo '<button class="sgf-load-more-btn" data-page="' . ($current_page + 1) . '" data-widget="' . $widget_id . '">';
+            echo 'Load More Items (' . min($remaining_items, $settings['items_per_page']) . ' more)';
+            echo '</button>';
+        } else {
+            echo '<div class="sgf-end-message">All items loaded</div>';
+        }
+    }
+
+    private function render_infinite_scroll($current_page, $total_pages, $widget_id, $settings) {
+        if ($current_page < $total_pages) {
+            echo '<div class="sgf-infinite-trigger" data-page="' . ($current_page + 1) . '" data-widget="' . $widget_id . '" style="height: 1px;"></div>';
+            echo '<div class="sgf-loading-indicator" style="text-align: center; padding: 20px; display: none;">Loading more items...</div>';
+        } else {
+            echo '<div class="sgf-end-message">All items loaded</div>';
+        }
+    }
+
+    private function render_pagination_script($widget_id, $settings, $query_data) {
+        $nonce = wp_create_nonce('sgf_pagination');
+        
+        echo '<script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const widget = document.getElementById("' . $widget_id . '");
+            if (!widget) return;
+            
+            const gallery = widget.querySelector(".sgf-gallery");
+            if (!gallery) return;
+            
+            // Find pagination element (try as next sibling first, then by widget ID)
+            let pagination = widget.nextElementSibling;
+            if (!pagination || !pagination.classList.contains("sgf-pagination")) {
+                pagination = document.querySelector(`.sgf-pagination[data-widget="' . $widget_id . '"]`);
+            }
+            
+            if (!pagination) return;
+            
+            // Handle page navigation
+            pagination.addEventListener("click", function(e) {
+                e.preventDefault();
+                
+                if (e.target.classList.contains("sgf-page-btn")) {
+                    const page = parseInt(e.target.dataset.page);
+                    if (page && page > 0) {
+                        loadPage(page);
+                    }
+                } else if (e.target.classList.contains("sgf-load-more-btn")) {
+                    const page = parseInt(e.target.dataset.page);
+                    if (page && page > 0) {
+                        loadMoreItems(page, e.target);
+                    }
+                }
+            });
+            
+            function loadPage(page) {
+                // Show loading state
+                gallery.style.opacity = "0.3";
+                gallery.style.pointerEvents = "none";
+                
+                // Update URL and navigate
+                const url = new URL(window.location);
+                url.searchParams.set("sgf_page", page);
+                
+                setTimeout(() => {
+                    window.location.href = url.toString();
+                }, 100);
+            }
+            
+            function loadMoreItems(page, button) {
+                button.disabled = true;
+                button.textContent = "Loading...";
+                button.style.opacity = "0.6";
+                
+                // Navigate to show more items
+                const url = new URL(window.location);
+                url.searchParams.set("sgf_page", page);
+                
+                setTimeout(() => {
+                    window.location.href = url.toString();
+                }, 500);
+            }
+            
+            // Infinite scroll implementation
+            if ("' . $settings['pagination_type'] . '" === "infinite") {
+                let loading = false;
+                const trigger = widget.querySelector(".sgf-infinite-trigger");
+                const loadingIndicator = widget.querySelector(".sgf-loading-indicator");
+                
+                if (trigger && loadingIndicator) {
+                    const observer = new IntersectionObserver(function(entries) {
+                        entries.forEach(entry => {
+                            if (entry.isIntersecting && !loading) {
+                                loading = true;
+                                loadingIndicator.style.display = "block";
+                                
+                                const page = parseInt(trigger.dataset.page);
+                                if (page && page > 0) {
+                                    setTimeout(() => {
+                                        const url = new URL(window.location);
+                                        url.searchParams.set("sgf_page", page);
+                                        window.location.href = url.toString();
+                                    }, 1000);
+                                }
+                            }
+                        });
+                    }, { threshold: 0.1 });
+                    
+                    observer.observe(trigger);
+                }
+            }
+        });
+        </script>';
     }
 }

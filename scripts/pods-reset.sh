@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Smart Gallery Filter - Demo Data Reset Script
-# This script completely resets all demo data for the Smart Gallery Filter plugin
+# Smart Gallery - Demo Data Reset Script
+# This script completely resets all demo data for the Smart Gallery plugin
 
-echo "🧹 Smart Gallery Filter - Demo Data Reset"
+echo "🧹 Smart Gallery - Demo Data Reset"
 echo "========================================"
 
 # Check if we're in DDEV environment

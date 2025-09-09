@@ -1,7 +1,7 @@
 <?php
 /*
-Plugin Name: Smart Gallery Filter
-Plugin URI: https://github.com/gut0leao/smart-gallery-filter
+Plugin Name: Smart Gallery
+Plugin URI: https://github.com/gut0leao/smart-gallery
 Description: Gallery widget for Elementor with advanced filtering and search. Requires Elementor Page Builder and Pods Framework for Custom Post Types and custom fields management.
 Version: 1.0.0
 Author: gut0leao
@@ -18,7 +18,7 @@ Dependencies (Required):
 - Elementor Page Builder
 - Pods Framework
 
-Text Domain: smart-gallery-filter
+Text Domain: smart-gallery
 Domain Path: /languages
 */
 
@@ -42,14 +42,14 @@ function sgf_activation_check() {
         deactivate_plugins(plugin_basename(__FILE__));
         wp_die(
             '<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
-                <h2 style="color: #d63384;">Smart Gallery Filter - Activation Error</h2>
+                <h2 style="color: #d63384;">Smart Gallery - Activation Error</h2>
                 <p><strong>This plugin requires Elementor Page Builder to work.</strong></p>
                 <p>Please install and activate Elementor first:</p>
                 <ol>
                     <li>Go to <strong>Plugins > Add New</strong></li>
                     <li>Search for <strong>"Elementor"</strong></li>
                     <li>Install and activate <strong>Elementor Page Builder</strong></li>
-                    <li>Then try activating Smart Gallery Filter again</li>
+                    <li>Then try activating Smart Gallery again</li>
                 </ol>
                 <p><a href="' . admin_url('plugins.php') . '" style="text-decoration: none; background: #007cba; color: white; padding: 8px 16px; border-radius: 4px;">← Back to Plugins</a></p>
             </div>', 
@@ -63,15 +63,15 @@ function sgf_activation_check() {
         deactivate_plugins(plugin_basename(__FILE__));
         wp_die(
             '<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
-                <h2 style="color: #d63384;">Smart Gallery Filter - Activation Error</h2>
+                <h2 style="color: #d63384;">Smart Gallery - Activation Error</h2>
                 <p><strong>This plugin requires Pods Framework to work properly.</strong></p>
-                <p>Smart Gallery Filter is specifically designed for Custom Post Types and custom fields created with Pods.</p>
+                <p>Smart Gallery is specifically designed for Custom Post Types and custom fields created with Pods.</p>
                 <p>Please install and activate Pods Framework first:</p>
                 <ol>
                     <li>Go to <strong>Plugins > Add New</strong></li>
                     <li>Search for <strong>"Pods"</strong></li>
                     <li>Install and activate <strong>Pods - Custom Content Types and Fields</strong></li>
-                    <li>Then try activating Smart Gallery Filter again</li>
+                    <li>Then try activating Smart Gallery again</li>
                 </ol>
                 <p><a href="' . admin_url('plugins.php') . '" style="text-decoration: none; background: #007cba; color: white; padding: 8px 16px; border-radius: 4px;">← Back to Plugins</a></p>
             </div>', 
@@ -82,4 +82,4 @@ function sgf_activation_check() {
 }
 
 // Load main plugin files
-require_once __DIR__ . '/includes/class-smart-gallery-filter.php';
+require_once __DIR__ . '/includes/class-smart-gallery.php';

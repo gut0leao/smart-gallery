@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Smart Gallery Filter - Complete Environment Initialization
+# Smart Gallery - Complete Environment Initialization
 # This script automates the complete development environment initialization
 
-echo "🚀 Smart Gallery Filter - Complete Initialization"
+echo "🚀 Smart Gallery - Complete Initialization"
 echo "================================================="
 
 # Colors for output
@@ -175,7 +175,7 @@ echo ""
 echo -e "${CYAN}⏱️  Estimated total time: ~8-12 minutes${NC}"
 echo ""
 
-read -p "Ready to initialize your Smart Gallery Filter environment? (Y/n): " -n 1 -r
+read -p "Ready to initialize your Smart Gallery environment? (Y/n): " -n 1 -r
 echo
 if [[ ! $REPLY =~ ^[Yy]$ ]] && [[ ! -z $REPLY ]]; then
     echo -e "${GREEN}😌 Setup cancelled. You can run this script anytime!${NC}"
@@ -331,15 +331,15 @@ else
 fi
 echo ""
 echo -e "${CYAN}🌐 SYSTEM ACCESS:${NC}"
-echo -e "${BLUE}🏠 Site:${NC} https://smart-gallery-filter.ddev.site"
-echo -e "${BLUE}🔑 Admin:${NC} https://smart-gallery-filter.ddev.site/wp-admin"
+echo -e "${BLUE}🏠 Site:${NC} https://smart-gallery.ddev.site"
+echo -e "${BLUE}🔑 Admin:${NC} https://smart-gallery.ddev.site/wp-admin"
 echo -e "${BLUE}👤 User:${NC} admin"
 echo -e "${BLUE}🔒 Password:${NC} admin"
 echo -e "${BLUE}🗄️ phpMyAdmin:${NC} ddev phpmyadmin"
 echo ""
 echo -e "${CYAN}📋 NEXT STEPS:${NC}"
 echo "1. Access WordPress Admin to configure Elementor"
-echo "2. Create a page with Smart Gallery Filter widget"
+echo "2. Create a page with Smart Gallery widget"
 echo "3. Configure filters as needed"
 echo ""
 echo -e "${GREEN}🎯 Environment ready for development!${NC}"

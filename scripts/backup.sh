@@ -23,7 +23,7 @@ BACKUP_PLUGINS="$TEMP_DIR/${BACKUP_DATE}-plugins.tar.gz"
 BACKUP_THEMES="$TEMP_DIR/${BACKUP_DATE}-themes.tar.gz"
 FINAL_BACKUP="$BACKUP_DIR/${BACKUP_DATE}-complete-backup.tar.gz"
 
-echo "📦 Smart Gallery Filter - Complete Backup"
+echo "📦 Smart Gallery - Complete Backup"
 echo "========================================"
 echo "📅 Backup timestamp: $BACKUP_DATE"
 echo "📁 Temporary directory: $TEMP_DIR"

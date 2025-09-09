@@ -13,7 +13,7 @@ fi
 # Backup directory path (adjust as needed)
 BACKUP_DIR="./backups"
 
-echo "📦 Smart Gallery Filter - Restore Backup"
+echo "📦 Smart Gallery - Restore Backup"
 echo "========================================"
 
 # Function to find the latest backup
@@ -134,5 +134,5 @@ echo "   📁 Source: $CONSOLIDATED_BACKUP"
 echo "   📅 Backup date: $RESTORE_DATE"
 echo ""
 echo "🌐 Access your restored site:"
-echo "   Site: https://smart-gallery-filter.ddev.site"
-echo "   Admin: https://smart-gallery-filter.ddev.site/wp-admin"
+echo "   Site: https://smart-gallery.ddev.site"
+echo "   Admin: https://smart-gallery.ddev.site/wp-admin"

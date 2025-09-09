@@ -7,7 +7,7 @@ echo "📥 Baixando arquivos do WordPress..."
 ddev wp core download --force
 
 echo "🛠️ Instalando WordPress..."
-ddev wp core install --url="https://smart-gallery-filter.ddev.site" --title="Smart Gallery Filter" --admin_user="admin" --admin_password="admin" --admin_email="admin@local.test"
+ddev wp core install --url="https://smart-gallery.ddev.site" --title="Smart Gallery" --admin_user="admin" --admin_password="admin" --admin_email="admin@local.test"
 
 echo "🔌🗑️ Desinstalando plugins: akismet, hello..."
 ddev wp plugin uninstall akismet hello
@@ -18,7 +18,7 @@ ddev wp plugin install --activate elementor pods
 echo "🔌📥 Instalando tema hello-biz (padrão do Elementor)
 ddev wp theme --activate install hello-biz 
 
-echo "🔌 Ativando plugins: elementor, pods, smart-gallery-filter"
-ddev wp plugin activate elementor pods smart-gallery-filter
+echo "🔌 Ativando plugins: elementor, pods, smart-gallery"
+ddev wp plugin activate elementor pods smart-gallery
 
 echo "🎉 Ambiente WordPress configurado!"

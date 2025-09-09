@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Smart Gallery Filter - Demo Data Import Script
-# This script imports all demo data for the Smart Gallery Filter plugin
+# Smart Gallery - Demo Data Import Script
+# This script imports all demo data for the Smart Gallery plugin
 
-echo "📦 Smart Gallery Filter - Demo Data Import"
+echo "📦 Smart Gallery - Demo Data Import"
 echo "========================================"
 
 # Check if we're in DDEV environment
@@ -32,10 +32,10 @@ if ! ddev exec wp plugin is-active pods --quiet 2>/dev/null; then
     exit 1
 fi
 
-# Check if Smart Gallery Filter plugin is active
-if ! ddev exec wp plugin is-active smart-gallery-filter --quiet 2>/dev/null; then
-    echo "❌ Error: Smart Gallery Filter plugin is not active. Please activate it first:"
-    echo "   ddev exec wp plugin activate smart-gallery-filter"
+# Check if Smart Gallery plugin is active
+if ! ddev exec wp plugin is-active smart-gallery --quiet 2>/dev/null; then
+    echo "❌ Error: Smart Gallery plugin is not active. Please activate it first:"
+    echo "   ddev exec wp plugin activate smart-gallery"
     exit 1
 fi
 
@@ -64,8 +64,8 @@ if [ $import_exit_code -eq 0 ]; then
     echo "   • Location taxonomy with hierarchical structure"
     echo
     echo "🌐 Next steps:"
-    echo "1. Access your site: https://smart-gallery-filter.ddev.site"
-    echo "2. Check wp-admin: https://smart-gallery-filter.ddev.site/wp-admin"
+    echo "1. Access your site: https://smart-gallery.ddev.site"
+    echo "2. Check wp-admin: https://smart-gallery.ddev.site/wp-admin"
     echo "3. Configure your Elementor widget"
 else
     echo

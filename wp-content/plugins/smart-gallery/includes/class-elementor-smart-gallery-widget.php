@@ -6,11 +6,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
 
     public function get_name() {
-        return 'smart_gallery_filter';
+        return 'smart_gallery';
     }
 
     public function get_title() {
-        return 'Smart Gallery Filter';
+        return 'Smart Gallery';
     }
 
     public function get_icon() {
@@ -403,7 +403,7 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
                 'type' => \Elementor\Controls_Manager::RAW_HTML,
                 'raw' => '
                     <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; border-left: 4px solid #007cba;">
-                        <h4 style="margin: 0 0 10px 0; color: #007cba;">🎯 Smart Gallery Filter</h4>
+                        <h4 style="margin: 0 0 10px 0; color: #007cba;">🎯 Smart Gallery</h4>
                         <p style="margin: 0 0 10px 0; font-size: 13px; line-height: 1.4;">
                             Free alternative to Elementor Pro Posts widget with advanced filtering.
                         </p>
@@ -415,7 +415,7 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
                         </ul>
                         
                         <p style="margin: 10px 0 0 0; font-size: 11px; color: #999;">
-                            <a href="https://github.com/gut0leao/smart-gallery-filter" target="_blank">Documentation & Support</a>
+                            <a href="https://github.com/gut0leao/smart-gallery" target="_blank">Documentation & Support</a>
                         </p>
                     </div>
                 ',
@@ -799,7 +799,7 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
                 break;
         }
         
-        echo '<div class="smart-gallery-filter-grid sgf-gallery" data-widget="' . esc_attr($widget_id) . '" style="display: grid; grid-template-columns: repeat(' . $columns . ', 1fr); gap: ' . $gap . 'px;">';
+        echo '<div class="smart-gallery-grid sgf-gallery" data-widget="' . esc_attr($widget_id) . '" style="display: grid; grid-template-columns: repeat(' . $columns . ', 1fr); gap: ' . $gap . 'px;">';
         
         foreach ($posts as $post) {
             $this->render_gallery_item($post, $image_size, $ratio_css, $settings);

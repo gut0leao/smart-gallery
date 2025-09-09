@@ -18,12 +18,12 @@
 # /xmlrpc.php
 
 # ajustado para ignorar tudo do Wordpress
-# exceto o plugin smart-galery-filter
+# exceto o plugin smart-galery
 # !!!Adicionar aqui outros plugins instalados!!!
 /wp-admin/
 /wp-content/index.php
 /wp-content/plugins/*
-!/wp-content/plugins/smart-gallery-filter/
+!/wp-content/plugins/smart-gallery/
 /wp-content/themes/
 /wp-content/upgrade/
 /wp-content/uploads/

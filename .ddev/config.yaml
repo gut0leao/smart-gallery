@@ -1,4 +1,4 @@
-name: smart-gallery-filter
+name: smart-gallery
 type: wordpress
 docroot: .
 php_version: "8.3"

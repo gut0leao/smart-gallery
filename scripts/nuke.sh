@@ -1,16 +1,16 @@
 #!/bin/bash
 
-# Smart Gallery Filter - Complete Environment Destruction
+# Smart Gallery - Complete Environment Destruction
 # This script completely removes the DDEV and Docker environment
 
 # Check if called from init.sh (less alarming mode)
 CALLED_FROM_INIT=${CALLED_FROM_INIT:-false}
 
 if [ "$CALLED_FROM_INIT" = "true" ]; then
-    echo "🧹 Smart Gallery Filter - Environment Cleanup"
+    echo "🧹 Smart Gallery - Environment Cleanup"
     echo "=============================================="
 else
-    echo "💥 Smart Gallery Filter - Environment Destroyer"
+    echo "💥 Smart Gallery - Environment Destroyer"
     echo "==============================================="
 fi
 
@@ -90,7 +90,7 @@ fi
 # Step 3: Remove project containers only
 echo -e "${BLUE}3/7${NC} 📦 Removing project containers..."
 # Remove only DDEV project containers
-project_containers=$(docker ps -aq --filter "name=ddev-smart-gallery-filter" 2>/dev/null)
+project_containers=$(docker ps -aq --filter "name=ddev-smart-gallery" 2>/dev/null)
 if [ ! -z "$project_containers" ]; then
     docker rm -f $project_containers 2>/dev/null
     echo "   ✅ Project containers removed"
@@ -108,7 +108,7 @@ fi
 # Step 4: Remove project-specific images only
 echo -e "${BLUE}4/7${NC} 🖼️ Removing project-specific images..."
 # Remove only DDEV project images with project name in tag
-project_images=$(docker images --format "table {{.Repository}}:{{.Tag}}" | grep "smart-gallery-filter-built" | awk '{print $1}' 2>/dev/null)
+project_images=$(docker images --format "table {{.Repository}}:{{.Tag}}" | grep "smart-gallery-built" | awk '{print $1}' 2>/dev/null)
 if [ ! -z "$project_images" ]; then
     echo "$project_images" | xargs -r docker rmi -f 2>/dev/null
     echo "   ✅ Project-specific images removed"
@@ -124,7 +124,7 @@ echo "   ✅ Orphaned images removed"
 # Step 5: Remove project volumes only
 echo -e "${BLUE}5/7${NC} 💾 Removing project volumes..."
 # Remove only DDEV project volumes
-project_volumes=$(docker volume ls --filter "name=smart-gallery-filter" -q 2>/dev/null)
+project_volumes=$(docker volume ls --filter "name=smart-gallery" -q 2>/dev/null)
 if [ ! -z "$project_volumes" ]; then
     docker volume rm $project_volumes 2>/dev/null
     echo "   ✅ Project volumes removed"
@@ -142,7 +142,7 @@ fi
 # Step 6: Remove project networks only
 echo -e "${BLUE}6/7${NC} 🌐 Removing project networks..."
 # Remove only DDEV project networks
-project_networks=$(docker network ls --filter "name=ddev-smart-gallery-filter" -q 2>/dev/null)
+project_networks=$(docker network ls --filter "name=ddev-smart-gallery" -q 2>/dev/null)
 if [ ! -z "$project_networks" ]; then
     docker network rm $project_networks 2>/dev/null
     echo "   ✅ Project networks removed"

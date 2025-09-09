@@ -1,5 +1,5 @@
-/* Smart Gallery Filter CSS */
-.smart-gallery-filter-grid {
+/* Smart Gallery CSS */
+.smart-gallery-grid {
     margin: 0;
     padding: 0;
 }
@@ -243,7 +243,7 @@
 }
 
 /* Legacy notice (for backward compatibility) */
-.smart-gallery-filter-notice {
+.smart-gallery-notice {
     background: #f1f1f1;
     border: 1px solid #ddd;
     border-radius: 4px;
@@ -253,7 +253,7 @@
     color: #666;
 }
 
-.smart-gallery-filter-notice p {
+.smart-gallery-notice p {
     margin: 0;
     font-size: 14px;
 }
@@ -276,7 +276,7 @@
         position: static;
     }
     
-    .smart-gallery-filter-grid {
+    .smart-gallery-grid {
         grid-template-columns: repeat(2, 1fr) !important;
         gap: 10px !important;
     }
@@ -292,7 +292,7 @@
 }
 
 @media (max-width: 480px) {
-    .smart-gallery-filter-grid {
+    .smart-gallery-grid {
         grid-template-columns: 1fr !important;
         gap: 15px !important;
     }

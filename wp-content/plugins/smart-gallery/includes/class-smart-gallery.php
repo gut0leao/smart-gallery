@@ -1,5 +1,5 @@
 <?php
-class Smart_Gallery_Filter {
+class Smart_Gallery {
     public function __construct() {
         add_action('plugins_loaded', [$this, 'init']);
     }
@@ -28,7 +28,7 @@ class Smart_Gallery_Filter {
         );
         
         echo '<div class="notice notice-error is-dismissible">';
-        echo '<p><strong>Smart Gallery Filter</strong> requires Elementor Page Builder to work.</p>';
+        echo '<p><strong>Smart Gallery</strong> requires Elementor Page Builder to work.</p>';
         echo '<p><a href="' . esc_url($install_url) . '" class="button button-primary">Install Elementor Now</a> ';
         echo 'or <a href="https://wordpress.org/plugins/elementor/" target="_blank">Learn More</a></p>';
         echo '</div>';
@@ -41,7 +41,7 @@ class Smart_Gallery_Filter {
         );
         
         echo '<div class="notice notice-error is-dismissible">';
-        echo '<p><strong>Smart Gallery Filter</strong> requires Pods Framework to work properly.</p>';
+        echo '<p><strong>Smart Gallery</strong> requires Pods Framework to work properly.</p>';
         echo '<p>This plugin is specifically designed to work with Custom Post Types and custom fields created by Pods.</p>';
         echo '<p><a href="' . esc_url($install_url) . '" class="button button-primary">Install Pods Framework Now</a> ';
         echo 'or <a href="https://wordpress.org/plugins/pods/" target="_blank">Learn More</a></p>';
@@ -55,7 +55,7 @@ class Smart_Gallery_Filter {
 
     public function enqueue_scripts() {
         wp_enqueue_style(
-            'smart-gallery-filter',
+            'smart-gallery',
             plugin_dir_url(dirname(__FILE__)) . 'assets/style.css',
             [],
             '1.0.0'
@@ -64,4 +64,4 @@ class Smart_Gallery_Filter {
 }
 
 // Initialize the plugin
-new Smart_Gallery_Filter();
+new Smart_Gallery();

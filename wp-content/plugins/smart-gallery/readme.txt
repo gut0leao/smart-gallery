@@ -1,4 +1,4 @@
-=== Smart Gallery Filter ===
+=== Smart Gallery ===
 Contributors: gut0leao
 Tags: elementor, gallery, filter, pods, custom-post-types
 Requires at least: 5.0
@@ -12,7 +12,7 @@ Free gallery widget for Elementor with advanced filtering and search capabilitie
 
 == Description ==
 
-Smart Gallery Filter is a powerful and free gallery widget for Elementor that provides advanced filtering and search capabilities for your Custom Post Types. It's designed as a free alternative to Elementor Pro's Posts widget with enhanced features.
+Smart Gallery is a powerful and free gallery widget for Elementor that provides advanced filtering and search capabilities for your Custom Post Types. It's designed as a free alternative to Elementor Pro's Posts widget with enhanced features.
 
 **🎯 Key Features:**
 
@@ -49,21 +49,21 @@ Smart Gallery Filter is a powerful and free gallery widget for Elementor that pr
    - Install and activate Elementor Page Builder
    - Install and activate Pods Framework
 
-2. **Install Smart Gallery Filter:**
-   - Upload the plugin files to `/wp-content/plugins/smart-gallery-filter/`
+2. **Install Smart Gallery:**
+   - Upload the plugin files to `/wp-content/plugins/smart-gallery/`
    - Activate the plugin through the 'Plugins' screen in WordPress
    - Or install directly from WordPress Admin → Plugins → Add New
 
 3. **Usage:**
    - Edit any page with Elementor
-   - Find "Smart Gallery Filter" widget in the General category
+   - Find "Smart Gallery" widget in the General category
    - Drag it to your page and configure settings
 
 == Frequently Asked Questions ==
 
 = Do I need Elementor Pro? =
 
-No! Smart Gallery Filter works with the free version of Elementor. It's designed as a free alternative to Elementor Pro's Posts widget.
+No! Smart Gallery works with the free version of Elementor. It's designed as a free alternative to Elementor Pro's Posts widget.
 
 = Do I need Pods Framework? =
 
@@ -114,12 +114,12 @@ Absolutely! The plugin is mobile-first with responsive breakpoints:
 == Upgrade Notice ==
 
 = 1.0.0 =
-Initial release of Smart Gallery Filter. Install Elementor Page Builder before activating this plugin.
+Initial release of Smart Gallery. Install Elementor Page Builder before activating this plugin.
 
 == Development ==
 
 This plugin is open source and available on GitHub:
-https://github.com/gut0leao/smart-gallery-filter
+https://github.com/gut0leao/smart-gallery
 
 **Contributing:**
 - Report bugs or request features on GitHub Issues

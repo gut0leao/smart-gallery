@@ -1,6 +1,6 @@
-# Smart Gallery Filter
+# Smart Gallery
 
-A powerful WordPress plugin that creates filterable galleries using Elementor widgets with Pods Framework integration. Features hierarchical taxonomies, custom fields, and comprehensive car catalog management.
+A smart WordPress plugin that creates filterable galleries using Elementor widgets with Pods Framework integration. Features filters based Pods Framework metadata (includind Custom Post Types with custom fields and hierarchical taxonomies).
 
 ![WordPress](https://img.shields.io/badge/WordPress-6.7+-blue?logo=wordpress)
 ![Elementor](https://img.shields.io/badge/Elementor-3.31+-purple?logo=elementor)
@@ -30,8 +30,8 @@ A powerful WordPress plugin that creates filterable galleries using Elementor wi
 **For complete environment initialization:**
 
 ```bash
-git clone https://github.com/gut0leao/smart-gallery-filter.git
-cd smart-gallery-filter
+git clone https://github.com/gut0leao/smart-gallery.git
+cd smart-gallery
 ./init.sh
 ```
 
@@ -48,8 +48,8 @@ The `init.sh` script automatically executes:
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/gut0leao/smart-gallery-filter.git
-   cd smart-gallery-filter
+   git clone https://github.com/gut0leao/smart-gallery.git
+   cd smart-gallery
    ```
 
 2. **Start DDEV environment:**
@@ -64,7 +64,7 @@ The `init.sh` script automatically executes:
    This script will:
    - Install WordPress with default data
    - Install and activate required plugins (Elementor, Pods)
-   - Activate smart-gallery-filter plugin
+   - Activate smart-gallery plugin
    - Configure HTTPS with mkcert
 
 4. **Import demo data (optional):**
@@ -75,8 +75,8 @@ The `init.sh` script automatically executes:
 ## 🌐 Access Information
 
 ### Default Credentials
-- **Site:** [https://smart-gallery-filter.ddev.site](https://smart-gallery-filter.ddev.site)
-- **Admin:** [https://smart-gallery-filter.ddev.site/wp-admin](https://smart-gallery-filter.ddev.site/wp-admin)
+- **Site:** [https://smart-gallery.ddev.site](https://smart-gallery.ddev.site)
+- **Admin:** [https://smart-gallery.ddev.site/wp-admin](https://smart-gallery.ddev.site/wp-admin)
 - **Username:** `admin`
 - **Password:** `admin`
 - **Email:** `admin@example.com`
@@ -125,7 +125,7 @@ The `init.sh` script automatically executes:
 - ✅ Downloads and installs WordPress
 - ✅ Creates wp-config.php with DDEV settings
 - ✅ Installs and activates Elementor + Pods
-- ✅ Activates Smart Gallery Filter plugin
+- ✅ Activates Smart Gallery plugin
 - ✅ Configures HTTPS with mkcert (SSL certificates)
 - ✅ Provides complete setup summary
 
@@ -245,9 +245,9 @@ The `init.sh` script automatically executes:
 ## 📦 Project Structure
 
 ```
-smart-gallery-filter/
-├── wp-content/plugins/smart-gallery-filter/  # Main plugin directory
-│   ├── smart-gallery-filter.php              # Plugin main file
+smart-gallery/
+├── wp-content/plugins/smart-gallery/  # Main plugin directory
+│   ├── smart-gallery.php              # Plugin main file
 │   └── ...                                   # Plugin files
 ├── scripts/                                  # Automation scripts
 │   ├── wp-setup.sh                           # WordPress setup
@@ -276,7 +276,7 @@ smart-gallery-filter/
 
 ## 🎨 Plugin Development
 
-The Smart Gallery Filter plugin is designed to:
+The Smart Gallery plugin is designed to:
 - Integrate seamlessly with Elementor as a custom widget
 - Leverage Pods Framework for data management
 - Provide flexible filtering options for gallery content

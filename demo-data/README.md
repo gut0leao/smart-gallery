@@ -1,6 +1,6 @@
-# Smart Gallery Filter - Demo Data
+# Smart Gallery - Demo Data
 
-Este diretório contém arquivos e assets para gerenciamento de dados demo do Smart Gallery Filter plugin.
+Este diretório contém arquivos e assets para gerenciamento de dados demo do Smart Gallery plugin.
 
 ## 📁 Estrutura do Diretório
 
@@ -41,7 +41,7 @@ Os scripts de gerenciamento foram movidos para o diretório `scripts/` na raiz d
 
 - WordPress with DDEV environment
 - Pods Framework plugin active
-- Smart Gallery Filter plugin active
+- Smart Gallery plugin active
 - Sufficient disk space for 196 car images
 
 ## 🔧 Technical Details

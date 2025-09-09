@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Smart Gallery Filter - WordPress Setup Script
+# Smart Gallery - WordPress Setup Script
 # This script configures WordPress from scratch with required plugins
 
-echo "🚀 Smart Gallery Filter - WordPress Setup"
+echo "🚀 Smart Gallery - WordPress Setup"
 echo "========================================"
 
 # Check if we're in DDEV
@@ -30,8 +30,8 @@ if ! ddev exec wp core is-installed --quiet 2>/dev/null; then
     
     echo "📦 Installing WordPress..."
     ddev exec wp core install \
-        --url="https://smart-gallery-filter.ddev.site" \
-        --title="Smart Gallery Filter Demo" \
+        --url="https://smart-gallery.ddev.site" \
+        --title="Smart Gallery Demo" \
         --admin_user="admin" \
         --admin_password="admin" \
         --admin_email="admin@example.com"
@@ -80,12 +80,23 @@ else
     
     echo "📦 Reinstalling WordPress..."
     ddev exec wp core install \
-        --url="https://smart-gallery-filter.ddev.site" \
-        --title="Smart Gallery Filter Demo" \
+        --url="https://smart-gallery.ddev.site" \
+        --title="Smart Gallery Demo" \
         --admin_user="admin" \
         --admin_password="admin" \
         --admin_email="admin@example.com"
 fi
+
+echo ""
+echo "🧹 Removing default WordPress plugins..."
+
+# Remove Akismet Anti-spam
+echo "   🗑️ Removing Akismet Anti-spam..."
+ddev exec wp plugin delete akismet --quiet 2>/dev/null || true
+
+# Remove Hello Dolly
+echo "   🗑️ Removing Hello Dolly..."
+ddev exec wp plugin delete hello --quiet 2>/dev/null || true
 
 echo ""
 echo "🔌 Installing required plugins..."
@@ -101,8 +112,8 @@ ddev exec rm -rf /var/www/html/wp-content/plugins/pods 2>/dev/null || true
 ddev exec wp plugin install pods --activate
 
 # Activate main plugin
-echo "   🎯 Activating Smart Gallery Filter..."
-ddev exec wp plugin activate smart-gallery-filter
+echo "   🎯 Activating Smart Gallery..."
+ddev exec wp plugin activate smart-gallery
 
 echo ""
 echo "🔧 Configuring HTTPS with mkcert..."
@@ -113,7 +124,7 @@ if command -v mkcert &> /dev/null; then
     # Generate certificates in the ssl-certs directory
     cd ssl-certs
     mkcert -install
-    mkcert smart-gallery-filter.ddev.site
+    mkcert smart-gallery.ddev.site
     cd ..
     
     echo "   ✅ SSL certificates created in ssl-certs/ directory"
@@ -125,8 +136,8 @@ fi
 echo ""
 echo "✅ Setup complete!"
 echo ""
-echo "🌐 Access your site at: https://smart-gallery-filter.ddev.site"
-echo "🔑 Admin: https://smart-gallery-filter.ddev.site/wp-admin"
+echo "🌐 Access your site at: https://smart-gallery.ddev.site"
+echo "🔑 Admin: https://smart-gallery.ddev.site/wp-admin"
 echo "   User: admin"
 echo "   Pass: admin"
 echo ""

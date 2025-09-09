@@ -10,7 +10,7 @@ if [ ! -d "./backups" ]; then
 fi
 
 # Backup directory path (adjust as needed)
-BACKUP_DIR="./backups/"
+BACKUP_DIR="./backups"
 
 # Create directory if it doesn't exist
 mkdir -p "$BACKUP_DIR"

@@ -364,7 +364,6 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
                 'options' => [
                     'top' => 'Top (Above Gallery)',
                     'filter-top' => 'Filter Sidebar Top',
-                    'filter-bottom' => 'Filter Sidebar Bottom',
                 ],
                 'condition' => [
                     'enable_search' => 'yes',
@@ -392,7 +391,7 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
             [
                 'label' => 'Search Placeholder',
                 'type' => \Elementor\Controls_Manager::TEXT,
-                'default' => 'Search items...',
+                'default' => 'Search ...',
                 'description' => 'Placeholder text for the search input',
                 'condition' => [
                     'enable_search' => 'yes',
@@ -602,21 +601,18 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
         $filter_position = $settings['filter_position'] ?? 'left';
         $search_position = $settings['search_position'] ?? 'top';
         
+        // Render search at top OUTSIDE the main container
+        if ($enable_search && $search_position === 'top') {
+            $this->render_search($settings, $widget_id, 'top');
+        }
+        
         // Container class based on filter position
         $container_class = 'sgf-container';
         if ($enable_filters) {
             $container_class .= ' sgf-with-filters sgf-filters-' . $filter_position;
         }
-        if ($enable_search && $search_position === 'top') {
-            $container_class .= ' sgf-with-search-top';
-        }
         
         echo '<div class="' . $container_class . '" id="' . $widget_id . '">';
-        
-        // Render search at top
-        if ($enable_search && $search_position === 'top') {
-            $this->render_search($settings, $widget_id, 'top');
-        }
         
         // Render filters
         if ($enable_filters) {
@@ -645,7 +641,7 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
         $filter_fields = $settings['filter_fields'] ?? [];
         $filter_taxonomies = $settings['filter_taxonomies'] ?? [];
         
-        if (empty($filter_fields) && empty($filter_taxonomies) && !($enable_search && in_array($search_position, ['filter-top', 'filter-bottom']))) {
+        if (empty($filter_fields) && empty($filter_taxonomies) && !($enable_search && $search_position === 'filter-top')) {
             return;
         }
         
@@ -670,11 +666,6 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
             $this->render_field_filter($field, $settings['post_type'], $widget_id);
         }
         
-        // Search at filter bottom
-        if ($enable_search && $search_position === 'filter-bottom') {
-            $this->render_search($settings, $widget_id, 'filter-bottom');
-        }
-        
         echo '</div>';
     }
     
@@ -682,6 +673,7 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
         $placeholder = $settings['search_placeholder'] ?? 'Search items...';
         $button_text = $settings['search_button_text'] ?? '';
         $live_search = $settings['search_live'] === 'yes';
+        $current_search = isset($_GET['sgf_search']) ? sanitize_text_field($_GET['sgf_search']) : '';
         
         $container_class = 'sgf-search-container sgf-search-' . $position;
         
@@ -691,21 +683,32 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
             echo '<div class="sgf-search-header">';
             echo '<h4>Search</h4>';
             echo '</div>';
-        } elseif (in_array($position, ['filter-top', 'filter-bottom'])) {
+        } elseif ($position === 'filter-top') {
             echo '<div class="sgf-search-group">';
             echo '<label class="sgf-filter-label">Search</label>';
         }
         
-        echo '<div class="sgf-search-input-container">';
-        echo '<input type="text" class="sgf-search-input" placeholder="' . esc_attr($placeholder) . '" data-target="' . $widget_id . '" data-live="' . ($live_search ? 'yes' : 'no') . '">';
+        echo '<form method="GET" class="sgf-search-form" style="position: relative;">';
         
-        if (!empty($button_text) && !$live_search) {
-            echo '<button type="button" class="sgf-search-button" data-target="' . $widget_id . '">' . esc_html($button_text) . '</button>';
+        // Preserve existing GET parameters
+        foreach ($_GET as $key => $value) {
+            if ($key !== 'sgf_search' && $key !== 'sgf_page') {
+                echo '<input type="hidden" name="' . esc_attr($key) . '" value="' . esc_attr($value) . '">';
+            }
         }
         
+        echo '<div class="sgf-search-input-container" style="position: relative;">';
+        echo '<input type="text" name="sgf_search" class="sgf-search-input" placeholder="' . esc_attr($placeholder) . '" value="' . esc_attr($current_search) . '" style="padding-right: 35px;">';
+        echo '<button type="submit" class="sgf-search-icon" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #666;">';
+        echo '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">';
+        echo '<path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>';
+        echo '</svg>';
+        echo '</button>';
         echo '</div>';
         
-        if (in_array($position, ['filter-top', 'filter-bottom'])) {
+        echo '</form>';
+        
+        if ($position === 'filter-top') {
             echo '</div>';
         }
         
@@ -809,6 +812,8 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
     
     private function get_gallery_posts($settings) {
         $current_page = isset($_GET['sgf_page']) ? max(1, intval($_GET['sgf_page'])) : 1;
+        $search_term = isset($_GET['sgf_search']) ? sanitize_text_field($_GET['sgf_search']) : '';
+        
         $items_per_page = $settings['enable_pagination'] === 'yes' 
             ? $settings['items_per_page'] 
             : $settings['posts_per_page'];
@@ -826,15 +831,90 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
             ]
         ];
         
+        // Add search functionality
+        if (!empty($search_term)) {
+            $search_fields = $settings['search_fields'] ?? ['post_title', 'post_content'];
+            
+            // Prepare meta query for custom fields
+            $meta_query = ['relation' => 'OR'];
+            $has_meta_search = false;
+            
+            foreach ($search_fields as $field) {
+                if (in_array($field, ['post_title', 'post_content', 'post_excerpt'])) {
+                    // WordPress default fields - use 's' parameter
+                    $args['s'] = $search_term;
+                } else {
+                    // Custom fields - use meta query
+                    $meta_query[] = [
+                        'key' => $field,
+                        'value' => $search_term,
+                        'compare' => 'LIKE'
+                    ];
+                    $has_meta_search = true;
+                }
+            }
+            
+            // Add meta query if we have custom field searches
+            if ($has_meta_search) {
+                if (isset($args['s'])) {
+                    // Combine title/content search with meta search
+                    $args['_meta_query'] = $meta_query;
+                    add_filter('posts_where', [$this, 'modify_search_where'], 10, 2);
+                } else {
+                    // Only meta search
+                    $args['meta_query'][] = $meta_query;
+                }
+            }
+        }
+        
         $query = new WP_Query($args);
+        
+        // Remove filter after query
+        if (!empty($search_term) && isset($args['_meta_query'])) {
+            remove_filter('posts_where', [$this, 'modify_search_where'], 10);
+        }
         
         return [
             'posts' => $query->posts,
             'total_pages' => $query->max_num_pages,
             'current_page' => $current_page,
             'total_posts' => $query->found_posts,
-            'items_per_page' => $items_per_page
+            'items_per_page' => $items_per_page,
+            'search_term' => $search_term
         ];
+    }
+    
+    public function modify_search_where($where, $wp_query) {
+        global $wpdb;
+        
+        if (!empty($wp_query->query_vars['_meta_query'])) {
+            $meta_query = $wp_query->query_vars['_meta_query'];
+            $search_term = $wp_query->query_vars['s'];
+            
+            // Build meta query part
+            $meta_where_parts = [];
+            foreach ($meta_query as $meta_condition) {
+                if (is_array($meta_condition) && isset($meta_condition['key'])) {
+                    $meta_where_parts[] = $wpdb->prepare(
+                        "({$wpdb->postmeta}.meta_key = %s AND {$wpdb->postmeta}.meta_value LIKE %s)",
+                        $meta_condition['key'],
+                        '%' . $wpdb->esc_like($search_term) . '%'
+                    );
+                }
+            }
+            
+            if (!empty($meta_where_parts)) {
+                $meta_where = '(' . implode(' OR ', $meta_where_parts) . ')';
+                // Combine with existing search where using OR
+                $where = str_replace(
+                    'AND ((',
+                    "AND (({$meta_where}) OR (",
+                    $where
+                );
+            }
+        }
+        
+        return $where;
     }
     
     private function render_gallery($posts, $settings, $widget_id = '') {
@@ -1013,6 +1093,100 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
             clear: both;
         }
         
+        /* Search Styles */
+        .sgf-search-top {
+            width: 100%;
+            margin-bottom: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .sgf-search-top .sgf-search-input-container {
+            max-width: 500px;
+            margin: 0 auto;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            position: relative;
+        }
+        
+        .sgf-search-top .sgf-search-input {
+            flex: 1;
+            padding: 12px 16px;
+            padding-right: 45px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        
+        .sgf-search-icon {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #666;
+            padding: 4px;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+        
+        .sgf-search-icon:hover {
+            background: #f0f0f0;
+            color: #007cba;
+        }
+        
+        .sgf-search-form {
+            position: relative;
+            width: 100%;
+        }
+        
+        .sgf-search-top .sgf-search-button {
+            padding: 12px 20px;
+            background: #007cba;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s ease;
+        }
+        
+        .sgf-search-top .sgf-search-button:hover {
+            background: #005a87;
+        }
+        
+        .sgf-search-header {
+            margin-bottom: 15px;
+        }
+        
+        .sgf-search-header h4 {
+            margin: 0;
+            text-align: center;
+            font-size: 18px;
+            color: #333;
+        }
+        
+        @media (max-width: 768px) {
+            .sgf-search-top {
+                padding: 15px;
+            }
+            
+            .sgf-search-top .sgf-search-input-container {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .sgf-search-top .sgf-search-input,
+            .sgf-search-top .sgf-search-button {
+                width: 100%;
+            }
+        }
+        
         .sgf-page-btn {
             padding: 8px 12px;
             border: 1px solid #ddd;
@@ -1106,14 +1280,11 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
             const gallery = widget.querySelector(".sgf-gallery");
             const items = gallery.querySelectorAll(".gallery-item");
             const filters = widget.querySelectorAll(".sgf-filter-select, .sgf-filter-text, .sgf-filter-range-min, .sgf-filter-range-max");
-            const searchInput = widget.querySelector(".sgf-search-input");
-            const searchButton = widget.querySelector(".sgf-search-button");
             const clearButton = widget.querySelector(".sgf-clear-filters");
             
-            // Combined filter and search functionality
-            function filterAndSearchItems() {
+            // Combined filter functionality (client-side for filters, server-side for search)
+            function filterItems() {
                 const activeFilters = {};
-                const searchTerm = searchInput ? searchInput.value.trim().toLowerCase() : "";
                 
                 // Collect filter values
                 filters.forEach(filter => {
@@ -1138,7 +1309,7 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
                 items.forEach(item => {
                     let visible = true;
                     
-                    // Apply filters
+                    // Apply filters (client-side)
                     for (const [key, filterValue] of Object.entries(activeFilters)) {
                         const itemValue = item.dataset[key.replace(/[^a-zA-Z0-9_]/g, "")];
                         
@@ -1158,14 +1329,6 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
                         if (!visible) break;
                     }
                     
-                    // Apply search
-                    if (visible && searchTerm) {
-                        const searchText = item.dataset.searchText || "";
-                        if (searchText.indexOf(searchTerm) === -1) {
-                            visible = false;
-                        }
-                    }
-                    
                     item.classList.toggle("sgf-hidden", !visible);
                     if (visible) visibleCount++;
                 });
@@ -1173,7 +1336,7 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
                 // Show/hide no results message
                 const noResultsDiv = document.getElementById("no-results-' . $widget_id . '");
                 if (noResultsDiv) {
-                    if (visibleCount === 0 && (Object.keys(activeFilters).length > 0 || searchTerm)) {
+                    if (visibleCount === 0 && Object.keys(activeFilters).length > 0) {
                         noResultsDiv.style.display = "block";
                     } else {
                         noResultsDiv.style.display = "none";
@@ -1181,29 +1344,11 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
                 }
             }
             
-            // Add event listeners for filters
+            // Add event listeners for filters only
             filters.forEach(filter => {
-                filter.addEventListener("change", filterAndSearchItems);
-                filter.addEventListener("input", filterAndSearchItems);
+                filter.addEventListener("change", filterItems);
+                filter.addEventListener("input", filterItems);
             });
-            
-            // Add event listeners for search
-            if (searchInput) {
-                const isLiveSearch = searchInput.dataset.live === "yes";
-                if (isLiveSearch) {
-                    searchInput.addEventListener("input", filterAndSearchItems);
-                } else {
-                    searchInput.addEventListener("keypress", function(e) {
-                        if (e.key === "Enter") {
-                            filterAndSearchItems();
-                        }
-                    });
-                }
-            }
-            
-            if (searchButton) {
-                searchButton.addEventListener("click", filterAndSearchItems);
-            }
             
             // Clear filters and search
             if (clearButton) {
@@ -1211,18 +1356,12 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
                     filters.forEach(filter => {
                         filter.value = "";
                     });
-                    if (searchInput) {
-                        searchInput.value = "";
-                    }
-                    items.forEach(item => {
-                        item.classList.remove("sgf-hidden");
-                    });
                     
-                    // Hide no results message
-                    const noResultsDiv = document.getElementById("no-results-' . $widget_id . '");
-                    if (noResultsDiv) {
-                        noResultsDiv.style.display = "none";
-                    }
+                    // Clear search from URL and reload
+                    const url = new URL(window.location);
+                    url.searchParams.delete("sgf_search");
+                    url.searchParams.delete("sgf_page");
+                    window.location.href = url.toString();
                 });
             }
         });

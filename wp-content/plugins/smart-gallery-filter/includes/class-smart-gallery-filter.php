@@ -11,9 +11,10 @@ class Smart_Gallery_Filter {
             return;
         }
 
-        // Check if Pods is active (recommended but not required)
-        if (!function_exists('pods')) {
+        // Check if Pods is active (required for proper functionality)
+        if (!function_exists('pods_api')) {
             add_action('admin_notices', [$this, 'admin_notice_missing_pods']);
+            return;
         }
 
         add_action('elementor/widgets/widgets_registered', [$this, 'register_widget']);
@@ -21,11 +22,30 @@ class Smart_Gallery_Filter {
     }
 
     public function admin_notice_missing_elementor() {
-        echo '<div class="notice notice-warning is-dismissible"><p>Smart Gallery Filter requires Elementor to work.</p></div>';
+        $install_url = wp_nonce_url(
+            self_admin_url('update.php?action=install-plugin&plugin=elementor'),
+            'install-plugin_elementor'
+        );
+        
+        echo '<div class="notice notice-error is-dismissible">';
+        echo '<p><strong>Smart Gallery Filter</strong> requires Elementor Page Builder to work.</p>';
+        echo '<p><a href="' . esc_url($install_url) . '" class="button button-primary">Install Elementor Now</a> ';
+        echo 'or <a href="https://wordpress.org/plugins/elementor/" target="_blank">Learn More</a></p>';
+        echo '</div>';
     }
 
     public function admin_notice_missing_pods() {
-        echo '<div class="notice notice-info is-dismissible"><p>Smart Gallery Filter works better with Pods Framework installed for advanced Custom Post Types management.</p></div>';
+        $install_url = wp_nonce_url(
+            self_admin_url('update.php?action=install-plugin&plugin=pods'),
+            'install-plugin_pods'
+        );
+        
+        echo '<div class="notice notice-error is-dismissible">';
+        echo '<p><strong>Smart Gallery Filter</strong> requires Pods Framework to work properly.</p>';
+        echo '<p>This plugin is specifically designed to work with Custom Post Types and custom fields created by Pods.</p>';
+        echo '<p><a href="' . esc_url($install_url) . '" class="button button-primary">Install Pods Framework Now</a> ';
+        echo 'or <a href="https://wordpress.org/plugins/pods/" target="_blank">Learn More</a></p>';
+        echo '</div>';
     }
 
     public function register_widget() {

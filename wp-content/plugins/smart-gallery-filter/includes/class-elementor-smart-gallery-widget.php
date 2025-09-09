@@ -228,7 +228,7 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
             [
                 'label' => 'Empty Results Message',
                 'type' => \Elementor\Controls_Manager::TEXTAREA,
-                'default' => 'No items found with featured images.',
+                'default' => 'No items found for selected Pod.',
                 'description' => 'Message displayed when no posts are found',
                 'placeholder' => 'Enter your custom message...',
             ]
@@ -383,6 +383,42 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
                 'condition' => [
                     'enable_search' => 'yes',
                 ],
+            ]
+        );
+
+        $this->end_controls_section();
+
+        // Plugin Information Section
+        $this->start_controls_section(
+            'info_section',
+            [
+                'label' => 'Plugin Information',
+                'tab' => \Elementor\Controls_Manager::TAB_CONTENT,
+            ]
+        );
+
+        $this->add_control(
+            'plugin_info',
+            [
+                'type' => \Elementor\Controls_Manager::RAW_HTML,
+                'raw' => '
+                    <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; border-left: 4px solid #007cba;">
+                        <h4 style="margin: 0 0 10px 0; color: #007cba;">🎯 Smart Gallery Filter</h4>
+                        <p style="margin: 0 0 10px 0; font-size: 13px; line-height: 1.4;">
+                            Free alternative to Elementor Pro Posts widget with advanced filtering.
+                        </p>
+                        
+                        <h5 style="margin: 10px 0 5px 0; font-size: 12px; color: #666;">Required Dependencies:</h5>
+                        <ul style="margin: 0; padding-left: 20px; font-size: 12px; color: #666;">
+                            <li><strong>Elementor</strong> ✅</li>
+                            <li><strong>Pods Framework</strong> ' . (function_exists('pods_api') ? '✅' : '❌ <a href="' . admin_url('plugin-install.php?s=pods&tab=search&type=term') . '" target="_blank">Install</a>') . '</li>
+                        </ul>
+                        
+                        <p style="margin: 10px 0 0 0; font-size: 11px; color: #999;">
+                            <a href="https://github.com/gut0leao/smart-gallery-filter" target="_blank">Documentation & Support</a>
+                        </p>
+                    </div>
+                ',
             ]
         );
 

@@ -31,9 +31,7 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
      * @return array
      */
     private function get_available_cpts() {
-        $options = [
-            '' => esc_html__('Select a Post Type', 'smart-gallery'),
-        ];
+        $options = [];
 
         // Check if Pods is active
         if (!function_exists('pods')) {
@@ -47,16 +45,19 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
             $all_pods = $pods_api->load_pods(['type' => 'post_type']);
             
             if (!empty($all_pods)) {
+                // Add default option first
+                $options[''] = esc_html__('Select a Pod', 'smart-gallery');
+                
                 foreach ($all_pods as $pod) {
                     if (isset($pod['name']) && isset($pod['label'])) {
                         $options[$pod['name']] = $pod['label'];
                     }
                 }
             } else {
-                $options['no_cpts'] = esc_html__('No Pods CPTs found', 'smart-gallery');
+                $options['no_cpts'] = esc_html__('Need at least one pod', 'smart-gallery');
             }
         } catch (Exception $e) {
-            $options['error'] = esc_html__('Error loading Pods CPTs', 'smart-gallery');
+            $options['error'] = esc_html__('Need at least one pod', 'smart-gallery');
         }
 
         return $options;
@@ -76,11 +77,11 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
         $this->add_control(
             'selected_cpt',
             [
-                'label' => esc_html__('Select Post Type', 'smart-gallery'),
+                'label' => esc_html__('Select a Pod', 'smart-gallery'),
                 'type' => \Elementor\Controls_Manager::SELECT,
                 'default' => '',
                 'options' => $this->get_available_cpts(),
-                'description' => esc_html__('Choose which Custom Post Type to display in the gallery', 'smart-gallery'),
+                'description' => esc_html__('Choose which Pod to display in the gallery', 'smart-gallery'),
             ]
         );
 
@@ -127,7 +128,7 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
                     '6' => '6',
                 ],
                 'selectors' => [
-                    '{{WRAPPER}} .smart-gallery-grid' => 'grid-template-columns: repeat({{VALUE}}, 1fr);',
+                    '{{WRAPPER}} .smart-gallery-grid' => 'grid-template-columns: repeat({{VALUE}}, 1fr) !important;',
                 ],
             ]
         );
@@ -158,7 +159,7 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
                     'size' => 20,
                 ],
                 'selectors' => [
-                    '{{WRAPPER}} .smart-gallery-grid' => 'gap: {{SIZE}}{{UNIT}};',
+                    '{{WRAPPER}} .smart-gallery-grid' => 'gap: {{SIZE}}{{UNIT}} !important;',
                 ],
             ]
         );
@@ -207,9 +208,9 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
         
         // Selected CPT
         echo '<div>';
-        echo '<strong style="color: #6c757d;">Post Type:</strong><br>';
+        echo '<strong style="color: #6c757d;">Selected Pod:</strong><br>';
         if (empty($selected_cpt)) {
-            echo '<span style="color: #dc3545;">⚠️ No post type selected</span>';
+            echo '<span style="color: #dc3545;">⚠️ No pod selected</span>';
         } else {
             echo '<span style="color: #28a745;">✅ ' . esc_html($selected_cpt) . '</span>';
         }
@@ -269,11 +270,11 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; font-size: 14px;">
                     
                     <div>
-                        <strong style="color: #6c757d;">Post Type:</strong><br>
+                        <strong style="color: #6c757d;">Selected Pod:</strong><br>
                         <# if (settings.selected_cpt) { #>
                             <span style="color: #28a745;">✅ {{{ settings.selected_cpt }}}</span>
                         <# } else { #>
-                            <span style="color: #dc3545;">⚠️ No post type selected</span>
+                            <span style="color: #dc3545;">⚠️ No pod selected</span>
                         <# } #>
                     </div>
                     

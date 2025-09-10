@@ -8,7 +8,7 @@
 .smart-gallery-grid {
     display: grid;
     gap: 20px;
-    grid-template-columns: repeat(3, 1fr);
+    /* Grid columns controlled by Elementor - no default needed */
 }
 
 .smart-gallery-item {
@@ -23,17 +23,15 @@
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-/* Responsive Grid */
+/* Responsive Grid - Gap adjustments only */
 @media (max-width: 768px) {
     .smart-gallery-grid {
-        grid-template-columns: repeat(2, 1fr);
         gap: 15px;
     }
 }
 
 @media (max-width: 480px) {
     .smart-gallery-grid {
-        grid-template-columns: 1fr;
         gap: 10px;
     }
 }

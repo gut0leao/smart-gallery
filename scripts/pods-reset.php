@@ -19,7 +19,7 @@ echo "==========================\n\n";
 global $wpdb;
 
 // Disable interactive prompts when running through script
-if (defined('PODS_EXECUTE_RESET')) {
+if (!defined('PODS_DRY_RUN_ONLY')) {
     define('DOING_AJAX', true);
     $_POST['action'] = 'wp-cli-reset';
     $_GET['force_delete_kit'] = '1'; // Force Elementor kit deletion
@@ -165,13 +165,13 @@ echo "   📦 Pod definitions: $pods_definitions_count\n";
 echo "   🔧 Pod fields: $pods_fields_count\n";
 echo "   📁 Pod groups: $pods_groups_count\n";
 
-// Check if we should only run dry run (default behavior)
-// Can be overridden by PHP constant PODS_EXECUTE_RESET
-$is_dry_run = !defined('PODS_EXECUTE_RESET');
+// Check if we should only run dry run 
+// Default behavior is now to EXECUTE the reset
+$is_dry_run = defined('PODS_DRY_RUN_ONLY') && PODS_DRY_RUN_ONLY;
 
 if ($is_dry_run) {
     echo "\n💡 DRY RUN COMPLETE - NO CHANGES MADE\n";
-    echo "   🔥 To execute reset, use: ./scripts/pods-reset.sh\n";
+    echo "   🔥 To execute reset, remove PODS_DRY_RUN_ONLY constant\n";
     exit;
 }
 

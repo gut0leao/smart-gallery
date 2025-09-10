@@ -139,6 +139,52 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
     }
 
     /**
+     * Render individual gallery item
+     * 
+     * @param WP_Post $post
+     */
+    private function render_gallery_item($post) {
+        $post_id = $post->ID;
+        $post_title = get_the_title($post_id);
+        $post_permalink = get_permalink($post_id);
+        $featured_image_id = get_post_thumbnail_id($post_id);
+        
+        // Get featured image or fallback
+        if ($featured_image_id) {
+            $featured_image = wp_get_attachment_image_src($featured_image_id, 'medium');
+            $image_url = $featured_image ? $featured_image[0] : '';
+            $image_alt = get_post_meta($featured_image_id, '_wp_attachment_image_alt', true);
+        } else {
+            $image_url = '';
+            $image_alt = '';
+        }
+        
+        echo '<div class="smart-gallery-item" style="position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: #f8f9fa;">';
+        
+        // Link wrapper
+        echo '<a href="' . esc_url($post_permalink) . '" target="_blank" style="display: block; width: 100%; height: 100%; text-decoration: none; color: inherit;">';
+        
+        if ($image_url) {
+            // Featured image
+            echo '<img src="' . esc_url($image_url) . '" alt="' . esc_attr($image_alt ?: $post_title) . '" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease;">';
+            
+            // Overlay with title
+            echo '<div class="smart-gallery-overlay" style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(transparent, rgba(0,0,0,0.7)); padding: 15px; color: white; transform: translateY(100%); transition: transform 0.3s ease;">';
+            echo '<div style="font-size: 14px; font-weight: 500; line-height: 1.3;">' . esc_html($post_title) . '</div>';
+            echo '</div>';
+        } else {
+            // No featured image - show placeholder with title
+            echo '<div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #e9ecef; color: #6c757d; text-align: center; padding: 20px;">';
+            echo '<div style="font-size: 48px; margin-bottom: 10px; opacity: 0.3;">🖼️</div>';
+            echo '<div style="font-size: 12px; font-weight: 500; line-height: 1.3;">' . esc_html($post_title) . '</div>';
+            echo '</div>';
+        }
+        
+        echo '</a>';
+        echo '</div>';
+    }
+
+    /**
      * Get Pod custom fields for a specific CPT
      * 
      * @param string $cpt_name
@@ -443,23 +489,52 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
         
         echo '</div>';
         
-        // Gallery grid placeholder
+        // Gallery grid - Real posts or placeholder
         echo '<div class="smart-gallery-grid" style="display: grid; grid-template-columns: repeat(' . esc_attr($columns) . ', 1fr); gap: ' . esc_attr($gap_size . $gap_unit) . ';">';
         
-        // Show preview boxes based on posts_per_page setting
-        $preview_count = min($posts_per_page, 6); // Show max 6 for preview
-        for ($i = 1; $i <= $preview_count; $i++) {
-            echo '<div class="smart-gallery-item" style="aspect-ratio: 1; background: #e9ecef; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #6c757d; font-size: 12px; border: 2px dashed #dee2e6;">';
-            echo 'Item ' . $i;
-            echo '</div>';
+        if (!empty($selected_cpt) && $this->is_pods_available()) {
+            // Display real posts from selected Pod
+            $pod_posts = $this->get_pod_posts($selected_cpt, $posts_per_page, 1);
+            
+            if (!is_wp_error($pod_posts) && !empty($pod_posts['posts'])) {
+                foreach ($pod_posts['posts'] as $post) {
+                    $this->render_gallery_item($post);
+                }
+            } else {
+                // No posts found - show message
+                echo '<div class="smart-gallery-no-posts" style="grid-column: 1 / -1; text-align: center; padding: 40px; background: #f8f9fa; border-radius: 8px; border: 2px dashed #dee2e6;">';
+                echo '<div style="color: #6c757d; font-size: 16px;">';
+                echo '<strong>📭 No posts found</strong><br>';
+                echo '<span style="font-size: 14px;">No published posts in the selected pod.</span>';
+                echo '</div>';
+                echo '</div>';
+            }
+        } else {
+            // Show placeholder boxes when no pod selected
+            $preview_count = min($posts_per_page, 6); // Show max 6 for preview
+            for ($i = 1; $i <= $preview_count; $i++) {
+                echo '<div class="smart-gallery-item smart-gallery-placeholder" style="aspect-ratio: 1; background: #e9ecef; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #6c757d; font-size: 12px; border: 2px dashed #dee2e6;">';
+                echo 'Item ' . $i;
+                echo '</div>';
+            }
         }
         
         echo '</div>';
         
         // Status message
         echo '<div style="margin-top: 20px; padding: 15px; background: #d1ecf1; border: 1px solid #bee5eb; border-radius: 6px; color: #0c5460; font-size: 14px;">';
-        echo '<strong>📋 Status:</strong> F1.2 - Pods Framework Integration implemented successfully!<br>';
-        echo '<strong>🚀 Next:</strong> F1.1 - Basic Gallery Display (real featured images)';
+        echo '<strong>📋 Status:</strong> F1.1 - Basic Gallery Display implemented successfully!<br>';
+        
+        if (!empty($selected_cpt) && $this->is_pods_available()) {
+            $pod_posts = $this->get_pod_posts($selected_cpt, $posts_per_page, 1);
+            if (!is_wp_error($pod_posts) && !empty($pod_posts['posts'])) {
+                echo '<strong>✅ Showing:</strong> Real featured images from ' . esc_html($selected_cpt) . ' posts<br>';
+            }
+        } else {
+            echo '<strong>⚠️ Preview mode:</strong> Select a pod to see real featured images<br>';
+        }
+        
+        echo '<strong>🚀 Next:</strong> F2.1 - Hover Effects & Descriptions';
         echo '</div>';
         
         echo '</div>';

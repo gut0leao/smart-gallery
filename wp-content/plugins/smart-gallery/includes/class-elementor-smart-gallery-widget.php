@@ -26,7 +26,16 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
     }
 
     /**
-     * Get available Pods CPTs
+     * Check if Pods plugin is active and available
+     * 
+     * @return bool
+     */
+    private function is_pods_available() {
+        return function_exists('pods') && function_exists('pods_api');
+    }
+
+    /**
+     * Get available Pods CPTs with enhanced error handling
      * 
      * @return array
      */
@@ -34,35 +43,187 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
         $options = [];
 
         // Check if Pods is active
-        if (!function_exists('pods')) {
+        if (!$this->is_pods_available()) {
             $options['no_pods'] = esc_html__('Pods plugin not found', 'smart-gallery');
             return $options;
         }
 
-        // Get Pods CPTs
+        // Get Pods CPTs with comprehensive error handling
         try {
             $pods_api = pods_api();
+            if (!$pods_api) {
+                $options['api_error'] = esc_html__('Need at least one pod', 'smart-gallery');
+                return $options;
+            }
+
             $all_pods = $pods_api->load_pods(['type' => 'post_type']);
             
-            if (!empty($all_pods)) {
+            if (!empty($all_pods) && is_array($all_pods)) {
                 // Add default option first
                 $options[''] = esc_html__('Select a Pod', 'smart-gallery');
                 
                 foreach ($all_pods as $pod) {
-                    if (isset($pod['name']) && isset($pod['label'])) {
-                        $options[$pod['name']] = $pod['label'];
+                    if (isset($pod['name']) && isset($pod['label']) && !empty($pod['name'])) {
+                        // Verify the CPT actually exists in WordPress
+                        if (post_type_exists($pod['name'])) {
+                            $options[$pod['name']] = $pod['label'];
+                        }
                     }
+                }
+                
+                // If we only have the default option, no valid pods found
+                if (count($options) <= 1) {
+                    return ['no_cpts' => esc_html__('Need at least one pod', 'smart-gallery')];
                 }
             } else {
                 $options['no_cpts'] = esc_html__('Need at least one pod', 'smart-gallery');
             }
         } catch (Exception $e) {
+            error_log('Smart Gallery - Pods integration error: ' . $e->getMessage());
             $options['error'] = esc_html__('Need at least one pod', 'smart-gallery');
         }
 
         return $options;
     }
 
+    /**
+     * Get posts from selected Pod/CPT
+     * 
+     * @param string $cpt_name
+     * @param int $posts_per_page
+     * @param int $paged
+     * @return array|WP_Error
+     */
+    private function get_pod_posts($cpt_name, $posts_per_page = 12, $paged = 1) {
+        if (empty($cpt_name) || !$this->is_pods_available()) {
+            return new WP_Error('no_pod', 'No valid pod specified');
+        }
+
+        // Verify CPT exists
+        if (!post_type_exists($cpt_name)) {
+            return new WP_Error('invalid_cpt', 'Post type does not exist');
+        }
+
+        try {
+            // Use WP_Query for reliable post retrieval
+            $query_args = [
+                'post_type' => $cpt_name,
+                'post_status' => 'publish',
+                'posts_per_page' => intval($posts_per_page),
+                'paged' => intval($paged),
+                'meta_query' => [],
+                'orderby' => 'date',
+                'order' => 'DESC'
+            ];
+
+            $query = new WP_Query($query_args);
+            
+            if ($query->have_posts()) {
+                $posts_data = [
+                    'posts' => $query->posts,
+                    'total' => $query->found_posts,
+                    'pages' => $query->max_num_pages,
+                    'current_page' => $paged
+                ];
+                
+                wp_reset_postdata();
+                return $posts_data;
+            } else {
+                wp_reset_postdata();
+                return new WP_Error('no_posts', 'No posts found');
+            }
+        } catch (Exception $e) {
+            error_log('Smart Gallery - Post retrieval error: ' . $e->getMessage());
+            return new WP_Error('query_error', 'Error retrieving posts');
+        }
+    }
+
+    /**
+     * Get Pod custom fields for a specific CPT
+     * 
+     * @param string $cpt_name
+     * @return array
+     */
+    private function get_pod_fields($cpt_name) {
+        if (empty($cpt_name) || !$this->is_pods_available()) {
+            return [];
+        }
+
+        try {
+            $pod = pods($cpt_name);
+            if (!$pod || !$pod->valid()) {
+                return [];
+            }
+
+            $fields = $pod->fields();
+            $formatted_fields = [];
+            
+            if (is_array($fields)) {
+                foreach ($fields as $field_name => $field_data) {
+                    if (isset($field_data['label']) && !empty($field_data['label'])) {
+                        $formatted_fields[$field_name] = [
+                            'label' => $field_data['label'],
+                            'type' => $field_data['type'] ?? 'text',
+                            'options' => $field_data['options'] ?? []
+                        ];
+                    }
+                }
+            }
+            
+            return $formatted_fields;
+        } catch (Exception $e) {
+            error_log('Smart Gallery - Field retrieval error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Get Pod taxonomies for a specific CPT
+     * 
+     * @param string $cpt_name
+     * @return array
+     */
+    private function get_pod_taxonomies($cpt_name) {
+        if (empty($cpt_name) || !post_type_exists($cpt_name)) {
+            return [];
+        }
+
+        try {
+            $taxonomies = get_object_taxonomies($cpt_name, 'objects');
+            $formatted_taxonomies = [];
+            
+            foreach ($taxonomies as $taxonomy) {
+                // Skip built-in taxonomies if needed
+                if (!$taxonomy->public) {
+                    continue;
+                }
+                
+                $terms = get_terms([
+                    'taxonomy' => $taxonomy->name,
+                    'hide_empty' => false,
+                    'number' => 100 // Limit for performance
+                ]);
+                
+                if (!is_wp_error($terms) && !empty($terms)) {
+                    $formatted_taxonomies[$taxonomy->name] = [
+                        'label' => $taxonomy->label,
+                        'terms' => $terms
+                    ];
+                }
+            }
+            
+            return $formatted_taxonomies;
+        } catch (Exception $e) {
+            error_log('Smart Gallery - Taxonomy retrieval error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Get available Pods CPTs
+     * 
+     * @return array
+     */
     protected function register_controls() {
         // Content Tab
         $this->start_controls_section(
@@ -239,6 +400,49 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
         echo '</div>';
         echo '</div>';
         
+        // Pods Integration Status
+        echo '<div class="smart-gallery-pods-status" style="padding: 15px; background: #e8f4f8; border-radius: 8px; margin-bottom: 20px; font-size: 14px;">';
+        echo '<h5 style="margin: 0 0 10px; color: #0c5460;">🔌 Pods Integration Status</h5>';
+        
+        if (!$this->is_pods_available()) {
+            echo '<div style="color: #721c24; background: #f8d7da; padding: 10px; border-radius: 6px; margin-bottom: 10px;">';
+            echo '<strong>❌ Pods Not Available</strong><br>';
+            echo 'The Pods plugin is not active or not found.';
+            echo '</div>';
+        } else {
+            echo '<div style="color: #155724; background: #d4edda; padding: 10px; border-radius: 6px; margin-bottom: 10px;">';
+            echo '<strong>✅ Pods Available</strong><br>';
+            echo 'Pods plugin is active and ready.';
+            echo '</div>';
+            
+            // Show Pod analysis if one is selected
+            if (!empty($selected_cpt)) {
+                $pod_posts = $this->get_pod_posts($selected_cpt, $posts_per_page, 1);
+                $pod_fields = $this->get_pod_fields($selected_cpt);
+                $pod_taxonomies = $this->get_pod_taxonomies($selected_cpt);
+                
+                if (is_wp_error($pod_posts)) {
+                    echo '<div style="color: #856404; background: #fff3cd; padding: 10px; border-radius: 6px; margin-bottom: 5px;">';
+                    echo '<strong>⚠️ Posts Status:</strong> ' . esc_html($pod_posts->get_error_message());
+                    echo '</div>';
+                } else {
+                    echo '<div style="color: #155724; background: #d4edda; padding: 10px; border-radius: 6px; margin-bottom: 5px;">';
+                    echo '<strong>📄 Posts Found:</strong> ' . esc_html($pod_posts['total']) . ' total posts';
+                    echo '</div>';
+                }
+                
+                echo '<div style="color: #0c5460; background: #d1ecf1; padding: 10px; border-radius: 6px; margin-bottom: 5px;">';
+                echo '<strong>🔧 Custom Fields:</strong> ' . count($pod_fields) . ' fields detected';
+                echo '</div>';
+                
+                echo '<div style="color: #0c5460; background: #d1ecf1; padding: 10px; border-radius: 6px;">';
+                echo '<strong>🏷️ Taxonomies:</strong> ' . count($pod_taxonomies) . ' taxonomies detected';
+                echo '</div>';
+            }
+        }
+        
+        echo '</div>';
+        
         // Gallery grid placeholder
         echo '<div class="smart-gallery-grid" style="display: grid; grid-template-columns: repeat(' . esc_attr($columns) . ', 1fr); gap: ' . esc_attr($gap_size . $gap_unit) . ';">';
         
@@ -254,8 +458,8 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
         
         // Status message
         echo '<div style="margin-top: 20px; padding: 15px; background: #d1ecf1; border: 1px solid #bee5eb; border-radius: 6px; color: #0c5460; font-size: 14px;">';
-        echo '<strong>📋 Status:</strong> Basic Elementor Controls implemented successfully!<br>';
-        echo '<strong>🚀 Next:</strong> F1.2 - Pods Framework Integration';
+        echo '<strong>📋 Status:</strong> F1.2 - Pods Framework Integration implemented successfully!<br>';
+        echo '<strong>🚀 Next:</strong> F1.1 - Basic Gallery Display (real featured images)';
         echo '</div>';
         
         echo '</div>';

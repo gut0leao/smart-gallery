@@ -49,11 +49,13 @@ class Smart_Gallery {
     }
 
     public function register_widget() {
-        // Load Pods integration class first
+        // Load modular components in proper order
         require_once __DIR__ . '/class-smart-gallery-pods-integration.php';
-        
-        // Load main widget class
+        require_once __DIR__ . '/class-smart-gallery-controls-manager.php';
+        require_once __DIR__ . '/class-smart-gallery-renderer.php';
         require_once __DIR__ . '/class-elementor-smart-gallery-widget.php';
+        
+        // Register the widget
         \Elementor\Plugin::instance()->widgets_manager->register(new Elementor_Smart_Gallery_Widget());
     }
 

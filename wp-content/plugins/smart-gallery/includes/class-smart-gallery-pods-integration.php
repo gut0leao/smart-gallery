@@ -269,4 +269,65 @@ class Smart_Gallery_Pods_Integration {
 
         return $status;
     }
+
+    /**
+     * Get post description based on widget settings
+     * 
+     * @param WP_Post $post
+     * @param array $settings
+     * @return string
+     */
+    public function get_post_description($post, $settings) {
+        // Check if description should be shown
+        $show_description = $settings['show_description'] ?? 'yes';
+        if ($show_description !== 'yes') {
+            return '';
+        }
+        
+        $description_field = $settings['description_field'] ?? 'content';
+        $custom_field_name = $settings['custom_description_field'] ?? '';
+        
+        $description = '';
+        
+        switch ($description_field) {
+            case 'content':
+                $description = wp_strip_all_tags($post->post_content);
+                // Apply length limit only for content field
+                $max_length = intval($settings['description_length'] ?? 50);
+                if (!empty($description) && strlen($description) > $max_length) {
+                    $description = substr($description, 0, $max_length) . '...';
+                }
+                break;
+                
+            case 'custom_field':
+                if (!empty($custom_field_name)) {
+                    $custom_value = get_post_meta($post->ID, $custom_field_name, true);
+                    if (!empty($custom_value)) {
+                        $description = is_string($custom_value) ? $custom_value : '';
+                    }
+                }
+                // Custom fields are displayed as-is (no length truncation)
+                break;
+                
+            default:
+                $description = wp_strip_all_tags($post->post_content);
+                // Apply length limit for fallback content
+                $max_length = intval($settings['description_length'] ?? 50);
+                if (!empty($description) && strlen($description) > $max_length) {
+                    $description = substr($description, 0, $max_length) . '...';
+                }
+        }
+        
+        // Fallback to content if custom field is empty
+        if (empty($description) && $description_field === 'custom_field') {
+            $description = wp_strip_all_tags($post->post_content);
+            // Apply default length limit for fallback content
+            $max_length = intval($settings['description_length'] ?? 50);
+            if (!empty($description) && strlen($description) > $max_length) {
+                $description = substr($description, 0, $max_length) . '...';
+            }
+        }
+        
+        return trim($description);
+    }
 }

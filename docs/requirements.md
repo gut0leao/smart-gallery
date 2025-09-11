@@ -55,10 +55,15 @@ Unlike basic Elementor image galleries that only list media files, Smart Gallery
   - Detect and list available CPTs from Pods
   - Access custom fields and taxonomies
   - Handle missing Pods scenarios gracefully
-  - Display post information (title, description, custom fields)
-  - Configurable description field (custom field or excerpt)
-  - Fallback to cropped content if no field selected
+  - **Show Post Title control** - toggle title display on/off
+  - **Show Post Description control** - toggle description display on/off
+  - **Description Field control** (conditional - only when Show Description enabled):
+    - Post Content (cropped) - truncated post content
+    - Custom Field - use specified custom field value
+  - **Description Length control** (conditional - only when Show Description enabled AND Post Content selected)
+  - **Custom Field Name** (conditional - only when Show Description enabled AND Custom Field selected)
   - Complete content integration with gallery items
+  - Graceful fallbacks for missing content
 - **🔗 Dependencies**: Pods Framework plugin
 - **⏱️ Complexity**: High
 - **📊 Estimated Time**: 8-10 hours

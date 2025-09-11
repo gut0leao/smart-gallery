@@ -149,6 +149,18 @@ class Smart_Gallery_Controls_Manager {
             ]
         );
 
+        // No Results Message
+        $widget->add_control(
+            'no_results_message',
+            [
+                'label' => esc_html__('No Results Message', 'smart-gallery'),
+                'type' => \Elementor\Controls_Manager::TEXT,
+                'default' => esc_html__('No results found...', 'smart-gallery'),
+                'description' => esc_html__('Message displayed when no posts match the criteria', 'smart-gallery'),
+                'separator' => 'before',
+            ]
+        );
+
         $widget->end_controls_section();
     }
 

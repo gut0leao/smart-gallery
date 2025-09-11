@@ -72,6 +72,7 @@ class Smart_Gallery_Renderer {
         $gap_unit = is_array($gap) ? $gap['unit'] : 'px';
         $enable_image_hover = $settings['enable_image_hover'] ?? 'yes';
         $enable_content_hover = $settings['enable_content_hover'] ?? 'yes';
+        $no_results_message = $settings['no_results_message'] ?? 'No results found...';
 
         echo '<div class="smart-gallery-config" style="padding: 20px; background: #f8f9fa; border-radius: 8px; margin-bottom: 20px; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif;">';
         echo '<h4 style="margin: 0 0 15px; color: #495057; font-size: 16px;">🔧 Gallery Configuration</h4>';
@@ -152,6 +153,12 @@ class Smart_Gallery_Renderer {
         }
         echo '</div>';
         
+        // No Results Message
+        echo '<div>';
+        echo '<strong style="color: #6c757d;">No Results Message:</strong><br>';
+        echo '<span style="color: #495057;">"' . esc_html($no_results_message) . '"</span>';
+        echo '</div>';
+        
         echo '</div>';
         echo '</div>';
     }
@@ -230,7 +237,7 @@ class Smart_Gallery_Renderer {
                     $this->render_gallery_item($post, $settings);
                 }
             } else {
-                $this->render_no_posts_message();
+                $this->render_no_posts_message($settings);
             }
         } else {
             $this->render_placeholder_items($posts_per_page, $settings);
@@ -353,12 +360,15 @@ class Smart_Gallery_Renderer {
 
     /**
      * Render no posts message
+     * 
+     * @param array $settings
      */
-    public function render_no_posts_message() {
+    public function render_no_posts_message($settings) {
+        $no_results_message = $settings['no_results_message'] ?? esc_html__('No results found...', 'smart-gallery');
+        
         echo '<div class="smart-gallery-no-posts" style="grid-column: 1 / -1; text-align: center; padding: 40px; background: #f8f9fa; border-radius: 8px; border: 2px dashed #dee2e6;">';
         echo '<div style="color: #6c757d; font-size: 16px;">';
-        echo '<strong>📭 No posts found</strong><br>';
-        echo '<span style="font-size: 14px;">No published posts in the selected pod.</span>';
+        echo esc_html($no_results_message);
         echo '</div>';
         echo '</div>';
     }

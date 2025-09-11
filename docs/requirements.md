@@ -50,14 +50,18 @@ Unlike basic Elementor image galleries that only list media files, Smart Gallery
 <details>
 <summary><strong>F1.2 - Pods Framework Integration</strong> <code>High Complexity</code></summary>
 
-- **🎯 Description**: Core integration with Pods CPTs and custom fields
+- **🎯 Description**: Core integration with Pods CPTs and complete content display
 - **📋 Requirements**:
   - Detect and list available CPTs from Pods
   - Access custom fields and taxonomies
   - Handle missing Pods scenarios gracefully
+  - Display post information (title, description, custom fields)
+  - Configurable description field (custom field or excerpt)
+  - Fallback to cropped content if no field selected
+  - Complete content integration with gallery items
 - **🔗 Dependencies**: Pods Framework plugin
 - **⏱️ Complexity**: High
-- **📊 Estimated Time**: 6-8 hours
+- **📊 Estimated Time**: 8-10 hours
 
 </details>
 
@@ -78,17 +82,19 @@ Unlike basic Elementor image galleries that only list media files, Smart Gallery
 ### **⚙️ LAYER 2: CONTENT & INTERACTION**
 
 <details>
-<summary><strong>F2.1 - Hover Effects & Descriptions</strong> <code>Medium Complexity</code></summary>
+<summary><strong>F2.1 - Hover Effects</strong> <code>Medium Complexity</code></summary>
 
-- **🎯 Description**: Interactive hover states with content preview
+- **🎯 Description**: Interactive hover states and visual effects
 - **📋 Requirements**:
-  - Hover overlay with post information
-  - Configurable description field (custom field or excerpt)
-  - Smooth transitions and animations
-  - Fallback to cropped content if no field selected
-- **🔗 Dependencies**: F1.1 (Basic Gallery)
+  - Hover overlay animations
+  - Smooth CSS transitions and transforms
+  - Image zoom/scale effects on hover
+  - Overlay fade-in/fade-out transitions
+  - Configurable hover animation styles
+  - Performance-optimized CSS animations
+- **🔗 Dependencies**: F1.1 (Basic Gallery), F1.2 (Content Display)
 - **⏱️ Complexity**: Medium
-- **📊 Estimated Time**: 4-5 hours
+- **📊 Estimated Time**: 3-4 hours
 
 </details>
 
@@ -285,7 +291,7 @@ Unlike basic Elementor image galleries that only list media files, Smart Gallery
 
 ```
 F1.1 ← F1.2, F1.3
-F2.1 ← F1.1
+F2.1 ← F1.1, F1.2
 F2.2 ← F1.1
 F2.3 ← F1.1
 F3.1 ← F2.2, F2.3
@@ -324,7 +330,7 @@ F5.3 ← Independent
 
 ### **Phase 2: Core Features** (3 features)
 4. F2.3 - State Messages
-5. F2.1 - Hover Effects & Descriptions
+5. F2.1 - Hover Effects
 6. F2.2 - Pagination System
 
 ### **Phase 3: Search & Basic Filtering** (2 features)

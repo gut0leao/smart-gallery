@@ -192,6 +192,82 @@ class Smart_Gallery_Controls_Manager {
             ]
         );
 
+        // Pagination Section Divider
+        $widget->add_control(
+            'pagination_heading',
+            [
+                'label' => esc_html__('Pagination Settings', 'smart-gallery'),
+                'type' => \Elementor\Controls_Manager::HEADING,
+                'separator' => 'before',
+            ]
+        );
+
+        // Enable Pagination
+        $widget->add_control(
+            'enable_pagination',
+            [
+                'label' => esc_html__('Enable Pagination', 'smart-gallery'),
+                'type' => \Elementor\Controls_Manager::SWITCHER,
+                'label_on' => esc_html__('Yes', 'smart-gallery'),
+                'label_off' => esc_html__('No', 'smart-gallery'),
+                'return_value' => 'yes',
+                'default' => 'yes',
+                'description' => esc_html__('Show pagination controls when there are multiple pages', 'smart-gallery'),
+            ]
+        );
+
+        // Show Page Numbers
+        $widget->add_control(
+            'show_page_numbers',
+            [
+                'label' => esc_html__('Show Page Numbers', 'smart-gallery'),
+                'type' => \Elementor\Controls_Manager::SWITCHER,
+                'label_on' => esc_html__('Yes', 'smart-gallery'),
+                'label_off' => esc_html__('No', 'smart-gallery'),
+                'return_value' => 'yes',
+                'default' => 'yes',
+                'condition' => [
+                    'enable_pagination' => 'yes',
+                ],
+                'description' => esc_html__('Display numbered page buttons', 'smart-gallery'),
+            ]
+        );
+
+        // Show Previous/Next Buttons
+        $widget->add_control(
+            'show_prev_next',
+            [
+                'label' => esc_html__('Show Previous/Next', 'smart-gallery'),
+                'type' => \Elementor\Controls_Manager::SWITCHER,
+                'label_on' => esc_html__('Yes', 'smart-gallery'),
+                'label_off' => esc_html__('No', 'smart-gallery'),
+                'return_value' => 'yes',
+                'default' => 'yes',
+                'condition' => [
+                    'enable_pagination' => 'yes',
+                ],
+                'description' => esc_html__('Display previous and next navigation buttons', 'smart-gallery'),
+            ]
+        );
+
+        // Max Page Numbers to Show
+        $widget->add_control(
+            'max_page_numbers',
+            [
+                'label' => esc_html__('Max Page Numbers', 'smart-gallery'),
+                'type' => \Elementor\Controls_Manager::NUMBER,
+                'default' => 5,
+                'min' => 3,
+                'max' => 15,
+                'step' => 2,
+                'condition' => [
+                    'enable_pagination' => 'yes',
+                    'show_page_numbers' => 'yes',
+                ],
+                'description' => esc_html__('Maximum number of page buttons to display (odd numbers recommended)', 'smart-gallery'),
+            ]
+        );
+
         // Columns Control
         $widget->add_responsive_control(
             'columns',

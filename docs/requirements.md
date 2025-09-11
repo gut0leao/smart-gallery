@@ -28,7 +28,7 @@ Unlike basic Elementor image galleries that only list media files, Smart Gallery
 
 ## 🏗️ FUNCTIONALITY MAPPING
 
-> **Total Features**: 15 | **Development Phases**: 6 | **Estimated Timeline**: 55-75 hours
+> **Total Features**: 15 | **Development Phases**: 6 | **Estimated Timeline**: 53-73 hours
 
 ### **🧱 LAYER 1: FOUNDATION (Core Architecture)**
 
@@ -118,14 +118,13 @@ Unlike basic Elementor image galleries that only list media files, Smart Gallery
 
 - **🎯 Description**: Navigate through multiple pages of results
 - **📋 Requirements**:
-  - Previous/Next buttons
-  - Numbered page buttons
-  - Configurable posts per page
-  - Dynamic recalculation on search/filter changes
-  - Standard pagination UI patterns
+  - Standard pagination UI patterns  
+    - Previous/Next buttons
+    - Numbered page buttons
+  - Configurable posts per page  
 - **🔗 Dependencies**: F1.1 (Basic Gallery)
 - **⏱️ Complexity**: Medium
-- **📊 Estimated Time**: 5-6 hours
+- **📊 Estimated Time**: 3-4 hours
 
 </details>
 

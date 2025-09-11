@@ -70,3 +70,136 @@
 .smart-gallery-config {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
 }
+
+/* ================================
+   F2.1 - Pagination System Styles
+   ================================ */
+.smart-gallery-pagination {
+    margin-top: 30px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-family: inherit;
+}
+
+.smart-gallery-pagination .pagination-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 15px;
+    text-decoration: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    min-width: 44px;
+    height: 44px;
+    text-align: center;
+    border: 0px;
+    color: #757575;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.smart-gallery-pagination .pagination-button:hover {
+    color: #212529;
+    transform: translateY(-1px);
+}
+
+.smart-gallery-pagination .pagination-button.pagination-current {
+    background-color: #a7a7a7;
+    color: #ffffff;
+    cursor: default;
+}
+
+.smart-gallery-pagination .pagination-button.pagination-current:hover {
+    transform: none;
+}
+
+.smart-gallery-pagination .pagination-prev,
+.smart-gallery-pagination .pagination-next {
+    padding: 10px 20px;
+    font-weight: 600;
+}
+
+.smart-gallery-pagination .pagination-ellipsis {
+    padding: 0 8px;
+    color: #6c757d;
+    font-size: 16px;
+    line-height: 44px;
+    user-select: none;
+}
+
+/* Focus states for accessibility */
+.smart-gallery-pagination .pagination-button:focus {
+    outline: 2px solid #6d6d6d;
+    outline-offset: 2px;
+}
+
+/* Animation for page transitions */
+.smart-gallery-grid {
+    transition: opacity 0.3s ease;
+}
+
+.smart-gallery-grid.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+/* Pagination Responsive Design */
+@media (max-width: 768px) {
+    .smart-gallery-pagination {
+        gap: 6px;
+    }
+    
+    .smart-gallery-pagination .pagination-button {
+        min-width: 40px;
+        height: 40px;
+        padding: 8px 12px;
+        font-size: 13px;
+    }
+    
+    .smart-gallery-pagination .pagination-prev,
+    .smart-gallery-pagination .pagination-next {
+        padding: 8px 16px;
+    }
+    
+    .smart-gallery-pagination .pagination-ellipsis {
+        line-height: 40px;
+    }
+}
+
+@media (max-width: 480px) {
+    .smart-gallery-pagination {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .smart-gallery-pagination .pagination-button {
+        min-width: 50px;
+    }
+    
+    /* Stack prev/next buttons and page numbers separately */
+    .smart-gallery-pagination .pagination-prev,
+    .smart-gallery-pagination .pagination-next {
+        order: 2;
+        width: 100px;
+    }
+}
+
+/* Dark Theme Support */
+@media (prefers-color-scheme: dark) {
+    .smart-gallery-pagination .pagination-button {
+        color: #c2c2c2;
+    }
+    
+    .smart-gallery-pagination .pagination-button:hover {
+        border-color: #6c757d;
+    }
+    
+    .smart-gallery-pagination .pagination-ellipsis {
+        color: #adb5bd;
+    }
+}

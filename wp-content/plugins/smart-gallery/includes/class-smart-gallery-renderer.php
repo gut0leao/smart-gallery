@@ -44,11 +44,32 @@ class Smart_Gallery_Renderer {
         $columns = $settings['columns'] ?? 3;
         $gap = $settings['gap'] ?? ['size' => 20, 'unit' => 'px'];
         
-        echo '<div class="smart-gallery-widget">';
+        // Get current page for pagination - support for pretty permalinks
+        $current_page = 1;
+        
+        // Try different methods to get current page
+        if (get_query_var('paged')) {
+            $current_page = absint(get_query_var('paged'));
+        } elseif (get_query_var('page')) {
+            $current_page = absint(get_query_var('page'));
+        } elseif (isset($_GET['paged'])) {
+            $current_page = absint($_GET['paged']);
+        } else {
+            // Check for pretty permalink pattern /page/2/
+            global $wp;
+            if (preg_match('/\/page\/(\d+)\/?$/', $_SERVER['REQUEST_URI'], $matches)) {
+                $current_page = absint($matches[1]);
+            }
+        }
+        
+        // Ensure page is at least 1
+        $current_page = max(1, $current_page);
+        
+        echo '<div class="smart-gallery-widget" data-page="' . esc_attr($current_page) . '">';
         
         $this->render_configuration_panel($settings);
         $this->render_pods_status($selected_cpt, $posts_per_page);
-        $this->render_gallery_grid($settings);
+        $this->render_gallery_grid($settings, $current_page);
         $this->render_status_message($settings);
         
         echo '</div>';
@@ -217,8 +238,9 @@ class Smart_Gallery_Renderer {
      * Render gallery grid
      * 
      * @param array $settings
+     * @param int $current_page
      */
-    public function render_gallery_grid($settings) {
+    public function render_gallery_grid($settings, $current_page = 1) {
         $selected_cpt = $settings['selected_cpt'] ?? '';
         $posts_per_page = $settings['posts_per_page'] ?? 12;
         $columns = $settings['columns'] ?? 3;
@@ -229,13 +251,22 @@ class Smart_Gallery_Renderer {
         echo '<div class="smart-gallery-grid" style="display: grid; grid-template-columns: repeat(' . esc_attr($columns) . ', 1fr); gap: ' . esc_attr($gap_size . $gap_unit) . ';">';
         
         if (!empty($selected_cpt) && $this->pods_integration->is_pods_available()) {
-            // Display real posts from selected Pod
-            $pod_posts = $this->pods_integration->get_pod_posts($selected_cpt, $posts_per_page, 1);
+            // Display real posts from selected Pod with pagination
+            $pod_posts = $this->pods_integration->get_pod_posts($selected_cpt, $posts_per_page, $current_page);
             
             if (!is_wp_error($pod_posts) && !empty($pod_posts['posts'])) {
                 foreach ($pod_posts['posts'] as $post) {
                     $this->render_gallery_item($post, $settings);
                 }
+                
+                // Render pagination after the grid if enabled and there are multiple pages
+                echo '</div>'; // Close grid
+                
+                if ($this->should_show_pagination($settings, $pod_posts)) {
+                    $this->render_pagination($settings, $pod_posts, $current_page);
+                }
+                
+                return; // Early return to avoid closing grid again
             } else {
                 $this->render_no_posts_message($settings);
             }
@@ -394,7 +425,7 @@ class Smart_Gallery_Renderer {
             echo '<strong>⚠️ Preview mode:</strong> Select a pod to see real content with descriptions<br>';
         }
         
-        echo '<strong>🚀 Next:</strong> F2.1 - Hover Effects';
+        echo '<strong>🚀 Next:</strong> F3.1 - Text Search';
         echo '</div>';
     }
 
@@ -474,9 +505,182 @@ class Smart_Gallery_Renderer {
             </div>
             
             <div style="margin-top: 20px; padding: 15px; background: #d1ecf1; border: 1px solid #bee5eb; border-radius: 6px; color: #0c5460; font-size: 14px;">
-                <strong>📋 Status:</strong> F1.2 - Complete Pods Integration with content display<br>
-                <strong>🚀 Next:</strong> F2.1 - Hover Effects
+                <strong>📋 Status:</strong> Phase 2 Complete - F2.1 Pagination System implemented<br>
+                <strong>🚀 Next:</strong> Phase 3 - F3.1 Text Search
             </div>
         </div>';
+    }
+
+    /**
+     * Check if pagination should be displayed
+     * 
+     * @param array $settings
+     * @param array $pod_posts
+     * @return bool
+     */
+    private function should_show_pagination($settings, $pod_posts) {
+        $enable_pagination = $settings['enable_pagination'] ?? 'yes';
+        $total_pages = $pod_posts['pages'] ?? 0;
+        
+        return ($enable_pagination === 'yes') && ($total_pages > 1);
+    }
+
+    /**
+     * Render pagination controls
+     * 
+     * @param array $settings
+     * @param array $pod_posts
+     * @param int $current_page
+     */
+    private function render_pagination($settings, $pod_posts, $current_page) {
+        $total_pages = $pod_posts['pages'] ?? 0;
+        $show_prev_next = $settings['show_prev_next'] ?? 'yes';
+        $show_page_numbers = $settings['show_page_numbers'] ?? 'yes';
+        $max_page_numbers = intval($settings['max_page_numbers'] ?? 5);
+        
+        echo '<div class="smart-gallery-pagination">';
+        
+        // Previous Button
+        if ($show_prev_next === 'yes' && $current_page > 1) {
+            $prev_url = $this->get_pagination_url($current_page - 1);
+            echo '<a href="' . esc_url($prev_url) . '" class="pagination-button pagination-prev">';
+            echo '<span style="margin-right: 5px;">←</span>' . esc_html__('Previous', 'smart-gallery');
+            echo '</a>';
+        }
+        
+        // Page Numbers
+        if ($show_page_numbers === 'yes') {
+            $this->render_page_numbers($current_page, $total_pages, $max_page_numbers);
+        }
+        
+        // Next Button
+        if ($show_prev_next === 'yes' && $current_page < $total_pages) {
+            $next_url = $this->get_pagination_url($current_page + 1);
+            echo '<a href="' . esc_url($next_url) . '" class="pagination-button pagination-next">';
+            echo esc_html__('Next', 'smart-gallery') . '<span style="margin-left: 5px;">→</span>';
+            echo '</a>';
+        }
+        
+        echo '</div>';
+    }
+
+    /**
+     * Render numbered page buttons
+     * 
+     * @param int $current_page
+     * @param int $total_pages
+     * @param int $max_page_numbers
+     */
+    private function render_page_numbers($current_page, $total_pages, $max_page_numbers) {
+        // Calculate range of page numbers to show
+        $half_range = floor($max_page_numbers / 2);
+        $start_page = max(1, $current_page - $half_range);
+        $end_page = min($total_pages, $current_page + $half_range);
+        
+        // Adjust range if we're near the beginning or end
+        if ($end_page - $start_page + 1 < $max_page_numbers) {
+            if ($start_page === 1) {
+                $end_page = min($total_pages, $start_page + $max_page_numbers - 1);
+            } else {
+                $start_page = max(1, $end_page - $max_page_numbers + 1);
+            }
+        }
+        
+        // Show first page and ellipsis if needed
+        if ($start_page > 1) {
+            $this->render_page_number_button(1, $current_page);
+            if ($start_page > 2) {
+                echo '<span class="pagination-ellipsis" style="padding: 0 8px; color: #6c757d;">...</span>';
+            }
+        }
+        
+        // Show page range
+        for ($i = $start_page; $i <= $end_page; $i++) {
+            $this->render_page_number_button($i, $current_page);
+        }
+        
+        // Show last page and ellipsis if needed
+        if ($end_page < $total_pages) {
+            if ($end_page < $total_pages - 1) {
+                echo '<span class="pagination-ellipsis" style="padding: 0 8px; color: #6c757d;">...</span>';
+            }
+            $this->render_page_number_button($total_pages, $current_page);
+        }
+    }
+
+    /**
+     * Render individual page number button
+     * 
+     * @param int $page_number
+     * @param int $current_page
+     */
+    private function render_page_number_button($page_number, $current_page) {
+        $is_current = ($page_number === $current_page);
+        
+        if ($is_current) {
+            echo '<span class="pagination-button pagination-current">';
+            echo esc_html($page_number);
+            echo '</span>';
+        } else {
+            $page_url = $this->get_pagination_url($page_number);
+            echo '<a href="' . esc_url($page_url) . '" class="pagination-button pagination-page">';
+            echo esc_html($page_number);
+            echo '</a>';
+        }
+    }
+
+    /**
+     * Generate pagination URL for specific page
+     * 
+     * @param int $page_number
+     * @return string
+     */
+    private function get_pagination_url($page_number) {
+        global $wp_rewrite;
+        
+        // Get current URL
+        $current_url = (is_ssl() ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
+        
+        // Parse URL to separate base URL from query string
+        $parsed_url = parse_url($current_url);
+        $base_url = $parsed_url['scheme'] . '://' . $parsed_url['host'] . $parsed_url['path'];
+        $query = $parsed_url['query'] ?? '';
+        
+        if ($wp_rewrite->using_permalinks()) {
+            // Handle pretty permalinks
+            
+            // Remove existing /page/X/ pattern from URL
+            $base_url = preg_replace('/\/page\/\d+\/?$/', '/', $base_url);
+            
+            // Ensure URL ends with slash
+            if (substr($base_url, -1) !== '/') {
+                $base_url .= '/';
+            }
+            
+            if ($page_number <= 1) {
+                // For page 1, return clean base URL
+                return $base_url . ($query ? '?' . $query : '');
+            } else {
+                // For other pages, add /page/X/ pattern
+                return rtrim($base_url, '/') . '/page/' . absint($page_number) . '/' . ($query ? '?' . $query : '');
+            }
+        } else {
+            // Handle non-pretty permalinks (query parameters)
+            
+            // Remove existing pagination parameters
+            parse_str($query, $query_params);
+            unset($query_params['paged'], $query_params['page']);
+            
+            if ($page_number <= 1) {
+                // For page 1, return URL without pagination parameters
+                $new_query = http_build_query($query_params);
+                return $base_url . ($new_query ? '?' . $new_query : '');
+            } else {
+                // For other pages, add paged parameter
+                $query_params['paged'] = absint($page_number);
+                $new_query = http_build_query($query_params);
+                return $base_url . '?' . $new_query;
+            }
+        }
     }
 }

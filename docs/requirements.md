@@ -255,13 +255,97 @@ Unlike basic Elementor image galleries that only list media files, Smart Gallery
 <details>
 <summary><strong>F3.2 - Custom Fields Filtering</strong> <code>High Complexity</code></summary>
 
-- **🎯 Description**: Filter by CPT custom fields
+- **🎯 Description**: Filter gallery items by CPT custom fields with dynamic value loading and count display
 - **📋 Requirements**:
-  - Admin configurable field selection
-  - Dynamic filter UI based on field types
-  - Multiple field filtering (AND logic)
-  - Filter reset functionality
-- **🔗 Dependencies**: F1.2 (Pods Integration), F3.1 (Text Search)
+
+  **🎛️ Elementor Controls:**
+  
+  - **Filter Settings Section** (new):
+    - **Show Filters** - toggle to show/hide filter functionality
+      - Default: Disabled
+      - When disabled: filter controls are completely hidden from left bar
+    - **Available Fields for Filtering** - multi-select control
+      - Lists all custom fields from selected CPT (from Pods integration)
+      - Admin can choose which fields will be available for filtering
+      - Only shows fields that exist in the Pods configuration
+      - Fields appear in the order selected by admin
+
+  **🏗️ Filter Interface (Left Bar Only):**
+  
+  - **Filter Position**: Always in Left Bar (alongside search when both enabled)
+  - **Dynamic Filter Loading**:
+    - Only show filters for fields that have actual values in current result set
+    - If admin selects a field but no instances have values, field doesn't appear
+    - Filters update dynamically based on search results and other active filters
+    - **Count Display**: Each filter value shows instance count, e.g., "Red (3)", "Blue (7)"
+  
+  - **Filter UI Structure**:
+    - Each selected field becomes a filter section
+    - Field name as section header (e.g., "Color", "Brand", "Category")
+    - Values listed as checkboxes or radio buttons (based on field type)
+    - **Value format**: "Value Name (Count)" - e.g., "Ford (5)", "Toyota (12)"
+    - Alphabetical sorting of values within each field
+    - Collapsible sections for better space management
+
+  **⚙️ Filter Functionality:**
+  
+  - **Multiple Field Filtering**: AND logic between different fields
+    - Example: Color = "Red" AND Brand = "Ford" shows only red Ford items
+  - **Multiple Value Filtering**: OR logic within same field  
+    - Example: Color = "Red" OR "Blue" shows items that are red or blue
+  - **Dynamic Value Updates**:
+    - When search is performed, filters reload based on search results
+    - When filter is applied, other filter counts update accordingly
+    - Empty filters (0 results) are hidden automatically
+  
+  **🔄 Integration with Existing Features:**
+  
+  - **Search Integration (F3.1)**:
+    - Search results determine which filter values appear
+    - New search reloads all filter options and counts
+    - Active filters preserved during search if values still exist
+  
+  - **Pagination Integration (F2.1)**:
+    - Filter changes reset pagination to page 1
+    - Pagination respects filtered results
+    - Filter state maintained across page navigation
+    - Total count and page numbers update based on filtered results
+  
+  - **Clear Functionality**: 
+    - Individual filter clear (X button per field)
+    - Integration with existing "Clear" button (clears search + all filters)
+
+  **📊 Data Processing:**
+  
+  - **Value Extraction**: Query database for distinct field values in current result set
+  - **Count Calculation**: Count instances for each unique field value
+  - **Performance**: Efficient queries to avoid N+1 problems
+  - **Caching**: Consider result caching for performance optimization
+  
+  **🎨 Visual Design:**
+  
+  - **Left Bar Layout**: 
+    - Search controls at top (when enabled)
+    - Filter sections below search
+    - Clear visual separation between sections
+    - Responsive: collapses on mobile, moves to top bar if needed
+  
+  - **Filter Styling**:
+    - Consistent with search interface styling
+    - Checkbox/radio button styling matches theme
+    - Count badges styled consistently (e.g., grayed out)
+    - Clear visual indication of active filters
+    - Hover states for interactive elements
+
+  **🚀 Benefits:**
+  
+  - **Dynamic**: Only shows relevant filters based on actual data
+  - **Informative**: Users see exactly how many items each filter will show
+  - **Efficient**: Smart queries avoid unnecessary database calls
+  - **Integrated**: Works seamlessly with search and pagination
+  - **Flexible**: Admin controls which fields are available for filtering
+
+- **🔗 Dependencies**: F1.2 (Pods Integration), F3.1 (Text Search), F2.1 (Pagination)
 - **⏱️ Complexity**: High
 - **📊 Estimated Time**: 8-10 hours
 
@@ -270,14 +354,125 @@ Unlike basic Elementor image galleries that only list media files, Smart Gallery
 <details>
 <summary><strong>F3.3 - Taxonomy Filtering</strong> <code>High Complexity</code></summary>
 
-- **🎯 Description**: Filter by CPT taxonomies
+- **🎯 Description**: Filter gallery items by CPT taxonomies with hierarchical support and dynamic count display
 - **📋 Requirements**:
-  - Admin configurable taxonomy selection
-  - Checkbox-based filtering interface
-  - Hierarchical taxonomy support (tree structure)
-  - Parent/child selection logic (select parent = select all children)
-  - Multiple taxonomy filtering
-- **🔗 Dependencies**: F1.2 (Pods Integration), F3.2 (Custom Fields)
+
+  **🎛️ Elementor Controls:**
+  
+  - **Filter Settings Section** (extends F3.2):
+    - **Available Taxonomies for Filtering** - multi-select control  
+      - Lists all taxonomies associated with selected CPT (from Pods integration)
+      - Admin can choose which taxonomies will be available for filtering
+      - Only shows taxonomies that exist and are associated with the CPT
+      - Taxonomies appear in the order selected by admin
+      - Works alongside "Available Fields for Filtering" from F3.2
+
+  **🏗️ Taxonomy Filter Interface (Left Bar):**
+  
+  - **Filter Position**: Left Bar (below custom fields filters when both enabled)
+  - **Dynamic Taxonomy Loading**:
+    - Only show taxonomy filters that have actual terms in current result set
+    - If admin selects a taxonomy but no instances have terms, taxonomy doesn't appear
+    - Taxonomy terms update dynamically based on search results and other active filters
+    - **Count Display**: Each term shows instance count, e.g., "Electronics (15)", "Clothing (8)"
+  
+  - **Hierarchical Taxonomy Support**:
+    - **Tree Structure Display**: Parent-child relationships preserved visually
+    - **Indentation**: Child terms indented under parent terms
+    - **Parent Selection Logic**: 
+      - Selecting parent = automatically selects all children
+      - Selecting child = parent becomes partially selected (intermediate state)
+      - Unselecting parent = unselects all children
+    - **Visual Indicators**: Different styling for parent/child terms
+  
+  - **Taxonomy UI Structure**:
+    - Each selected taxonomy becomes a filter section
+    - Taxonomy name as section header (e.g., "Categories", "Tags", "Product Types")
+    - Terms listed as checkboxes with hierarchical indentation
+    - **Term format**: "Term Name (Count)" - e.g., "Electronics (15)", "  → Smartphones (7)"
+    - **Hierarchy indicators**: Arrows or indentation for child terms
+    - Collapsible sections with expand/collapse controls
+    - **Empty parent handling**: Show parents even if they have no direct posts but have children with posts
+
+  **⚙️ Taxonomy Filter Functionality:**
+  
+  - **Multiple Taxonomy Filtering**: AND logic between different taxonomies
+    - Example: Category = "Electronics" AND Tag = "Featured" shows items in both
+  - **Multiple Term Filtering**: OR logic within same taxonomy
+    - Example: Category = "Electronics" OR "Clothing" shows items in either category  
+  - **Hierarchical Logic**:
+    - Parent selection includes all child term results
+    - Child selection works independently of parent
+    - Mixed parent/child selections work logically
+  
+  - **Dynamic Term Updates**:
+    - When search is performed, taxonomy filters reload based on search results
+    - When custom field filter is applied, taxonomy counts update accordingly
+    - When taxonomy filter is applied, other filter counts update
+    - Empty terms (0 results) are hidden automatically
+    - **Preserve hierarchy**: Keep parent terms visible if children have results
+
+  **🔄 Integration with Existing Features:**
+  
+  - **Custom Fields Integration (F3.2)**:
+    - Taxonomy and custom field filters work together (AND logic)
+    - Example: Color = "Red" AND Category = "Electronics" 
+    - Both filter types update counts based on combined results
+  
+  - **Search Integration (F3.1)**:
+    - Search results determine which taxonomy terms appear
+    - New search reloads all taxonomy options and counts
+    - Active taxonomy filters preserved during search if terms still exist
+  
+  - **Pagination Integration (F2.1)**:
+    - Taxonomy filter changes reset pagination to page 1
+    - Pagination respects filtered results from all sources
+    - Taxonomy filter state maintained across page navigation
+    - Total count updates based on combined filtering (search + custom fields + taxonomies)
+  
+  - **Clear Functionality**:
+    - Individual taxonomy clear (X button per taxonomy section)
+    - Individual term clear (X button per selected term)
+    - Integration with "Clear All" button (clears search + custom fields + taxonomies)
+
+  **📊 Data Processing:**
+  
+  - **Term Extraction**: Query for distinct taxonomy terms in current result set
+  - **Hierarchical Queries**: Efficiently handle parent-child relationships
+  - **Count Calculation**: Count instances for each term, considering hierarchy
+  - **Performance**: Optimized queries to handle hierarchical structures
+  - **Parent Count Logic**: Parent counts include children unless explicitly excluded
+  
+  **🎨 Visual Design:**
+  
+  - **Hierarchical Visual Structure**:
+    - **Parent terms**: Bold text, expand/collapse icons
+    - **Child terms**: Indented (20px), lighter text weight  
+    - **Hierarchy lines**: Subtle connecting lines between parent/child
+    - **Checkbox states**: Full, partial (for parents with some children selected), empty
+  
+  - **Left Bar Integration**:
+    - Search controls (top)
+    - Custom field filters (middle)  
+    - Taxonomy filters (bottom)
+    - Clear visual separation between filter types
+    - Consistent styling across all filter types
+  
+  - **Interactive Elements**:
+    - **Expand/Collapse**: Click parent name to expand/collapse children
+    - **Selection**: Click checkbox to select term
+    - **Hover States**: Clear visual feedback on interactive elements
+    - **Active State**: Selected terms highlighted consistently
+
+  **🚀 Advanced Features:**
+  
+  - **Smart Hierarchy**: Show relevant parent terms even if they have no direct posts
+  - **Partial Selection**: Visual indication when parent has some (but not all) children selected  
+  - **Term Ordering**: Alphabetical within hierarchy levels, preserving parent-child structure
+  - **Performance**: Lazy loading for large taxonomies with many terms
+  - **Accessibility**: Proper ARIA labels for hierarchical checkbox trees
+
+- **🔗 Dependencies**: F1.2 (Pods Integration), F3.2 (Custom Fields), F3.1 (Text Search), F2.1 (Pagination)
 - **⏱️ Complexity**: High
 - **📊 Estimated Time**: 8-10 hours
 
@@ -286,20 +481,123 @@ Unlike basic Elementor image galleries that only list media files, Smart Gallery
 <details>
 <summary><strong>F3.4 - Filter Management</strong> <code>High Complexity</code></summary>
 
-- **🎯 Description**: Combined filter operations and controls with pagination integration
+- **🎯 Description**: Unified filter coordination, state management, and cross-filter functionality
 - **📋 Requirements**:
-  - Clear all filters button (trash icon)
-  - Dynamic filter value updates based on search results
-  - **Automatic pagination recalculation** (integrates with F2.1):
-    - Reset to page 1 when any filter changes
-    - Reset to page 1 when filters are cleared
-    - Recalculate total pages based on combined filters
-  - Filter state persistence during pagination navigation
-  - **Cross-filter coordination**:
-    - Maintain search term when filters change
-    - Maintain filters when search term changes
-    - Clear all functionality affects both search and filters
-- **🔗 Dependencies**: F3.1, F3.2, F3.3 (All filter types)
+
+  **🎛️ Filter Coordination:**
+  
+  - **Multi-Filter Logic**:
+    - **Between Filter Types**: AND logic (Search + Custom Fields + Taxonomies)
+    - **Within Custom Fields**: AND logic between different fields, OR logic within same field
+    - **Within Taxonomies**: AND logic between different taxonomies, OR logic within same taxonomy
+    - **Example**: Search="phone" AND Color="red" AND (Category="Electronics" OR "Gadgets")
+  
+  - **Dynamic Filter Updates**:
+    - **Cascade Effect**: Each filter change updates all other filter options and counts
+    - **Real-time Counts**: Filter counts reflect current combined state of all other active filters
+    - **Progressive Refinement**: Users can see how many results each additional filter will produce
+    - **Empty Filter Handling**: Hide filter options that would produce zero results
+
+  **🔄 State Management:**
+  
+  - **Filter State Persistence**:
+    - **URL Parameters**: All filter states stored in URL for bookmarking and sharing
+    - **Navigation Persistence**: Filter state maintained across pagination
+    - **Search Persistence**: Active filters preserved when performing new searches (if compatible)
+    - **Page Refresh**: All filter states restored after page reload
+  
+  - **State Reset Scenarios**:
+    - **Automatic Reset to Page 1**: When any filter changes
+    - **Filter Compatibility**: Remove incompatible filters when search results change
+    - **CPT Change**: Clear all filters when admin changes CPT selection in Elementor
+  
+  **🎮 Clear Functionality:**
+  
+  - **Multiple Clear Options**:
+    - **Individual Filter Clear**: X button for each custom field filter
+    - **Individual Term Clear**: X button for each selected taxonomy term
+    - **Section Clear**: Clear all selections within a custom field or taxonomy
+    - **Global Clear All**: Single button to clear search + all custom fields + all taxonomies
+  
+  - **Clear Button Behavior**:
+    - **Location**: Positioned prominently near search controls
+    - **Visual State**: Only visible when filters are active
+    - **Confirmation**: Optional confirmation for "Clear All" action
+    - **Result**: Immediate update to show all available results
+
+  **⚙️ Advanced Coordination:**
+  
+  - **Filter Interdependency**:
+    - **Smart Ordering**: Process filters in optimal order for performance
+    - **Query Optimization**: Combine filters into efficient database queries
+    - **Result Caching**: Cache intermediate results for better performance
+    - **Memory Management**: Efficient handling of large result sets
+  
+  - **User Experience**:
+    - **Filter Preview**: Show result count before applying filter
+    - **Progressive Disclosure**: Reveal additional filter options as users narrow results
+    - **Filter History**: Allow users to quickly revert to previous filter states
+    - **Filter Suggestions**: Suggest related filters based on current selection
+
+  **🔄 Integration with All Features:**
+  
+  - **Search Integration (F3.1)**:
+    - Search and filters work together seamlessly
+    - Search results determine available filter values
+    - New search updates all filter options and counts
+    - Clear search maintains other active filters (if still valid)
+  
+  - **Pagination Integration (F2.1)**:
+    - **Auto-reset**: Any filter change resets to page 1
+    - **Count Updates**: Total result count and page numbers update with filters
+    - **State Persistence**: Filter state maintained across page navigation
+    - **Performance**: Efficient pagination of filtered results
+  
+  - **Custom Fields Integration (F3.2)**:
+    - Custom field filters coordinate with all other filter types
+    - Field values update based on search and taxonomy selections
+    - Multiple custom field selections work with AND/OR logic as specified
+  
+  - **Taxonomy Integration (F3.3)**:
+    - Hierarchical taxonomy selections coordinate with other filters
+    - Parent/child logic works correctly with other active filters
+    - Taxonomy counts update based on search and custom field selections
+
+  **📊 Performance Optimizations:**
+  
+  - **Query Efficiency**:
+    - **Single Query Approach**: Combine all filters into optimized database queries
+    - **Index Usage**: Leverage database indexes for custom fields and taxonomies
+    - **Result Caching**: Cache filter results and counts for repeated requests
+    - **Lazy Loading**: Load filter options progressively as needed
+  
+  - **Memory Management**:
+    - **Efficient Data Structures**: Use appropriate data structures for filter state
+    - **Garbage Collection**: Clean up unused filter data
+    - **Large Dataset Handling**: Handle CPTs with thousands of instances gracefully
+
+  **🎨 Visual Coordination:**
+  
+  - **Filter Status Indicators**:
+    - **Active Filter Count**: Show total number of active filters
+    - **Result Count**: Display current result count prominently
+    - **Filter Breadcrumbs**: Show active filters as removable tags
+    - **Visual Grouping**: Clear visual separation between filter types
+  
+  - **Loading States**:
+    - **Filter Loading**: Show loading states when filters are being updated
+    - **Smooth Transitions**: Animate filter option changes
+    - **Error Handling**: Graceful handling of filter errors or timeouts
+
+  **🚀 Benefits:**
+  
+  - **Unified Experience**: All filter types work together seamlessly
+  - **High Performance**: Optimized queries and caching for fast response
+  - **User-Friendly**: Clear visual feedback and intuitive controls
+  - **Flexible**: Supports complex filter combinations and use cases
+  - **Maintainable**: Clean architecture for easy future enhancements
+
+- **🔗 Dependencies**: F3.1 (Text Search), F3.2 (Custom Fields), F3.3 (Taxonomy Filtering), F2.1 (Pagination)
 - **⏱️ Complexity**: High
 - **📊 Estimated Time**: 6-8 hours
 

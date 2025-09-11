@@ -9,6 +9,8 @@
     display: grid;
     gap: 20px;
     /* Grid columns controlled by Elementor - no default needed */
+    justify-content: center;
+    margin: 0 auto;
 }
 
 .smart-gallery-item {
@@ -23,7 +25,7 @@
 }
 
 .smart-gallery-item.hover-image-enabled:hover img {
-    transform: scale(1.05);
+    transform: scale(1.10);
 }
 
 /* Hover Effects - Content Hover (Reveal Effect) */
@@ -53,16 +55,30 @@
     color: inherit;
 }
 
-/* Responsive Grid - Gap adjustments only */
+/* Responsive Grid - Gap adjustments and centering */
 @media (max-width: 768px) {
     .smart-gallery-grid {
         gap: 15px;
+        justify-content: center;
+        justify-items: center;
+    }
+    
+    .smart-gallery-widget {
+        text-align: center;
     }
 }
 
 @media (max-width: 480px) {
     .smart-gallery-grid {
         gap: 10px;
+        justify-content: center;
+        justify-items: center;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    }
+    
+    .smart-gallery-widget {
+        text-align: center;
+        padding: 0 10px;
     }
 }
 
@@ -97,7 +113,7 @@
     min-width: 40px;
     height: 40px;
     text-align: center;
-    border: 1px solid #ddd;
+    border: 1px solid #e5e5e5;
     color: #666;
     background: #fff;
     cursor: pointer;
@@ -105,21 +121,21 @@
 }
 
 .smart-gallery-pagination .pagination-button:hover {
-    color: #333;
-    border-color: #999;
+    color: #666;
+    border-color: #bbb;
     background-color: #f5f5f5;
 }
 
 .smart-gallery-pagination .pagination-button.pagination-current {
-    background-color: #333;
-    border-color: #333;
+    background-color: #666;
+    border-color: #666;
     color: #fff;
     cursor: default;
 }
 
 .smart-gallery-pagination .pagination-button.pagination-current:hover {
-    background-color: #333;
-    border-color: #333;
+    background-color: #666;
+    border-color: #666;
     color: #fff;
 }
 
@@ -252,7 +268,7 @@
 .smart-gallery-search-input {
     width: 100%;
     padding: 12px 50px 12px 16px; /* Right padding for internal button */
-    border: 1px solid #ddd;
+    border: 1px solid #e5e5e5;
     border-radius: 4px;
     font-size: 14px;
     font-family: inherit;
@@ -262,12 +278,12 @@
 }
 
 .smart-gallery-search-input:focus {
-    border-color: #999;
-    box-shadow: 0 0 0 2px rgba(153, 153, 153, 0.1);
+    border-color: #bbb;
+    box-shadow: 0 0 0 2px rgba(187, 187, 187, 0.1);
 }
 
 .smart-gallery-search-input::placeholder {
-    color: #999;
+    color: #aaa;
     opacity: 1;
 }
 
@@ -395,7 +411,7 @@
     gap: 6px;
     padding: 12px 16px;
     background: #fff;
-    border: 1px solid #ddd;
+    border: 1px solid #e5e5e5;
     border-radius: 4px;
     text-decoration: none;
     cursor: pointer;
@@ -410,15 +426,15 @@
 
 .smart-gallery-clear-button:hover {
     background-color: #f5f5f5;
-    border-color: #999;
-    color: #333;
+    border-color: #bbb;
+    color: #666;
     text-decoration: none;
 }
 
 .smart-gallery-clear-button:active {
     background-color: #eee;
-    border-color: #666;
-    color: #000;
+    border-color: #aaa;
+    color: #666;
 }
 
 .smart-gallery-clear-button .clear-button-icon {

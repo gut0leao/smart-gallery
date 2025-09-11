@@ -292,6 +292,17 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
             ]
         );
 
+        $this->end_controls_section();
+
+        // Layout and Presentation Section
+        $this->start_controls_section(
+            'layout_section',
+            [
+                'label' => esc_html__('Layout and Presentation Settings', 'smart-gallery'),
+                'tab' => \Elementor\Controls_Manager::TAB_CONTENT,
+            ]
+        );
+
         // Posts per Page
         $this->add_control(
             'posts_per_page',
@@ -303,17 +314,6 @@ class Elementor_Smart_Gallery_Widget extends \Elementor\Widget_Base {
                 'max' => 100,
                 'step' => 1,
                 'description' => esc_html__('Number of posts to display per page', 'smart-gallery'),
-            ]
-        );
-
-        $this->end_controls_section();
-
-        // Layout Section
-        $this->start_controls_section(
-            'layout_section',
-            [
-                'label' => esc_html__('Layout Settings', 'smart-gallery'),
-                'tab' => \Elementor\Controls_Manager::TAB_CONTENT,
             ]
         );
 

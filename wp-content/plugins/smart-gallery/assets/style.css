@@ -19,6 +19,15 @@
     overflow: hidden;
 }
 
+.smart-gallery-item img {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+    image-rendering: optimizeQuality;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+}
+
 /* Hover Effects - Image Hover */
 .smart-gallery-item.hover-image-enabled img {
     transition: transform 0.3s ease;

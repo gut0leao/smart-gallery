@@ -406,7 +406,7 @@ class Smart_Gallery_Renderer {
         
         // Get featured image or fallback
         if ($featured_image_id) {
-            $featured_image = wp_get_attachment_image_src($featured_image_id, 'medium');
+            $featured_image = wp_get_attachment_image_src($featured_image_id, 'full');
             $image_url = $featured_image ? $featured_image[0] : '';
             $image_alt = get_post_meta($featured_image_id, '_wp_attachment_image_alt', true);
         } else {

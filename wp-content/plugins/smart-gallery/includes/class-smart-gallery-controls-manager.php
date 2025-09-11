@@ -210,37 +210,6 @@ class Smart_Gallery_Controls_Manager {
             ]
         );
 
-        $widget->end_controls_section();
-    }
-
-    /**
-     * Register Layout and Presentation controls
-     * 
-     * @param \Elementor\Widget_Base $widget
-     */
-    private function register_layout_controls($widget) {
-        $widget->start_controls_section(
-            'layout_section',
-            [
-                'label' => esc_html__('Layout and Presentation Settings', 'smart-gallery'),
-                'tab' => \Elementor\Controls_Manager::TAB_CONTENT,
-            ]
-        );
-
-        // Posts per Page
-        $widget->add_control(
-            'posts_per_page',
-            [
-                'label' => esc_html__('Posts per Page', 'smart-gallery'),
-                'type' => \Elementor\Controls_Manager::NUMBER,
-                'default' => 12,
-                'min' => 1,
-                'max' => 100,
-                'step' => 1,
-                'description' => esc_html__('Number of posts to display per page', 'smart-gallery'),
-            ]
-        );
-
         // Search Position
         $widget->add_control(
             'search_position',
@@ -259,7 +228,24 @@ class Smart_Gallery_Controls_Manager {
             ]
         );
 
-        // Pagination Section Divider
+        $widget->end_controls_section();
+    }
+
+    /**
+     * Register Layout and Presentation controls
+     * 
+     * @param \Elementor\Widget_Base $widget
+     */
+    private function register_layout_controls($widget) {
+        $widget->start_controls_section(
+            'layout_section',
+            [
+                'label' => esc_html__('Layout and Presentation Settings', 'smart-gallery'),
+                'tab' => \Elementor\Controls_Manager::TAB_CONTENT,
+            ]
+        );
+
+        // Pagination and Grid Section Divider
         $widget->add_control(
             'pagination_heading',
             [
@@ -283,20 +269,35 @@ class Smart_Gallery_Controls_Manager {
             ]
         );
 
-        // Show Page Numbers
+        // Posts per Page
         $widget->add_control(
-            'show_page_numbers',
+            'posts_per_page',
             [
-                'label' => esc_html__('Show Page Numbers', 'smart-gallery'),
-                'type' => \Elementor\Controls_Manager::SWITCHER,
-                'label_on' => esc_html__('Yes', 'smart-gallery'),
-                'label_off' => esc_html__('No', 'smart-gallery'),
-                'return_value' => 'yes',
-                'default' => 'yes',
+                'label' => esc_html__('Posts per Page', 'smart-gallery'),
+                'type' => \Elementor\Controls_Manager::NUMBER,
+                'default' => 12,
+                'min' => 1,
+                'max' => 100,
+                'step' => 1,
+                'description' => esc_html__('Number of posts to display per page', 'smart-gallery'),
+            ]
+        );
+
+        // Max Page Numbers to Show
+        $widget->add_control(
+            'max_page_numbers',
+            [
+                'label' => esc_html__('Max Page Numbers', 'smart-gallery'),
+                'type' => \Elementor\Controls_Manager::NUMBER,
+                'default' => 5,
+                'min' => 3,
+                'max' => 15,
+                'step' => 2,
                 'condition' => [
                     'enable_pagination' => 'yes',
+                    'show_page_numbers' => 'yes',
                 ],
-                'description' => esc_html__('Display numbered page buttons', 'smart-gallery'),
+                'description' => esc_html__('Maximum number of page buttons to display (odd numbers recommended)', 'smart-gallery'),
             ]
         );
 
@@ -317,21 +318,30 @@ class Smart_Gallery_Controls_Manager {
             ]
         );
 
-        // Max Page Numbers to Show
+        // Show Page Numbers
         $widget->add_control(
-            'max_page_numbers',
+            'show_page_numbers',
             [
-                'label' => esc_html__('Max Page Numbers', 'smart-gallery'),
-                'type' => \Elementor\Controls_Manager::NUMBER,
-                'default' => 5,
-                'min' => 3,
-                'max' => 15,
-                'step' => 2,
+                'label' => esc_html__('Show Page Numbers', 'smart-gallery'),
+                'type' => \Elementor\Controls_Manager::SWITCHER,
+                'label_on' => esc_html__('Yes', 'smart-gallery'),
+                'label_off' => esc_html__('No', 'smart-gallery'),
+                'return_value' => 'yes',
+                'default' => 'yes',
                 'condition' => [
                     'enable_pagination' => 'yes',
-                    'show_page_numbers' => 'yes',
                 ],
-                'description' => esc_html__('Maximum number of page buttons to display (odd numbers recommended)', 'smart-gallery'),
+                'description' => esc_html__('Display numbered page buttons', 'smart-gallery'),
+            ]
+        );
+
+        // Grid Settings Section Divider
+        $widget->add_control(
+            'grid_heading',
+            [
+                'label' => esc_html__('Grid Settings', 'smart-gallery'),
+                'type' => \Elementor\Controls_Manager::HEADING,
+                'separator' => 'before',
             ]
         );
 

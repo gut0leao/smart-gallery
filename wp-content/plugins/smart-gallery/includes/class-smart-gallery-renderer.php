@@ -88,10 +88,23 @@ class Smart_Gallery_Renderer {
         // Render main content area
         echo '<div class="smart-gallery-main-content">';
         
-        // Left bar (future: filters + search if position is left_bar)
-        if ($enable_search === 'yes' && $search_position === 'left_bar') {
+        // Left bar (filters + search if position is left_bar)
+        $show_filters = $settings['show_filters'] ?? '';
+        $show_left_bar = ($enable_search === 'yes' && $search_position === 'left_bar') || $show_filters === 'yes';
+        
+        if ($show_left_bar) {
             echo '<div class="smart-gallery-left-bar">';
-            $this->render_search_interface($settings, $search_term, 'left_bar');
+            
+            // Render search interface if enabled and positioned in left bar
+            if ($enable_search === 'yes' && $search_position === 'left_bar') {
+                $this->render_search_interface($settings, $search_term, 'left_bar');
+            }
+            
+            // Render filters if enabled
+            if ($show_filters === 'yes') {
+                $this->render_filters_interface($settings, $search_term);
+            }
+            
             echo '</div>';
         }
         
@@ -254,7 +267,7 @@ class Smart_Gallery_Renderer {
             
             // Show Pod analysis if one is selected
             if (!empty($selected_cpt)) {
-                $pod_posts = $this->pods_integration->get_pod_posts($selected_cpt, $posts_per_page, 1);
+                $pod_posts = $this->pods_integration->get_pod_posts($selected_cpt, $posts_per_page, 1, '', []);
                 $pod_fields = $this->pods_integration->get_pod_fields($selected_cpt);
                 $pod_taxonomies = $this->pods_integration->get_pod_taxonomies($selected_cpt);
                 
@@ -299,8 +312,11 @@ class Smart_Gallery_Renderer {
         echo '<div class="smart-gallery-grid" style="display: grid; grid-template-columns: repeat(' . esc_attr($columns) . ', 1fr); gap: ' . esc_attr($gap_size . $gap_unit) . ';">';
         
         if (!empty($selected_cpt) && $this->pods_integration->is_pods_available()) {
-            // Display real posts from selected Pod with pagination and search
-            $pod_posts = $this->pods_integration->get_pod_posts($selected_cpt, $posts_per_page, $current_page, $search_term);
+            // Get current filters from URL
+            $current_filters = $this->get_current_filters_from_url();
+            
+            // Display real posts from selected Pod with pagination, search, and custom field filtering
+            $pod_posts = $this->pods_integration->get_pod_posts($selected_cpt, $posts_per_page, $current_page, $search_term, $current_filters);
             
             if (!is_wp_error($pod_posts) && !empty($pod_posts['posts'])) {
                 foreach ($pod_posts['posts'] as $post) {
@@ -311,7 +327,7 @@ class Smart_Gallery_Renderer {
                 echo '</div>'; // Close grid
                 
                 if ($this->should_show_pagination($settings, $pod_posts)) {
-                    $this->render_pagination($settings, $pod_posts, $current_page, $search_term);
+                    $this->render_pagination($settings, $pod_posts, $current_page, $search_term, $current_filters);
                 }
                 
                 return; // Early return to avoid closing grid again
@@ -370,6 +386,268 @@ class Smart_Gallery_Renderer {
         echo '</div>'; // End search-group
         echo '</form>';
         echo '</div>';
+    }
+
+    /**
+     * Render filters interface in left bar
+     * 
+     * @param array $settings
+     * @param string $search_term
+     */
+    public function render_filters_interface($settings, $search_term = '') {
+        $selected_cpt = $settings['selected_cpt'] ?? '';
+        $available_fields = $settings['available_fields_for_filtering'] ?? [];
+        
+        // Debug info (can be removed later)
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('Smart Gallery Filters Debug - CPT: ' . $selected_cpt);
+            error_log('Smart Gallery Filters Debug - Available Fields: ' . print_r($available_fields, true));
+        }
+        
+        // Bail if no CPT selected or no fields configured
+        if (empty($selected_cpt) || empty($available_fields)) {
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('Smart Gallery Filters Debug - Bailing: CPT empty=' . empty($selected_cpt) . ', Fields empty=' . empty($available_fields));
+            }
+            return;
+        }
+
+        // Ensure available_fields is a proper array of field names
+        if (!is_array($available_fields)) {
+            $available_fields = [$available_fields];
+        }
+        
+        // Filter out empty values
+        $available_fields = array_filter($available_fields);
+        
+        // IMPORTANT: Filter fields to only include those that belong to the selected CPT
+        $cpt_fields = $this->pods_integration->get_pod_fields($selected_cpt);
+        $valid_fields = [];
+        
+        if (!empty($cpt_fields)) {
+            foreach ($available_fields as $field_name) {
+                // Only include fields that actually exist in the selected CPT
+                if (isset($cpt_fields[$field_name])) {
+                    $valid_fields[] = $field_name;
+                }
+            }
+        }
+        
+        if (empty($valid_fields)) {
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('Smart Gallery Filters Debug - No valid fields for CPT: ' . $selected_cpt);
+                error_log('Smart Gallery Filters Debug - CPT fields: ' . print_r(array_keys($cpt_fields), true));
+                error_log('Smart Gallery Filters Debug - Selected fields: ' . print_r($available_fields, true));
+            }
+            return;
+        }
+
+        // Get current filter values from URL
+        $current_filters = $this->get_current_filters_from_url();
+        
+        // Get field values with counts (using only valid fields)
+        $field_values = $this->pods_integration->get_multiple_field_values(
+            $selected_cpt, 
+            $valid_fields, 
+            $current_filters, 
+            $search_term
+        );
+
+        // Debug field values
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('Smart Gallery Filters Debug - Valid Fields: ' . print_r($valid_fields, true));
+            error_log('Smart Gallery Filters Debug - Field Values: ' . print_r($field_values, true));
+        }
+
+        // Only render if we have actual field values
+        if (empty($field_values)) {
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('Smart Gallery Filters Debug - No field values returned');
+            }
+            return;
+        }
+
+        echo '<div class="smart-gallery-filters">';
+        echo '<h4 class="smart-gallery-filters-title">' . esc_html__('Filters', 'smart-gallery') . '</h4>';
+
+        foreach ($valid_fields as $field_name) {
+            if (!isset($field_values[$field_name]) || empty($field_values[$field_name])) {
+                continue; // Skip fields with no values
+            }
+
+            $field_label = $this->get_field_label($selected_cpt, $field_name);
+            $values = $field_values[$field_name];
+            
+            echo '<div class="smart-gallery-filter-section">';
+            echo '<h5 class="smart-gallery-filter-title">' . esc_html($field_label) . '</h5>';
+            
+            // Render filter form for this field
+            echo '<form method="get" class="smart-gallery-filter-form">';
+            
+            // Preserve existing URL parameters
+            $this->preserve_url_parameters();
+            
+            echo '<div class="smart-gallery-filter-options">';
+            
+            foreach ($values as $value => $count) {
+                $is_selected = isset($current_filters[$field_name]) && in_array($value, $current_filters[$field_name]);
+                $checkbox_id = 'filter_' . sanitize_key($field_name) . '_' . sanitize_key($value);
+                
+                echo '<label class="smart-gallery-filter-option" for="' . esc_attr($checkbox_id) . '">';
+                echo '<input type="checkbox" ';
+                echo 'id="' . esc_attr($checkbox_id) . '" ';
+                echo 'name="filter[' . esc_attr($field_name) . '][]" ';
+                echo 'value="' . esc_attr($value) . '" ';
+                echo $is_selected ? 'checked' : '';
+                echo ' onchange="this.form.submit()"';
+                echo '>';
+                echo '<span class="filter-value">' . esc_html($value) . '</span>';
+                echo '<span class="filter-count">(' . intval($count) . ')</span>';
+                echo '</label>';
+            }
+            
+            echo '</div>';
+            echo '</form>';
+            
+            // Individual clear button for this field
+            if (isset($current_filters[$field_name])) {
+                echo '<button type="button" class="smart-gallery-filter-clear" onclick="' . esc_attr($this->get_clear_filter_js($field_name)) . '">';
+                echo '<span class="clear-icon">×</span> ';
+                echo esc_html__('Clear', 'smart-gallery');
+                echo '</button>';
+            }
+            
+            echo '</div>'; // End filter-section
+        }
+
+        // Global clear filters button
+        if (!empty($current_filters)) {
+            echo '<button type="button" class="smart-gallery-clear-all-filters" onclick="' . esc_attr($this->get_clear_all_filters_js()) . '">';
+            echo '<span class="clear-icon">🗑️</span> ';
+            echo esc_html__('Clear All Filters', 'smart-gallery');
+            echo '</button>';
+        }
+
+        echo '</div>'; // End smart-gallery-filters
+    }
+
+    /**
+     * Get current filters from URL parameters
+     * 
+     * @return array
+     */
+    private function get_current_filters_from_url() {
+        $filters = [];
+        
+        if (isset($_GET['filter']) && is_array($_GET['filter'])) {
+            foreach ($_GET['filter'] as $field_name => $values) {
+                $clean_field = sanitize_key($field_name);
+                $clean_values = array_map('sanitize_text_field', (array)$values);
+                $filters[$clean_field] = array_filter($clean_values);
+            }
+        }
+        
+        return $filters;
+    }
+
+    /**
+     * Get field label from Pods configuration
+     * 
+     * @param string $cpt_name
+     * @param string $field_name
+     * @return string
+     */
+    private function get_field_label($cpt_name, $field_name) {
+        $fields = $this->pods_integration->get_pod_fields($cpt_name);
+        
+        if (isset($fields[$field_name]['label'])) {
+            return $fields[$field_name]['label'];
+        }
+        
+        // Fallback: prettify field name
+        return ucfirst(str_replace('_', ' ', $field_name));
+    }
+
+    /**
+     * Preserve existing URL parameters in forms
+     */
+    private function preserve_url_parameters() {
+        // Preserve search term
+        if (!empty($_GET['search'])) {
+            echo '<input type="hidden" name="search" value="' . esc_attr($_GET['search']) . '">';
+        }
+        
+        // Preserve pagination
+        if (!empty($_GET['paged'])) {
+            echo '<input type="hidden" name="paged" value="1">'; // Reset to page 1 when filter changes
+        }
+        
+        // Preserve other filters (this gets overridden by individual filter forms)
+        if (!empty($_GET['filter']) && is_array($_GET['filter'])) {
+            foreach ($_GET['filter'] as $field => $values) {
+                if (is_array($values)) {
+                    foreach ($values as $value) {
+                        // These will be overridden by the specific filter form, but preserved for other fields
+                        echo '<input type="hidden" name="filter[' . esc_attr($field) . '][]" value="' . esc_attr($value) . '">';
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Generate JavaScript for clearing a specific filter
+     * 
+     * @param string $field_name
+     * @return string
+     */
+    private function get_clear_filter_js($field_name) {
+        $current_url = $_SERVER['REQUEST_URI'];
+        $parsed_url = parse_url($current_url);
+        $query_params = [];
+        
+        if (isset($parsed_url['query'])) {
+            parse_str($parsed_url['query'], $query_params);
+        }
+        
+        // Remove this specific filter
+        if (isset($query_params['filter'][$field_name])) {
+            unset($query_params['filter'][$field_name]);
+        }
+        
+        // Reset pagination
+        if (isset($query_params['paged'])) {
+            unset($query_params['paged']);
+        }
+        
+        $new_query = http_build_query($query_params);
+        $new_url = $parsed_url['path'] . (!empty($new_query) ? '?' . $new_query : '');
+        
+        return 'window.location.href=\'' . esc_js($new_url) . '\'';
+    }
+
+    /**
+     * Generate JavaScript for clearing all filters
+     * 
+     * @return string
+     */
+    private function get_clear_all_filters_js() {
+        $current_url = $_SERVER['REQUEST_URI'];
+        $parsed_url = parse_url($current_url);
+        $query_params = [];
+        
+        if (isset($parsed_url['query'])) {
+            parse_str($parsed_url['query'], $query_params);
+        }
+        
+        // Remove all filters and pagination
+        unset($query_params['filter']);
+        unset($query_params['paged']);
+        
+        $new_query = http_build_query($query_params);
+        $new_url = $parsed_url['path'] . (!empty($new_query) ? '?' . $new_query : '');
+        
+        return 'window.location.href=\'' . esc_js($new_url) . '\'';
     }
 
     /**
@@ -528,7 +806,7 @@ class Smart_Gallery_Renderer {
         echo '<strong>📋 Status:</strong> F3.1 - Text Search functionality implemented successfully!<br>';
         
         if (!empty($selected_cpt) && $this->pods_integration->is_pods_available()) {
-            $pod_posts = $this->pods_integration->get_pod_posts($selected_cpt, $posts_per_page, 1, '');
+            $pod_posts = $this->pods_integration->get_pod_posts($selected_cpt, $posts_per_page, 1, '', []);
             if (!is_wp_error($pod_posts) && !empty($pod_posts['posts'])) {
                 echo '<strong>✅ Showing:</strong> Real content from ' . esc_html($selected_cpt) . ' posts with search capability<br>';
             }
@@ -644,7 +922,7 @@ class Smart_Gallery_Renderer {
      * @param int $current_page
      * @param string $search_term
      */
-    private function render_pagination($settings, $pod_posts, $current_page, $search_term = '') {
+    private function render_pagination($settings, $pod_posts, $current_page, $search_term = '', $current_filters = []) {
         $total_pages = $pod_posts['pages'] ?? 0;
         $show_prev_next = $settings['show_prev_next'] ?? 'yes';
         $show_page_numbers = $settings['show_page_numbers'] ?? 'yes';
@@ -654,7 +932,7 @@ class Smart_Gallery_Renderer {
         
         // Previous Button
         if ($show_prev_next === 'yes' && $current_page > 1) {
-            $prev_url = $this->get_pagination_url($current_page - 1, $search_term);
+            $prev_url = $this->get_pagination_url($current_page - 1, $search_term, $current_filters);
             echo '<a href="' . esc_url($prev_url) . '" class="pagination-button pagination-prev">';
             echo '<span style="margin-right: 5px;">←</span>' . esc_html__('Previous', 'smart-gallery');
             echo '</a>';
@@ -662,12 +940,12 @@ class Smart_Gallery_Renderer {
         
         // Page Numbers
         if ($show_page_numbers === 'yes') {
-            $this->render_page_numbers($current_page, $total_pages, $max_page_numbers, $search_term);
+            $this->render_page_numbers($current_page, $total_pages, $max_page_numbers, $search_term, $current_filters);
         }
         
         // Next Button
         if ($show_prev_next === 'yes' && $current_page < $total_pages) {
-            $next_url = $this->get_pagination_url($current_page + 1, $search_term);
+            $next_url = $this->get_pagination_url($current_page + 1, $search_term, $current_filters);
             echo '<a href="' . esc_url($next_url) . '" class="pagination-button pagination-next">';
             echo esc_html__('Next', 'smart-gallery') . '<span style="margin-left: 5px;">→</span>';
             echo '</a>';
@@ -684,7 +962,7 @@ class Smart_Gallery_Renderer {
      * @param int $max_page_numbers
      * @param string $search_term
      */
-    private function render_page_numbers($current_page, $total_pages, $max_page_numbers, $search_term = '') {
+    private function render_page_numbers($current_page, $total_pages, $max_page_numbers, $search_term = '', $current_filters = []) {
         // Calculate range of page numbers to show
         $half_range = floor($max_page_numbers / 2);
         $start_page = max(1, $current_page - $half_range);
@@ -736,7 +1014,7 @@ class Smart_Gallery_Renderer {
             echo esc_html($page_number);
             echo '</span>';
         } else {
-            $page_url = $this->get_pagination_url($page_number, $search_term);
+            $page_url = $this->get_pagination_url($page_number, $search_term, $current_filters);
             echo '<a href="' . esc_url($page_url) . '" class="pagination-button pagination-page">';
             echo esc_html($page_number);
             echo '</a>';
@@ -750,7 +1028,7 @@ class Smart_Gallery_Renderer {
      * @param string $search_term
      * @return string
      */
-    private function get_pagination_url($page_number, $search_term = '') {
+    private function get_pagination_url($page_number, $search_term = '', $current_filters = []) {
         global $wp_rewrite;
         
         // Get current URL
@@ -769,9 +1047,16 @@ class Smart_Gallery_Renderer {
         
         // Add search term if provided
         if (!empty($search_term)) {
-            $query_params['search_term'] = $search_term;
+            $query_params['search'] = $search_term;
         } else {
-            unset($query_params['search_term']);
+            unset($query_params['search']);
+        }
+
+        // Add current filters
+        if (!empty($current_filters)) {
+            $query_params['filter'] = $current_filters;
+        } else {
+            unset($query_params['filter']);
         }
         
         if ($wp_rewrite->using_permalinks()) {

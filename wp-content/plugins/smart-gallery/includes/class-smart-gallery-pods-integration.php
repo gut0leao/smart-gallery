@@ -86,7 +86,7 @@ class Smart_Gallery_Pods_Integration {
      * @param string $search_term
      * @return array|WP_Error
      */
-    public function get_pod_posts($cpt_name, $posts_per_page = 12, $paged = 1, $search_term = '') {
+    public function get_pod_posts($cpt_name, $posts_per_page = 12, $paged = 1, $search_term = '', $custom_field_filters = []) {
         if (empty($cpt_name) || !$this->is_pods_available()) {
             return new WP_Error('no_pod', 'No valid pod specified');
         }
@@ -114,6 +114,11 @@ class Smart_Gallery_Pods_Integration {
                 $query_args['s'] = $search_term;
             }
 
+            // Apply custom field filters
+            if (!empty($custom_field_filters) && is_array($custom_field_filters)) {
+                $query_args = $this->apply_custom_field_filters($query_args, $custom_field_filters);
+            }
+
             $query = new WP_Query($query_args);
             
             if ($query->have_posts()) {
@@ -122,7 +127,8 @@ class Smart_Gallery_Pods_Integration {
                     'total' => $query->found_posts,
                     'pages' => $query->max_num_pages,
                     'current_page' => $paged,
-                    'search_term' => $search_term
+                    'search_term' => $search_term,
+                    'filters' => $custom_field_filters
                 ];
                 
                 wp_reset_postdata();
@@ -260,7 +266,7 @@ class Smart_Gallery_Pods_Integration {
             
             if ($status['selected_cpt_valid']) {
                 // Get post count
-                $pod_posts = $this->get_pod_posts($selected_cpt, 1, 1, '');
+                $pod_posts = $this->get_pod_posts($selected_cpt, 1, 1, '', []);
                 if (!is_wp_error($pod_posts)) {
                     $status['posts_count'] = $pod_posts['total'];
                 }
@@ -337,5 +343,201 @@ class Smart_Gallery_Pods_Integration {
         }
         
         return trim($description);
+    }
+
+    /**
+     * Get unique values for a specific custom field from current result set
+     * 
+     * @param string $cpt_name
+     * @param string $field_name
+     * @param array $current_filters Additional filters to apply
+     * @param string $search_term Search term to filter by
+     * @return array Array of unique values with counts
+     */
+    public function get_field_values_with_counts($cpt_name, $field_name, $current_filters = [], $search_term = '') {
+        if (!$this->is_pods_available() || empty($cpt_name) || empty($field_name)) {
+            return [];
+        }
+
+        try {
+            // Build query arguments
+            $args = [
+                'post_type' => $cpt_name,
+                'posts_per_page' => -1, // Get all posts to count values
+                'post_status' => 'publish',
+                'meta_query' => [
+                    [
+                        'key' => $field_name,
+                        'value' => '',
+                        'compare' => '!='
+                    ]
+                ]
+            ];
+
+            // Apply search term if provided
+            if (!empty($search_term)) {
+                $args['s'] = sanitize_text_field($search_term);
+            }
+
+            // Apply current filters (excluding the field we're counting)
+            if (!empty($current_filters)) {
+                $meta_queries = [];
+                foreach ($current_filters as $filter_field => $filter_values) {
+                    // Skip the field we're currently getting values for
+                    if ($filter_field === $field_name) {
+                        continue;
+                    }
+                    
+                    if (!empty($filter_values) && is_array($filter_values)) {
+                        if (count($filter_values) === 1) {
+                            $meta_queries[] = [
+                                'key' => $filter_field,
+                                'value' => $filter_values[0],
+                                'compare' => '='
+                            ];
+                        } else {
+                            $meta_queries[] = [
+                                'key' => $filter_field,
+                                'value' => $filter_values,
+                                'compare' => 'IN'
+                            ];
+                        }
+                    }
+                }
+                
+                if (!empty($meta_queries)) {
+                    if (isset($args['meta_query'])) {
+                        $args['meta_query'] = array_merge($args['meta_query'], $meta_queries);
+                        $args['meta_query']['relation'] = 'AND';
+                    } else {
+                        $args['meta_query'] = $meta_queries;
+                    }
+                }
+            }
+
+            // Execute query
+            $query = new WP_Query($args);
+            $field_values = [];
+
+            if ($query->have_posts()) {
+                while ($query->have_posts()) {
+                    $query->the_post();
+                    $value = get_post_meta(get_the_ID(), $field_name, true);
+                    
+                    if (!empty($value)) {
+                        // Handle array values (like multi-select fields)
+                        if (is_array($value)) {
+                            foreach ($value as $single_value) {
+                                $clean_value = is_string($single_value) ? trim($single_value) : $single_value;
+                                if (!empty($clean_value)) {
+                                    $field_values[$clean_value] = ($field_values[$clean_value] ?? 0) + 1;
+                                }
+                            }
+                        } else {
+                            $clean_value = is_string($value) ? trim($value) : $value;
+                            if (!empty($clean_value)) {
+                                $field_values[$clean_value] = ($field_values[$clean_value] ?? 0) + 1;
+                            }
+                        }
+                    }
+                }
+                wp_reset_postdata();
+            }
+
+            // Sort by key (alphabetical) and return
+            ksort($field_values);
+            return $field_values;
+
+        } catch (Exception $e) {
+            error_log('Smart Gallery - Error getting field values: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Get all available field values for multiple fields
+     * 
+     * @param string $cpt_name
+     * @param array $field_names Array of field names to get values for
+     * @param array $current_filters Current filter state
+     * @param string $search_term Current search term
+     * @return array Multi-dimensional array of field values with counts
+     */
+    public function get_multiple_field_values($cpt_name, $field_names, $current_filters = [], $search_term = '') {
+        $all_field_values = [];
+        
+        if (!$this->is_pods_available() || empty($cpt_name) || empty($field_names)) {
+            return $all_field_values;
+        }
+
+        foreach ($field_names as $field_name) {
+            $field_values = $this->get_field_values_with_counts(
+                $cpt_name, 
+                $field_name, 
+                $current_filters, 
+                $search_term
+            );
+            
+            if (!empty($field_values)) {
+                $all_field_values[$field_name] = $field_values;
+            }
+        }
+
+        return $all_field_values;
+    }
+
+    /**
+     * Apply custom field filters to post query arguments
+     * 
+     * @param array $args WP_Query arguments
+     * @param array $filters Array of field filters [field_name => [values]]
+     * @return array Modified query arguments
+     */
+    public function apply_custom_field_filters($args, $filters) {
+        if (empty($filters)) {
+            return $args;
+        }
+
+        $meta_queries = [];
+        
+        foreach ($filters as $field_name => $values) {
+            if (empty($values) || !is_array($values)) {
+                continue;
+            }
+            
+            // Clean up values
+            $clean_values = array_filter(array_map('sanitize_text_field', $values));
+            
+            if (empty($clean_values)) {
+                continue;
+            }
+            
+            // Single value = exact match, multiple values = IN query
+            if (count($clean_values) === 1) {
+                $meta_queries[] = [
+                    'key' => sanitize_key($field_name),
+                    'value' => $clean_values[0],
+                    'compare' => '='
+                ];
+            } else {
+                $meta_queries[] = [
+                    'key' => sanitize_key($field_name),
+                    'value' => $clean_values,
+                    'compare' => 'IN'
+                ];
+            }
+        }
+
+        if (!empty($meta_queries)) {
+            if (isset($args['meta_query'])) {
+                $args['meta_query'] = array_merge($args['meta_query'], $meta_queries);
+                $args['meta_query']['relation'] = 'AND';
+            } else {
+                $args['meta_query'] = $meta_queries;
+                $args['meta_query']['relation'] = 'AND';
+            }
+        }
+
+        return $args;
     }
 }

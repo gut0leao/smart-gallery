@@ -176,7 +176,7 @@ class Smart_Gallery_Controls_Manager {
         $widget->start_controls_section(
             'search_section',
             [
-                'label' => esc_html__('Search Settings', 'smart-gallery'),
+                'label' => esc_html__('Search and Filter Settings', 'smart-gallery'),
                 'tab' => \Elementor\Controls_Manager::TAB_CONTENT,
             ]
         );
@@ -224,6 +224,46 @@ class Smart_Gallery_Controls_Manager {
                 'description' => esc_html__('Choose where to display the search input and clear button', 'smart-gallery'),
                 'condition' => [
                     'enable_search_input' => 'yes',
+                ],
+            ]
+        );
+
+        // Filter Settings Divider
+        $widget->add_control(
+            'filter_heading',
+            [
+                'label' => esc_html__('Filter Settings', 'smart-gallery'),
+                'type' => \Elementor\Controls_Manager::HEADING,
+                'separator' => 'before',
+            ]
+        );
+
+        // Show Filters
+        $widget->add_control(
+            'show_filters',
+            [
+                'label' => esc_html__('Show Filters', 'smart-gallery'),
+                'type' => \Elementor\Controls_Manager::SWITCHER,
+                'label_on' => esc_html__('Yes', 'smart-gallery'),
+                'label_off' => esc_html__('No', 'smart-gallery'),
+                'return_value' => 'yes',
+                'default' => '',
+                'description' => esc_html__('Enable custom field filtering in the left sidebar', 'smart-gallery'),
+            ]
+        );
+
+        // Available Fields for Filtering
+        $widget->add_control(
+            'available_fields_for_filtering',
+            [
+                'label' => esc_html__('Available Fields for Filtering', 'smart-gallery'),
+                'type' => \Elementor\Controls_Manager::SELECT2,
+                'multiple' => true,
+                'options' => $this->get_all_possible_custom_fields(),
+                'description' => esc_html__('Select which custom fields from the chosen CPT will be available for filtering. Only fields with values will appear in the filter interface.', 'smart-gallery'),
+                'condition' => [
+                    'show_filters' => 'yes',
+                    'selected_cpt!' => '', // Only show when a CPT is selected
                 ],
             ]
         );
@@ -466,5 +506,110 @@ class Smart_Gallery_Controls_Manager {
         );
 
         $widget->end_controls_section();
+    }
+
+    /**
+     * Get available custom fields for filtering from a specific CPT
+     * 
+     * @param string $cpt_name Specific CPT to get fields from
+     * @return array
+     */
+    private function get_available_custom_fields($cpt_name = '') {
+        $fields = [];
+        
+        // If no CPT specified, return empty (fields will be populated dynamically)
+        if (empty($cpt_name)) {
+            return $fields;
+        }
+        
+        // Verify CPT exists and has Pods configuration
+        if (!$this->pods_integration->is_pods_available()) {
+            return $fields;
+        }
+        
+        // Get fields only from the specified CPT
+        $cpt_fields = $this->pods_integration->get_pod_fields($cpt_name);
+        
+        if (!empty($cpt_fields)) {
+            foreach ($cpt_fields as $field_name => $field_config) {
+                // Only include fields that are suitable for filtering
+                if ($this->is_field_suitable_for_filtering($field_config)) {
+                    $fields[$field_name] = $field_config['label'] ?? ucfirst(str_replace('_', ' ', $field_name));
+                }
+            }
+        }
+        
+        return $fields;
+    }
+
+    /**
+     * Get all possible custom fields from all CPTs for the select control
+     * Note: Fields will be filtered by selected CPT during rendering
+     * 
+     * @return array
+     */
+    private function get_all_possible_custom_fields() {
+        $fields = [];
+        
+        if (!$this->pods_integration->is_pods_available()) {
+            return $fields;
+        }
+        
+        // Get all available CPTs
+        $cpts = $this->pods_integration->get_available_cpts();
+        
+        if (empty($cpts)) {
+            return $fields;
+        }
+        
+        // Get fields from all CPTs and organize them by CPT
+        foreach ($cpts as $cpt_key => $cpt_name) {
+            // Skip error entries
+            if (in_array($cpt_key, ['no_pods', 'api_error', 'no_cpts'])) {
+                continue;
+            }
+            
+            $cpt_fields = $this->pods_integration->get_pod_fields($cpt_key);
+            
+            if (!empty($cpt_fields)) {
+                foreach ($cpt_fields as $field_name => $field_config) {
+                    // Only include fields that are suitable for filtering
+                    if ($this->is_field_suitable_for_filtering($field_config)) {
+                        $field_label = $field_config['label'] ?? ucfirst(str_replace('_', ' ', $field_name));
+                        // Prefix with CPT name to make it clear which CPT the field belongs to
+                        $fields[$field_name] = "[{$cpt_name}] {$field_label}";
+                    }
+                }
+            }
+        }
+        
+        return $fields;
+    }
+
+    /**
+     * Check if a field is suitable for filtering
+     * 
+     * @param array $field_config
+     * @return bool
+     */
+    private function is_field_suitable_for_filtering($field_config) {
+        // Exclude certain field types that aren't suitable for filtering
+        $excluded_types = [
+            'file',
+            'wysiwyg', 
+            'paragraph',
+            'code',
+            'password'
+        ];
+        
+        $field_type = $field_config['type'] ?? '';
+        
+        // Exclude fields that are too complex for simple filtering
+        if (in_array($field_type, $excluded_types)) {
+            return false;
+        }
+        
+        // Include text, number, select, boolean, date fields
+        return true;
     }
 }

@@ -541,3 +541,201 @@
         display: none;
     }
 }
+
+/* =================================================================
+   F3.2 - Custom Fields Filtering Styles
+   ================================================================= */
+
+/* Filters Container */
+.smart-gallery-filters {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 15px;
+    border: 1px solid #e5e5e5;
+}
+
+.smart-gallery-filters-title {
+    margin: 0 0 15px 0;
+    padding: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+    border-bottom: 1px solid #e5e5e5;
+    padding-bottom: 8px;
+}
+
+/* Filter Sections */
+.smart-gallery-filter-section {
+    margin-bottom: 20px;
+}
+
+.smart-gallery-filter-section:last-of-type {
+    margin-bottom: 15px;
+}
+
+.smart-gallery-filter-title {
+    margin: 0 0 10px 0;
+    padding: 0;
+    font-size: 14px;
+    font-weight: 500;
+    color: #666;
+}
+
+/* Filter Options */
+.smart-gallery-filter-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.smart-gallery-filter-option {
+    display: flex;
+    align-items: center;
+    padding: 6px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.smart-gallery-filter-option:hover {
+    background: #f0f0f0;
+}
+
+.smart-gallery-filter-option input[type="checkbox"] {
+    margin: 0 8px 0 0;
+    min-width: 16px;
+    height: 16px;
+    accent-color: #333;
+}
+
+.smart-gallery-filter-option .filter-value {
+    color: #333;
+    margin-right: 5px;
+}
+
+.smart-gallery-filter-option .filter-count {
+    color: #999;
+    font-size: 12px;
+    font-weight: normal;
+    margin-left: auto;
+}
+
+/* Filter Clear Buttons */
+.smart-gallery-filter-clear {
+    background: transparent;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 12px;
+    color: #666;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-top: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.smart-gallery-filter-clear:hover {
+    background: #f5f5f5;
+    border-color: #999;
+    color: #333;
+}
+
+.smart-gallery-filter-clear .clear-icon {
+    font-size: 14px;
+    line-height: 1;
+}
+
+.smart-gallery-clear-all-filters {
+    background: #666;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 5px;
+    width: 100%;
+    justify-content: center;
+}
+
+.smart-gallery-clear-all-filters:hover {
+    background: #555;
+}
+
+.smart-gallery-clear-all-filters .clear-icon {
+    font-size: 16px;
+    line-height: 1;
+}
+
+/* Left Bar Layout */
+.smart-gallery-left-bar {
+    min-width: 280px;
+    max-width: 320px;
+    margin-right: 20px;
+}
+
+/* Responsive Filters */
+@media (max-width: 768px) {
+    .smart-gallery-left-bar {
+        min-width: 0;
+        max-width: none;
+        margin-right: 0;
+        margin-bottom: 20px;
+    }
+    
+    .smart-gallery-filters {
+        padding: 15px;
+    }
+    
+    .smart-gallery-filter-options {
+        gap: 6px;
+    }
+    
+    .smart-gallery-filter-option {
+        padding: 5px 6px;
+        font-size: 12px;
+    }
+    
+    .smart-gallery-clear-all-filters {
+        padding: 8px 12px;
+        font-size: 12px;
+    }
+}
+
+@media (max-width: 480px) {
+    .smart-gallery-filters {
+        padding: 12px;
+        margin-top: 10px;
+    }
+    
+    .smart-gallery-filters-title {
+        font-size: 15px;
+        margin-bottom: 12px;
+    }
+    
+    .smart-gallery-filter-title {
+        font-size: 13px;
+        margin-bottom: 8px;
+    }
+    
+    .smart-gallery-filter-option {
+        padding: 4px 6px;
+        font-size: 12px;
+    }
+    
+    .smart-gallery-filter-option input[type="checkbox"] {
+        min-width: 14px;
+        height: 14px;
+        margin-right: 6px;
+    }
+}

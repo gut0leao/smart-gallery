@@ -265,19 +265,21 @@ Unlike basic Elementor image galleries that only list media files, Smart Gallery
       - Default: Disabled
       - When disabled: filter controls are completely hidden from left bar
     - **Available Fields for Filtering** - multi-select control
-      - Lists all custom fields from selected CPT (from Pods integration)
-      - Admin can choose which fields will be available for filtering
-      - Only shows fields that exist in the Pods configuration
+      - **IMPORTANT**: Lists ONLY custom fields from the SELECTED CPT (dynamic based on CPT selection)
+      - Updates automatically when CPT selection changes in Elementor
+      - Only shows fields that exist in the selected CPT's Pods configuration
       - Fields appear in the order selected by admin
+      - Empty if no CPT is selected or CPT has no custom fields
 
   **🏗️ Filter Interface (Left Bar Only):**
   
   - **Filter Position**: Always in Left Bar (alongside search when both enabled)
   - **Dynamic Filter Loading**:
-    - Only show filters for fields that have actual values in current result set
-    - If admin selects a field but no instances have values, field doesn't appear
-    - Filters update dynamically based on search results and other active filters
-    - **Count Display**: Each filter value shows instance count, e.g., "Red (3)", "Blue (7)"
+    - **CPT-Specific**: Only show filters for fields that belong to the currently selected CPT
+    - **Value-Based**: Only show filters for fields that have actual values in current result set
+    - **Smart Display**: If admin selects a field but no instances have values, field doesn't appear
+    - **Dynamic Updates**: Filters update dynamically based on search results and other active filters
+    - **Count Display**: Each filter value shows instance count from selected CPT only, e.g., "Red (3)", "Blue (7)"
   
   - **Filter UI Structure**:
     - Each selected field becomes a filter section
@@ -361,20 +363,22 @@ Unlike basic Elementor image galleries that only list media files, Smart Gallery
   
   - **Filter Settings Section** (extends F3.2):
     - **Available Taxonomies for Filtering** - multi-select control  
-      - Lists all taxonomies associated with selected CPT (from Pods integration)
-      - Admin can choose which taxonomies will be available for filtering
-      - Only shows taxonomies that exist and are associated with the CPT
+      - **IMPORTANT**: Lists ONLY taxonomies associated with the SELECTED CPT (dynamic based on CPT selection)
+      - Updates automatically when CPT selection changes in Elementor
+      - Only shows taxonomies that exist and are associated with the selected CPT
       - Taxonomies appear in the order selected by admin
       - Works alongside "Available Fields for Filtering" from F3.2
+      - Empty if no CPT is selected or CPT has no associated taxonomies
 
   **🏗️ Taxonomy Filter Interface (Left Bar):**
   
   - **Filter Position**: Left Bar (below custom fields filters when both enabled)
   - **Dynamic Taxonomy Loading**:
-    - Only show taxonomy filters that have actual terms in current result set
-    - If admin selects a taxonomy but no instances have terms, taxonomy doesn't appear
-    - Taxonomy terms update dynamically based on search results and other active filters
-    - **Count Display**: Each term shows instance count, e.g., "Electronics (15)", "Clothing (8)"
+    - **CPT-Specific**: Only show taxonomy filters that belong to the currently selected CPT
+    - **Term-Based**: Only show taxonomy filters that have actual terms in current result set
+    - **Smart Display**: If admin selects a taxonomy but no instances have terms, taxonomy doesn't appear
+    - **Dynamic Updates**: Taxonomy terms update dynamically based on search results and other active filters
+    - **Count Display**: Each term shows instance count from selected CPT only, e.g., "Electronics (15)", "Clothing (8)"
   
   - **Hierarchical Taxonomy Support**:
     - **Tree Structure Display**: Parent-child relationships preserved visually

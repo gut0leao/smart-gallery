@@ -162,6 +162,55 @@ class Smart_Gallery_Controls_Manager {
         );
 
         $widget->end_controls_section();
+
+        // Search Settings Section
+        $this->register_search_controls($widget);
+    }
+
+    /**
+     * Register Search Settings controls
+     * 
+     * @param \Elementor\Widget_Base $widget
+     */
+    private function register_search_controls($widget) {
+        $widget->start_controls_section(
+            'search_section',
+            [
+                'label' => esc_html__('Search Settings', 'smart-gallery'),
+                'tab' => \Elementor\Controls_Manager::TAB_CONTENT,
+            ]
+        );
+
+        // Enable Search Input
+        $widget->add_control(
+            'enable_search_input',
+            [
+                'label' => esc_html__('Enable Search Input', 'smart-gallery'),
+                'type' => \Elementor\Controls_Manager::SWITCHER,
+                'label_on' => esc_html__('Yes', 'smart-gallery'),
+                'label_off' => esc_html__('No', 'smart-gallery'),
+                'return_value' => 'yes',
+                'default' => 'yes',
+                'description' => esc_html__('Show search input to filter gallery content', 'smart-gallery'),
+            ]
+        );
+
+        // Search Placeholder Text
+        $widget->add_control(
+            'search_placeholder_text',
+            [
+                'label' => esc_html__('Search Placeholder Text', 'smart-gallery'),
+                'type' => \Elementor\Controls_Manager::TEXT,
+                'default' => esc_html__('Search here...', 'smart-gallery'),
+                'placeholder' => esc_html__('Enter placeholder text', 'smart-gallery'),
+                'description' => esc_html__('Text shown inside search input when empty', 'smart-gallery'),
+                'condition' => [
+                    'enable_search_input' => 'yes',
+                ],
+            ]
+        );
+
+        $widget->end_controls_section();
     }
 
     /**
@@ -189,6 +238,24 @@ class Smart_Gallery_Controls_Manager {
                 'max' => 100,
                 'step' => 1,
                 'description' => esc_html__('Number of posts to display per page', 'smart-gallery'),
+            ]
+        );
+
+        // Search Position
+        $widget->add_control(
+            'search_position',
+            [
+                'label' => esc_html__('Search Position', 'smart-gallery'),
+                'type' => \Elementor\Controls_Manager::SELECT,
+                'default' => 'upper_bar',
+                'options' => [
+                    'upper_bar' => esc_html__('Upper Bar', 'smart-gallery'),
+                    'left_bar' => esc_html__('Left Bar', 'smart-gallery'),
+                ],
+                'description' => esc_html__('Choose where to display the search input and clear button', 'smart-gallery'),
+                'condition' => [
+                    'enable_search_input' => 'yes',
+                ],
             ]
         );
 

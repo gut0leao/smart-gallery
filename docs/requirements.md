@@ -6,7 +6,7 @@
 [![PHP](https://img.shields.io/badge/PHP-7.4+-blue.svg)](https://php.net)
 
 > **Version**: 1.0.0-development  
-> **Last Updated**: September 10, 2025  
+> **Last Updated**: September 11, 2025  
 > **Status**: 📋 Requirements Finalized
 
 ---
@@ -116,12 +116,21 @@ Unlike basic Elementor image galleries that only list media files, Smart Gallery
 <details>
 <summary><strong>F2.1 - Pagination System</strong> <code>Medium Complexity</code></summary>
 
-- **🎯 Description**: Navigate through multiple pages of results
+- **🎯 Description**: Navigate through multiple pages of results with automatic recalculation
 - **📋 Requirements**:
   - Standard pagination UI patterns  
     - Previous/Next buttons
     - Numbered page buttons
-  - Configurable posts per page  
+  - Configurable posts per page
+  - **Automatic pagination recalculation**:
+    - Reset to page 1 when search criteria changes
+    - Reset to page 1 when any filter is applied/removed (F3.x)
+    - Recalculate total pages based on filtered results
+    - Update pagination controls dynamically
+  - **State management**:
+    - Maintain current page during normal navigation
+    - Clear page state when content criteria changes
+    - Handle edge cases (current page > available pages)
 - **🔗 Dependencies**: F1.1 (Basic Gallery)
 - **⏱️ Complexity**: Medium
 - **📊 Estimated Time**: 3-4 hours
@@ -133,19 +142,115 @@ Unlike basic Elementor image galleries that only list media files, Smart Gallery
 <details>
 <summary><strong>F3.1 - Text Search</strong> <code>Medium Complexity</code></summary>
 
-- **🎯 Description**: Search functionality within CPT content
-- **📋 Requirements**:
-  - Search input with magnifying glass icon (like MercadoLibre style)
-  - Search in post title and content
-  - Case-insensitive, trimmed input
-  - Configurable placeholder text (default: "Search...")
-  - Configurable position (top of sidebar OR top of gallery)
-  - Clear search functionality
-- **🔗 Dependencies**: F2.1 (Pagination)
-- **⏱️ Complexity**: Medium
-- **📊 Estimated Time**: 4-5 hours
+- **🎯 Description**: Server-side text search functionality with manual submission and pagination integration
 
-</details>
+- **📋 Requirements**:
+
+  **🎛️ Elementor Controls:**
+  
+  - **Search Settings Section** (new):
+    - **Enable Search Input** - toggle to show/hide search functionality
+      - Default: Enabled
+      - When disabled: search input and buttons are hidden
+    - **Search Placeholder Text** - configurable input placeholder
+      - Default: "Search here..."
+      - Translatable string
+      - Appears inside search input when empty
+
+  - **Layout and Presentation Settings Section** (existing):
+    - **Search Position** - dropdown control for search input placement
+      - Options: "Upper Bar" | "Left Bar"  
+      - Default: "Upper Bar"
+      - Conditional: only shown when "Enable Search Input" is enabled
+      - **Search button and clear button automatically follow search input position**
+
+  **🏗️ Widget Layout Structure:**
+  
+  - **Upper Bar**: Horizontal area above gallery
+    - Full width of widget container
+    - Contains search controls when "Upper Bar" position selected
+    - Layout: [🔍 Search Input] [� Search Button] [�🗑️ Clear] (side by side)
+  
+  - **Main Content Area**: Split layout below upper bar
+    - **Gallery Grid**: Main content area (responsive columns)
+    - **Left Bar**: Optional sidebar (appears when elements are assigned)
+      - Contains search controls when "Left Bar" position selected
+      - Layout: [🔍 Search Input] [� Search Button] [�🗑️ Clear] (stacked or side by side based on width)
+      - Future: will contain filter controls (F3.2, F3.3)
+      - Responsive: collapses on mobile devices
+
+  **🔍 Search Interface:**
+  
+  - **Search Input Design**:
+    - Magnifying glass icon (left side, like MercadoLibre style)
+    - Configurable placeholder text from controls
+    - Responsive sizing based on container
+    - **No automatic submission** (manual trigger only)
+  
+  - **Search Button**:
+    - Primary action button with magnifying glass icon
+    - Text: "Search" (translatable)
+    - **Always positioned next to search input** (same container/row)
+    - Triggers form submission when clicked
+    - **Enter key on input also triggers search**
+    - Disabled state when input is empty (optional)
+  
+  - **Clear Button**:
+    - Secondary action button (cleaning/trash icon)
+    - **Always positioned next to search button** (same container/row)
+    - Only appears when search term is active (has content)
+    - Clears current search term and reloads results
+    - Future: will clear all filters (F3.2+)
+    - Tooltip: "Clear search" (translatable)
+    - **Position follows search input location** (Upper Bar or Left Bar)
+
+  **⚙️ Search Functionality:**
+  
+  - **Manual submission only** - no automatic/real-time search
+  - Search in post title and content using WordPress native search
+  - Case-insensitive, trimmed input processing
+  - Server-side processing with standard form submission
+  - Handle empty search (show all results)
+  - **Enter key submission** - form submits when user presses Enter in input
+  - **Button click submission** - form submits when user clicks search button
+
+  **🔄 Integration with Pagination (F2.1):**
+  
+  - **Auto-reset to page 1** when search is submitted
+  - Recalculate pagination based on search results
+  - Update "No results found" message for search context
+  - Maintain search term across pagination navigation
+  - **Search state persistence** in URL parameters
+
+  **📱 Responsive Behavior:**
+  
+  - **Desktop**: Full layout with upper bar, gallery, and left bar
+  - **Tablet**: Left bar content moves to upper bar or collapses
+  - **Mobile**: Single column layout, search always in upper bar
+  - **Search controls maintain grouping** across all breakpoints
+
+  **🎨 Visual Integration:**
+  
+  - Use Elementor's form input styling
+  - Primary button styling for search button
+  - Secondary button styling for clear button
+  - Consistent with widget theme and colors
+  - **No loading states during search** (standard page refresh)
+  - Clear visual indication of active search state
+  - **Search controls form visual group**
+
+  **🚀 Benefits of Manual Submission:**
+  
+  - **Simple architecture** - no AJAX complexity
+  - **Future-proof** - compatible with filter combinations
+  - **Reliable** - standard WordPress form handling
+  - **SEO friendly** - URL-based search state
+  - **Performance** - no unnecessary requests
+  - **Accessibility** - standard form behavior
+
+- **🔗 Dependencies**: F2.1 (Pagination)
+- **⏱️ Complexity**: Medium  
+- **📊 Estimated Time**: 3-4 hours (reduced from 4-5)</details>
 
 <details>
 <summary><strong>F3.2 - Custom Fields Filtering</strong> <code>High Complexity</code></summary>
@@ -181,12 +286,19 @@ Unlike basic Elementor image galleries that only list media files, Smart Gallery
 <details>
 <summary><strong>F3.4 - Filter Management</strong> <code>High Complexity</code></summary>
 
-- **🎯 Description**: Combined filter operations and controls
+- **🎯 Description**: Combined filter operations and controls with pagination integration
 - **📋 Requirements**:
   - Clear all filters button (trash icon)
   - Dynamic filter value updates based on search results
-  - Automatic pagination recalculation
-  - Filter state persistence during interactions
+  - **Automatic pagination recalculation** (integrates with F2.1):
+    - Reset to page 1 when any filter changes
+    - Reset to page 1 when filters are cleared
+    - Recalculate total pages based on combined filters
+  - Filter state persistence during pagination navigation
+  - **Cross-filter coordination**:
+    - Maintain search term when filters change
+    - Maintain filters when search term changes
+    - Clear all functionality affects both search and filters
 - **🔗 Dependencies**: F3.1, F3.2, F3.3 (All filter types)
 - **⏱️ Complexity**: High
 - **📊 Estimated Time**: 6-8 hours

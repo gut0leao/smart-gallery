@@ -60,12 +60,21 @@ class Smart_Gallery {
     }
 
     public function enqueue_scripts() {
-        // Main plugin styles (includes all features: F1.1-F1.4, F2.1 pagination)
+        // Main plugin styles (includes all features: F1.1-F1.4, F2.1 pagination, F3.1 search)
         wp_enqueue_style(
             'smart-gallery',
             plugin_dir_url(dirname(__FILE__)) . 'assets/style.css',
             [],
-            '1.0.0'
+            '1.3.0'
+        );
+
+        // F3.1 Search functionality JavaScript
+        wp_enqueue_script(
+            'smart-gallery-search',
+            plugin_dir_url(dirname(__FILE__)) . 'assets/script.js',
+            [],
+            '1.3.0',
+            true
         );
     }
 }

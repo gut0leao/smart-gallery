@@ -78,14 +78,15 @@ class Smart_Gallery_Pods_Integration {
     }
 
     /**
-     * Get posts from selected Pod/CPT
+     * Get posts from selected Pod/CPT with search support
      * 
      * @param string $cpt_name
      * @param int $posts_per_page
      * @param int $paged
+     * @param string $search_term
      * @return array|WP_Error
      */
-    public function get_pod_posts($cpt_name, $posts_per_page = 12, $paged = 1) {
+    public function get_pod_posts($cpt_name, $posts_per_page = 12, $paged = 1, $search_term = '') {
         if (empty($cpt_name) || !$this->is_pods_available()) {
             return new WP_Error('no_pod', 'No valid pod specified');
         }
@@ -107,6 +108,12 @@ class Smart_Gallery_Pods_Integration {
                 'order' => 'DESC'
             ];
 
+            // Add search functionality
+            if (!empty($search_term)) {
+                $search_term = sanitize_text_field($search_term);
+                $query_args['s'] = $search_term;
+            }
+
             $query = new WP_Query($query_args);
             
             if ($query->have_posts()) {
@@ -114,7 +121,8 @@ class Smart_Gallery_Pods_Integration {
                     'posts' => $query->posts,
                     'total' => $query->found_posts,
                     'pages' => $query->max_num_pages,
-                    'current_page' => $paged
+                    'current_page' => $paged,
+                    'search_term' => $search_term
                 ];
                 
                 wp_reset_postdata();
@@ -252,7 +260,7 @@ class Smart_Gallery_Pods_Integration {
             
             if ($status['selected_cpt_valid']) {
                 // Get post count
-                $pod_posts = $this->get_pod_posts($selected_cpt, 1, 1);
+                $pod_posts = $this->get_pod_posts($selected_cpt, 1, 1, '');
                 if (!is_wp_error($pod_posts)) {
                     $status['posts_count'] = $pod_posts['total'];
                 }

@@ -70,6 +70,8 @@ class Smart_Gallery_Renderer {
         $gap = $settings['gap'] ?? ['size' => 20, 'unit' => 'px'];
         $gap_size = is_array($gap) ? $gap['size'] : $gap;
         $gap_unit = is_array($gap) ? $gap['unit'] : 'px';
+        $enable_image_hover = $settings['enable_image_hover'] ?? 'yes';
+        $enable_content_hover = $settings['enable_content_hover'] ?? 'yes';
 
         echo '<div class="smart-gallery-config" style="padding: 20px; background: #f8f9fa; border-radius: 8px; margin-bottom: 20px; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif;">';
         echo '<h4 style="margin: 0 0 15px; color: #495057; font-size: 16px;">🔧 Gallery Configuration</h4>';
@@ -131,6 +133,23 @@ class Smart_Gallery_Renderer {
         echo '<div>';
         echo '<strong style="color: #6c757d;">Columns:</strong><br>';
         echo '<span style="color: #495057;">' . esc_html($columns) . ' columns</span>';
+        echo '</div>';
+        
+        // Hover Effects
+        echo '<div>';
+        echo '<strong style="color: #6c757d;">Hover Effects:</strong><br>';
+        $hover_status = [];
+        if ($enable_image_hover === 'yes') {
+            $hover_status[] = '🖼️ Image Zoom';
+        }
+        if ($enable_content_hover === 'yes') {
+            $hover_status[] = '📝 Content Reveal';
+        }
+        if (empty($hover_status)) {
+            echo '<span style="color: #6c757d;">❌ Static gallery</span>';
+        } else {
+            echo '<span style="color: #28a745;">' . implode(' + ', $hover_status) . '</span>';
+        }
         echo '</div>';
         
         echo '</div>';
@@ -236,6 +255,19 @@ class Smart_Gallery_Renderer {
         $show_title = $settings['show_title'] ?? 'yes';
         $show_description = $settings['show_description'] ?? 'yes';
         
+        // Get hover settings
+        $enable_image_hover = $settings['enable_image_hover'] ?? 'yes';
+        $enable_content_hover = $settings['enable_content_hover'] ?? 'yes';
+        
+        // Build CSS classes for hover effects
+        $item_classes = 'smart-gallery-item';
+        if ($enable_image_hover === 'yes') {
+            $item_classes .= ' hover-image-enabled';
+        }
+        if ($enable_content_hover === 'yes') {
+            $item_classes .= ' hover-content-enabled';
+        }
+        
         // Get description using Pods integration (only if enabled)
         $description = $show_description === 'yes' ? $this->pods_integration->get_post_description($post, $settings) : '';
         
@@ -249,7 +281,7 @@ class Smart_Gallery_Renderer {
             $image_alt = '';
         }
         
-        echo '<div class="smart-gallery-item" style="position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: #f8f9fa;">';
+        echo '<div class="' . esc_attr($item_classes) . '" style="position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: #f8f9fa;">';
         
         // Link wrapper
         echo '<a href="' . esc_url($post_permalink) . '" target="_blank" style="display: block; width: 100%; height: 100%; text-decoration: none; color: inherit;">';
@@ -260,7 +292,7 @@ class Smart_Gallery_Renderer {
             
             // Overlay with title and description (if enabled)
             if ($show_title === 'yes' || ($show_description === 'yes' && !empty($description))) {
-                echo '<div class="smart-gallery-overlay" style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(transparent, rgba(0,0,0,0.8)); padding: 15px; color: white;">';
+                echo '<div class="smart-gallery-overlay smart-gallery-content" style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(transparent, rgba(0,0,0,0.8)); padding: 15px; color: white;">';
                 
                 if ($show_title === 'yes') {
                     echo '<div style="font-size: 14px; font-weight: 500; line-height: 1.3; margin-bottom: 5px;">' . esc_html($post_title) . '</div>';

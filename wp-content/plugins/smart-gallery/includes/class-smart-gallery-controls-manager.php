@@ -234,6 +234,44 @@ class Smart_Gallery_Controls_Manager {
             ]
         );
 
+        // Hover Effects
+        $widget->add_control(
+            'hover_effects_heading',
+            [
+                'label' => esc_html__('Hover Effects', 'smart-gallery'),
+                'type' => \Elementor\Controls_Manager::HEADING,
+                'separator' => 'before',
+            ]
+        );
+
+        // Enable Image Hover
+        $widget->add_control(
+            'enable_image_hover',
+            [
+                'label' => esc_html__('Enable Image Hover', 'smart-gallery'),
+                'type' => \Elementor\Controls_Manager::SWITCHER,
+                'label_on' => esc_html__('Yes', 'smart-gallery'),
+                'label_off' => esc_html__('No', 'smart-gallery'),
+                'return_value' => 'yes',
+                'default' => 'yes',
+                'description' => esc_html__('Enable zoom effect on featured image hover', 'smart-gallery'),
+            ]
+        );
+
+        // Enable Content Hover
+        $widget->add_control(
+            'enable_content_hover',
+            [
+                'label' => esc_html__('Enable Content Hover', 'smart-gallery'),
+                'type' => \Elementor\Controls_Manager::SWITCHER,
+                'label_on' => esc_html__('Yes', 'smart-gallery'),
+                'label_off' => esc_html__('No', 'smart-gallery'),
+                'return_value' => 'yes',
+                'default' => 'yes',
+                'description' => esc_html__('Hide content by default, show on hover with slide up effect', 'smart-gallery'),
+            ]
+        );
+
         $widget->end_controls_section();
     }
 

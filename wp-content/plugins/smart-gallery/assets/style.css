@@ -17,6 +17,33 @@
     overflow: hidden;
 }
 
+/* Hover Effects - Image Hover */
+.smart-gallery-item.hover-image-enabled img {
+    transition: transform 0.3s ease;
+}
+
+.smart-gallery-item.hover-image-enabled:hover img {
+    transform: scale(1.05);
+}
+
+/* Hover Effects - Content Hover (Reveal Effect) */
+.smart-gallery-item.hover-content-enabled .smart-gallery-content {
+    transform: translateY(100%);
+    opacity: 0;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.smart-gallery-item.hover-content-enabled:hover .smart-gallery-content {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+/* Content always visible when content hover is disabled */
+.smart-gallery-item:not(.hover-content-enabled) .smart-gallery-content {
+    transform: translateY(0);
+    opacity: 1;
+}
+
 /* Link styling */
 .smart-gallery-item a {
     display: block;

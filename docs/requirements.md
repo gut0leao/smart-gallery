@@ -84,27 +84,36 @@ Unlike basic Elementor image galleries that only list media files, Smart Gallery
 
 </details>
 
-### **⚙️ LAYER 2: CONTENT & INTERACTION**
-
 <details>
-<summary><strong>F2.1 - Hover Effects</strong> <code>Medium Complexity</code></summary>
+<summary><strong>F1.4 - Hover Effects</strong> <code>Low Complexity</code></summary>
 
-- **🎯 Description**: Interactive hover states and visual effects
+- **🎯 Description**: Interactive hover states for gallery grid elements with reveal and zoom effects
 - **📋 Requirements**:
-  - Hover overlay animations
-  - Smooth CSS transitions and transforms
-  - Image zoom/scale effects on hover
-  - Overlay fade-in/fade-out transitions
-  - Configurable hover animation styles
-  - Performance-optimized CSS animations
+  - **Enable Image Hover control** - toggle to activate/deactivate image hover effect
+    - Standard zoom effect (scale 1.05x) on featured image when enabled
+    - Smooth CSS transition (0.3s ease)
+    - **Default: Enabled**
+  - **Enable Content Hover control** - toggle to activate/deactivate content reveal effect  
+    - Content area (title + description) **completely hidden by default** (translateY 100% + opacity 0)
+    - On hover: content **slides up from bottom** with simultaneous fade-in effect
+    - Dual CSS transitions: transform + opacity (0.3s ease each)
+    - **Default: Enabled**
+  - Both controls located in "Layout and Presentation Settings" section
+  - **Behavior Logic**:
+    - Content hover enabled: Content hidden initially, reveals on hover
+    - Content hover disabled: Content always visible (static display)
+    - Both disabled: Static gallery with always-visible content and no effects
+  - Performance-optimized CSS animations with conditional classes
 - **🔗 Dependencies**: F1.1 (Basic Gallery), F1.2 (Content Display)
-- **⏱️ Complexity**: Medium
-- **📊 Estimated Time**: 3-4 hours
+- **⏱️ Complexity**: Low
+- **📊 Estimated Time**: 2-3 hours
 
 </details>
 
+### **⚙️ LAYER 2: CONTENT & INTERACTION**
+
 <details>
-<summary><strong>F2.2 - Pagination System</strong> <code>Medium Complexity</code></summary>
+<summary><strong>F2.1 - Pagination System</strong> <code>Medium Complexity</code></summary>
 
 - **🎯 Description**: Navigate through multiple pages of results
 - **📋 Requirements**:
@@ -120,7 +129,7 @@ Unlike basic Elementor image galleries that only list media files, Smart Gallery
 </details>
 
 <details>
-<summary><strong>F2.3 - State Messages</strong> <code>Low Complexity</code></summary>
+<summary><strong>F2.2 - State Messages</strong> <code>Low Complexity</code></summary>
 
 - **🎯 Description**: User feedback for different states
 - **📋 Requirements**:
@@ -147,7 +156,7 @@ Unlike basic Elementor image galleries that only list media files, Smart Gallery
   - Configurable placeholder text (default: "Search...")
   - Configurable position (top of sidebar OR top of gallery)
   - Clear search functionality
-- **🔗 Dependencies**: F2.2 (Pagination), F2.3 (Messages)
+- **🔗 Dependencies**: F2.1 (Pagination), F2.2 (Messages)
 - **⏱️ Complexity**: Medium
 - **📊 Estimated Time**: 4-5 hours
 
@@ -239,7 +248,7 @@ Unlike basic Elementor image galleries that only list media files, Smart Gallery
   - Hover effect animations
   - Filter application feedback
   - Simple easing functions
-- **🔗 Dependencies**: F2.1 (Hover Effects), F4.1 (Loading States)
+- **🔗 Dependencies**: F1.4 (Hover Effects), F4.1 (Loading States)
 - **⏱️ Complexity**: Low
 - **📊 Estimated Time**: 3-4 hours
 
@@ -296,16 +305,16 @@ Unlike basic Elementor image galleries that only list media files, Smart Gallery
 
 ```
 F1.1 ← F1.2, F1.3
-F2.1 ← F1.1, F1.2
+F1.4 ← F1.1, F1.2
+F2.1 ← F1.1
 F2.2 ← F1.1
-F2.3 ← F1.1
-F3.1 ← F2.2, F2.3
+F3.1 ← F2.1, F2.2
 F3.2 ← F1.2, F3.1
 F3.3 ← F1.2, F3.2
 F3.4 ← F3.1, F3.2, F3.3
 F4.1 ← F3.x (All search/filter)
 F4.2 ← F1.3
-F4.3 ← F2.1, F4.1
+F4.3 ← F1.4, F4.1
 F5.1 ← Independent
 F5.2 ← All functional layers
 F5.3 ← Independent
@@ -317,26 +326,26 @@ F5.3 ← Independent
 
 | Layer | Low | Medium | High | Total |
 |-------|-----|--------|------|--------|
-| Layer 1 | 1 | 1 | 1 | 3 |
-| Layer 2 | 1 | 2 | 0 | 3 |
+| Layer 1 | 2 | 1 | 1 | 4 |
+| Layer 2 | 1 | 1 | 0 | 2 |
 | Layer 3 | 0 | 1 | 3 | 4 |
 | Layer 4 | 2 | 1 | 0 | 3 |
 | Layer 5 | 2 | 1 | 0 | 3 |
-| **TOTAL** | **6** | **6** | **4** | **16** |
+| **TOTAL** | **7** | **5** | **4** | **16** |
 
 ---
 
 ## 🚀 IMPLEMENTATION ROADMAP
 
-### **Phase 1: Foundation** (3 features)
+### **Phase 1: Foundation** (4 features)
 1. F1.3 - Basic Elementor Controls
 2. F1.2 - Pods Framework Integration  
 3. F1.1 - Basic Gallery Display
+4. F1.4 - Hover Effects
 
-### **Phase 2: Core Features** (3 features)
-4. F2.3 - State Messages
-5. F2.1 - Hover Effects
-6. F2.2 - Pagination System
+### **Phase 2: Core Features** (2 features)
+5. F2.2 - State Messages
+6. F2.1 - Pagination System
 
 ### **Phase 3: Search & Basic Filtering** (2 features)
 7. F3.1 - Text Search

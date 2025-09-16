@@ -268,6 +268,22 @@ class Smart_Gallery_Controls_Manager {
             ]
         );
 
+        // Available Taxonomies for Filtering
+        $widget->add_control(
+            'available_taxonomies_for_filtering',
+            [
+                'label' => esc_html__('Available Taxonomies for Filtering', 'smart-gallery'),
+                'type' => \Elementor\Controls_Manager::SELECT2,
+                'multiple' => true,
+                'options' => $this->get_all_possible_taxonomies(),
+                'description' => esc_html__('Select which taxonomies associated with the chosen CPT will be available for filtering. Supports hierarchical taxonomies with parent/child relationships.', 'smart-gallery'),
+                'condition' => [
+                    'show_filters' => 'yes',
+                    'selected_cpt!' => '', // Only show when a CPT is selected
+                ],
+            ]
+        );
+
         $widget->end_controls_section();
     }
 
@@ -611,6 +627,70 @@ class Smart_Gallery_Controls_Manager {
         }
         
         return $fields;
+    }
+
+    /**
+     * Get all possible taxonomies from all available CPTs
+     * Note: Taxonomies will be filtered by selected CPT during rendering
+     * 
+     * @return array
+     */
+    private function get_all_possible_taxonomies() {
+        $taxonomies = [];
+        
+        // Debug log
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('Smart Gallery Debug - get_all_possible_taxonomies called');
+        }
+        
+        if (!$this->pods_integration->is_pods_available()) {
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('Smart Gallery Debug - Pods not available');
+            }
+            return $taxonomies;
+        }
+        
+        // Get all available CPTs
+        $cpts = $this->pods_integration->get_available_cpts();
+        
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('Smart Gallery Debug - Available CPTs: ' . print_r($cpts, true));
+        }
+        
+        if (empty($cpts)) {
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('Smart Gallery Debug - No CPTs found');
+            }
+            return $taxonomies;
+        }
+        
+        // Get taxonomies from all CPTs and organize them by CPT
+        foreach ($cpts as $cpt_key => $cpt_name) {
+            // Skip error entries
+            if (in_array($cpt_key, ['no_pods', 'api_error', 'no_cpts'])) {
+                continue;
+            }
+            
+            $cpt_taxonomies = $this->pods_integration->get_pod_taxonomies($cpt_key);
+            
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('Smart Gallery Debug - CPT: ' . $cpt_key . ', Taxonomies: ' . print_r($cpt_taxonomies, true));
+            }
+            
+            if (!empty($cpt_taxonomies)) {
+                foreach ($cpt_taxonomies as $taxonomy_name => $taxonomy_config) {
+                    $taxonomy_label = $taxonomy_config['label'] ?? ucfirst(str_replace('_', ' ', $taxonomy_name));
+                    // Prefix with CPT name to make it clear which CPT the taxonomy belongs to
+                    $taxonomies[$taxonomy_name] = "[{$cpt_name}] {$taxonomy_label}";
+                }
+            }
+        }
+        
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('Smart Gallery Debug - Final taxonomies: ' . print_r($taxonomies, true));
+        }
+        
+        return $taxonomies;
     }
 
     /**

@@ -86,7 +86,7 @@ class Smart_Gallery_Pods_Integration {
      * @param string $search_term
      * @return array|WP_Error
      */
-    public function get_pod_posts($cpt_name, $posts_per_page = 12, $paged = 1, $search_term = '', $custom_field_filters = []) {
+    public function get_pod_posts($cpt_name, $posts_per_page = 12, $paged = 1, $search_term = '', $custom_field_filters = [], $taxonomy_filters = []) {
         if (empty($cpt_name) || !$this->is_pods_available()) {
             return new WP_Error('no_pod', 'No valid pod specified');
         }
@@ -119,6 +119,11 @@ class Smart_Gallery_Pods_Integration {
                 $query_args = $this->apply_custom_field_filters($query_args, $custom_field_filters);
             }
 
+            // Apply taxonomy filters
+            if (!empty($taxonomy_filters) && is_array($taxonomy_filters)) {
+                $query_args = $this->apply_taxonomy_filters($query_args, $taxonomy_filters);
+            }
+
             $query = new WP_Query($query_args);
             
             if ($query->have_posts()) {
@@ -128,7 +133,8 @@ class Smart_Gallery_Pods_Integration {
                     'pages' => $query->max_num_pages,
                     'current_page' => $paged,
                     'search_term' => $search_term,
-                    'filters' => $custom_field_filters
+                    'filters' => $custom_field_filters,
+                    'taxonomy_filters' => $taxonomy_filters
                 ];
                 
                 wp_reset_postdata();
@@ -142,7 +148,8 @@ class Smart_Gallery_Pods_Integration {
                     'pages' => 0,
                     'current_page' => $paged,
                     'search_term' => $search_term,
-                    'filters' => $custom_field_filters
+                    'filters' => $custom_field_filters,
+                    'taxonomy_filters' => $taxonomy_filters
                 ];
             }
         } catch (Exception $e) {
@@ -547,5 +554,208 @@ class Smart_Gallery_Pods_Integration {
         }
 
         return $args;
+    }
+
+    /**
+     * Apply taxonomy filters to WP_Query args (F3.3)
+     * 
+     * @param array $args
+     * @param array $taxonomy_filters
+     * @return array
+     */
+    private function apply_taxonomy_filters($args, $taxonomy_filters) {
+        if (empty($taxonomy_filters)) {
+            return $args;
+        }
+
+        $tax_queries = [];
+
+        foreach ($taxonomy_filters as $taxonomy => $term_ids) {
+            if (!empty($term_ids) && is_array($term_ids)) {
+                // Sanitize term IDs
+                $clean_term_ids = array_map('intval', $term_ids);
+                $clean_term_ids = array_filter($clean_term_ids, function($id) { return $id > 0; });
+
+                if (!empty($clean_term_ids)) {
+                    $tax_queries[] = [
+                        'taxonomy' => sanitize_key($taxonomy),
+                        'field' => 'term_id',
+                        'terms' => $clean_term_ids,
+                        'operator' => 'IN' // OR logic within same taxonomy
+                    ];
+                }
+            }
+        }
+
+        if (!empty($tax_queries)) {
+            if (isset($args['tax_query'])) {
+                $args['tax_query'] = array_merge($args['tax_query'], $tax_queries);
+                $args['tax_query']['relation'] = 'AND'; // AND logic between different taxonomies
+            } else {
+                $args['tax_query'] = $tax_queries;
+                $args['tax_query']['relation'] = 'AND';
+            }
+        }
+
+        return $args;
+    }
+
+    /**
+     * Get taxonomy terms with counts for multiple taxonomies (F3.3)
+     * 
+     * @param string $cpt_name
+     * @param array $taxonomies
+     * @param array $custom_field_filters
+     * @param array $current_taxonomy_filters
+     * @param string $search_term
+     * @return array
+     */
+    public function get_multiple_taxonomy_terms($cpt_name, $taxonomies, $custom_field_filters = [], $current_taxonomy_filters = [], $search_term = '') {
+        if (empty($cpt_name) || empty($taxonomies) || !$this->is_pods_available()) {
+            return [];
+        }
+
+        $results = [];
+
+        foreach ($taxonomies as $taxonomy) {
+            $terms = $this->get_taxonomy_terms_with_counts($cpt_name, $taxonomy, $custom_field_filters, $current_taxonomy_filters, $search_term);
+            if (!empty($terms)) {
+                $results[$taxonomy] = $terms;
+            }
+        }
+
+        return $results;
+    }
+
+    /**
+     * Get taxonomy terms with hierarchical structure and counts (F3.3)
+     * 
+     * @param string $cpt_name
+     * @param string $taxonomy_name
+     * @param array $custom_field_filters
+     * @param array $current_taxonomy_filters
+     * @param string $search_term
+     * @return array
+     */
+    public function get_taxonomy_terms_with_counts($cpt_name, $taxonomy_name, $custom_field_filters = [], $current_taxonomy_filters = [], $search_term = '') {
+        if (empty($cpt_name) || empty($taxonomy_name)) {
+            return [];
+        }
+
+        try {
+            // Build query args to determine which posts are available with current filters
+            $query_args = [
+                'post_type' => $cpt_name,
+                'post_status' => 'publish',
+                'posts_per_page' => -1,
+                'fields' => 'ids',
+                'meta_query' => []
+            ];
+
+            // Apply search
+            if (!empty($search_term)) {
+                $query_args['s'] = sanitize_text_field($search_term);
+            }
+
+            // Apply custom field filters
+            if (!empty($custom_field_filters)) {
+                $query_args = $this->apply_custom_field_filters($query_args, $custom_field_filters);
+            }
+
+            // Apply taxonomy filters from OTHER taxonomies (not the current one we're building)
+            $other_taxonomy_filters = $current_taxonomy_filters;
+            unset($other_taxonomy_filters[$taxonomy_name]); // Remove current taxonomy from filters
+
+            if (!empty($other_taxonomy_filters)) {
+                $query_args = $this->apply_taxonomy_filters($query_args, $other_taxonomy_filters);
+            }
+
+            // Get post IDs that match all current filters
+            $query = new WP_Query($query_args);
+            $post_ids = $query->posts;
+            wp_reset_postdata();
+
+            if (empty($post_ids)) {
+                return [];
+            }
+
+            // Get all terms for this taxonomy
+            $terms = get_terms([
+                'taxonomy' => $taxonomy_name,
+                'hide_empty' => false,
+                'object_ids' => $post_ids // Only get terms that are used by our filtered posts
+            ]);
+
+            if (is_wp_error($terms) || empty($terms)) {
+                return [];
+            }
+
+            // Build hierarchical structure with counts
+            $term_tree = $this->build_hierarchical_terms($terms, $post_ids);
+
+            return $term_tree;
+
+        } catch (Exception $e) {
+            error_log('Smart Gallery - Taxonomy terms error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Build hierarchical term structure with counts
+     * 
+     * @param array $terms
+     * @param array $post_ids
+     * @param int $parent_id
+     * @return array
+     */
+    private function build_hierarchical_terms($terms, $post_ids, $parent_id = 0) {
+        $result = [];
+
+        foreach ($terms as $term) {
+            if ($term->parent == $parent_id) {
+                // Get count for this term
+                $term_count = $this->get_term_post_count($term, $post_ids);
+                
+                if ($term_count > 0) { // Only include terms that have posts
+                    $term_data = [
+                        'term_id' => $term->term_id,
+                        'name' => $term->name,
+                        'slug' => $term->slug,
+                        'count' => $term_count,
+                        'children' => []
+                    ];
+
+                    // Get children recursively
+                    $children = $this->build_hierarchical_terms($terms, $post_ids, $term->term_id);
+                    if (!empty($children)) {
+                        $term_data['children'] = $children;
+                    }
+
+                    $result[] = $term_data;
+                }
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Get count of posts for a specific term
+     * 
+     * @param object $term
+     * @param array $post_ids
+     * @return int
+     */
+    private function get_term_post_count($term, $post_ids) {
+        $term_posts = get_objects_in_term($term->term_id, $term->taxonomy);
+        
+        if (is_wp_error($term_posts)) {
+            return 0;
+        }
+
+        // Count intersection of term posts and our filtered posts
+        $intersection = array_intersect($term_posts, $post_ids);
+        return count($intersection);
     }
 }

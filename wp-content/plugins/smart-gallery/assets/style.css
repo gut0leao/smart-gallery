@@ -739,3 +739,184 @@
         margin-right: 6px;
     }
 }
+
+/* =============================================================================
+   TAXONOMY FILTERS (F3.3)
+   ========================================================================== */
+
+/* Taxonomy Filter Section */
+.smart-gallery-taxonomy-filter-section {
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #e8e8e8;
+}
+
+.smart-gallery-taxonomy-filter-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.smart-gallery-taxonomy-filter-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Taxonomy Filter Options */
+.smart-gallery-taxonomy-filter-option {
+    display: flex;
+    align-items: center;
+    padding: 6px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    line-height: 1.4;
+    font-size: 14px;
+}
+
+.smart-gallery-taxonomy-filter-option:hover {
+    background-color: #f8f9fa;
+}
+
+.smart-gallery-taxonomy-filter-option input[type="checkbox"] {
+    margin: 0 8px 0 0;
+    min-width: 16px;
+    height: 16px;
+    accent-color: #0073aa;
+    cursor: pointer;
+}
+
+.taxonomy-term-name {
+    flex: 1;
+    color: #333;
+}
+
+.taxonomy-term-count {
+    color: #666;
+    font-size: 13px;
+    font-weight: normal;
+    margin-left: 6px;
+}
+
+/* Hierarchical Indentation */
+.smart-gallery-term-level-1 {
+    padding-left: 20px;
+    position: relative;
+}
+
+.smart-gallery-term-level-1::before {
+    content: '└';
+    position: absolute;
+    left: 6px;
+    color: #ccc;
+    font-family: monospace;
+}
+
+.smart-gallery-term-level-2 {
+    padding-left: 40px;
+    position: relative;
+}
+
+.smart-gallery-term-level-2::before {
+    content: '└└';
+    position: absolute;
+    left: 6px;
+    color: #ccc;
+    font-family: monospace;
+}
+
+.smart-gallery-term-level-3 {
+    padding-left: 60px;
+    position: relative;
+}
+
+.smart-gallery-term-level-3::before {
+    content: '└└└';
+    position: absolute;
+    left: 6px;
+    color: #ccc;
+    font-family: monospace;
+}
+
+/* Deeper levels (if needed) */
+.smart-gallery-term-level-4 {
+    padding-left: 80px;
+}
+
+.smart-gallery-term-level-5 {
+    padding-left: 100px;
+}
+
+/* Selected State */
+.smart-gallery-taxonomy-filter-option input[type="checkbox"]:checked + .taxonomy-term-name {
+    font-weight: 600;
+    color: #0073aa;
+}
+
+.smart-gallery-taxonomy-filter-option:has(input[type="checkbox"]:checked) {
+    background-color: #f0f6fc;
+    border: 1px solid #c3dbf0;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .smart-gallery-taxonomy-filter-section {
+        margin-bottom: 15px;
+        padding-bottom: 15px;
+    }
+    
+    .smart-gallery-taxonomy-filter-options {
+        gap: 6px;
+    }
+    
+    .smart-gallery-taxonomy-filter-option {
+        padding: 5px 6px;
+        font-size: 13px;
+    }
+    
+    .taxonomy-term-count {
+        font-size: 12px;
+    }
+    
+    .smart-gallery-term-level-1 {
+        padding-left: 16px;
+    }
+    
+    .smart-gallery-term-level-2 {
+        padding-left: 32px;
+    }
+    
+    .smart-gallery-term-level-3 {
+        padding-left: 48px;
+    }
+}
+
+@media (max-width: 480px) {
+    .smart-gallery-taxonomy-filter-option {
+        padding: 4px 5px;
+        font-size: 12px;
+    }
+    
+    .smart-gallery-taxonomy-filter-option input[type="checkbox"] {
+        min-width: 14px;
+        height: 14px;
+        margin-right: 6px;
+    }
+    
+    .taxonomy-term-count {
+        font-size: 11px;
+    }
+    
+    .smart-gallery-term-level-1 {
+        padding-left: 14px;
+    }
+    
+    .smart-gallery-term-level-2 {
+        padding-left: 28px;
+    }
+    
+    .smart-gallery-term-level-3 {
+        padding-left: 42px;
+    }
+}

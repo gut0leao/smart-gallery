@@ -470,6 +470,12 @@ class Smart_Gallery_Renderer {
         echo '<div class="smart-gallery-filters">';
         echo '<h4 class="smart-gallery-filters-title">' . esc_html__('Filters', 'smart-gallery') . '</h4>';
 
+        // Single form for all filters
+        echo '<form method="get" class="smart-gallery-filters-form" id="smart-gallery-filters-form">';
+        
+        // Preserve existing URL parameters
+        $this->preserve_url_parameters_unified();
+
         foreach ($valid_fields as $field_name) {
             if (!isset($field_values[$field_name]) || empty($field_values[$field_name])) {
                 continue; // Skip fields with no values
@@ -480,12 +486,6 @@ class Smart_Gallery_Renderer {
             
             echo '<div class="smart-gallery-filter-section">';
             echo '<h5 class="smart-gallery-filter-title">' . esc_html($field_label) . '</h5>';
-            
-            // Render filter form for this field
-            echo '<form method="get" class="smart-gallery-filter-form">';
-            
-            // Preserve existing URL parameters
-            $this->preserve_url_parameters();
             
             echo '<div class="smart-gallery-filter-options">';
             
@@ -499,7 +499,7 @@ class Smart_Gallery_Renderer {
                 echo 'name="filter[' . esc_attr($field_name) . '][]" ';
                 echo 'value="' . esc_attr($value) . '" ';
                 echo $is_selected ? 'checked' : '';
-                echo ' onchange="this.form.submit()"';
+                echo ' onchange="smartGallerySubmitFilters()"';
                 echo '>';
                 echo '<span class="filter-value">' . esc_html($value) . '</span>';
                 echo '<span class="filter-count">(' . intval($count) . ')</span>';
@@ -507,7 +507,6 @@ class Smart_Gallery_Renderer {
             }
             
             echo '</div>';
-            echo '</form>';
             
             // Individual clear button for this field
             if (isset($current_filters[$field_name])) {
@@ -520,6 +519,8 @@ class Smart_Gallery_Renderer {
             echo '</div>'; // End filter-section
         }
 
+        echo '</form>'; // End unified form
+
         // Global clear filters button
         if (!empty($current_filters)) {
             echo '<button type="button" class="smart-gallery-clear-all-filters" onclick="' . esc_attr($this->get_clear_all_filters_js()) . '">';
@@ -529,6 +530,9 @@ class Smart_Gallery_Renderer {
         }
 
         echo '</div>'; // End smart-gallery-filters
+        
+        // Add JavaScript for filter submission
+        $this->add_filters_javascript();
     }
 
     /**
@@ -566,6 +570,21 @@ class Smart_Gallery_Renderer {
         
         // Fallback: prettify field name
         return ucfirst(str_replace('_', ' ', $field_name));
+    }
+
+    /**
+     * Preserve existing URL parameters in unified form (simplified version)
+     */
+    private function preserve_url_parameters_unified() {
+        // Preserve search term
+        if (!empty($_GET['search'])) {
+            echo '<input type="hidden" name="search" value="' . esc_attr($_GET['search']) . '">';
+        }
+        
+        // Reset pagination when filters change
+        echo '<input type="hidden" name="paged" value="1">';
+        
+        // Note: filter parameters are handled by the checkboxes themselves
     }
 
     /**
@@ -648,6 +667,32 @@ class Smart_Gallery_Renderer {
         $new_url = $parsed_url['path'] . (!empty($new_query) ? '?' . $new_query : '');
         
         return 'window.location.href=\'' . esc_js($new_url) . '\'';
+    }
+
+    /**
+     * Add JavaScript for filter form submission
+     */
+    private function add_filters_javascript() {
+        static $js_added = false;
+        
+        // Only add JavaScript once per page
+        if ($js_added) {
+            return;
+        }
+        
+        echo "\n" . '<script type="text/javascript">' . "\n";
+        echo 'function smartGallerySubmitFilters() {' . "\n";
+        echo '    // Small delay to allow checkbox state to update' . "\n";
+        echo '    setTimeout(function() {' . "\n";
+        echo '        var form = document.getElementById("smart-gallery-filters-form");' . "\n";
+        echo '        if (form) {' . "\n";
+        echo '            form.submit();' . "\n";
+        echo '        }' . "\n";
+        echo '    }, 10);' . "\n";
+        echo '}' . "\n";
+        echo '</script>' . "\n";
+        
+        $js_added = true;
     }
 
     /**

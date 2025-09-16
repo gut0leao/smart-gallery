@@ -134,8 +134,16 @@ class Smart_Gallery_Pods_Integration {
                 wp_reset_postdata();
                 return $posts_data;
             } else {
+                // No posts found is not an error - it's a normal result
                 wp_reset_postdata();
-                return new WP_Error('no_posts', 'No posts found');
+                return [
+                    'posts' => [],
+                    'total' => 0,
+                    'pages' => 0,
+                    'current_page' => $paged,
+                    'search_term' => $search_term,
+                    'filters' => $custom_field_filters
+                ];
             }
         } catch (Exception $e) {
             error_log('Smart Gallery - Post retrieval error: ' . $e->getMessage());

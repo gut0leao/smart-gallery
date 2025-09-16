@@ -455,9 +455,7 @@ Unlike basic Elementor image galleries that only list media files, Smart Gallery
     - Total count updates based on combined filtering (search + custom fields + taxonomies)
   
   - **Clear Functionality**:
-    - Individual taxonomy clear (X button per taxonomy section)
-    - Individual term clear (X button per selected term)
-    - Integration with "Clear All" button (clears search + custom fields + taxonomies)
+    - Integration with "Clear All Filters" button (clears search + custom fields + taxonomies)
 
   **📊 Data Processing:**
   

@@ -75,6 +75,7 @@ class Smart_Gallery_Renderer {
         
         // DEBUG: Let's see what's happening with pagination
         // error_log("Smart Gallery Debug - Current Page: $current_page, Search Term: '$search_term', URI: " . $_SERVER['REQUEST_URI']);
+        // error_log("Smart Gallery Debug - Current Filters: " . print_r($current_filters, true));
         
         echo '<div class="smart-gallery-widget" data-page="' . esc_attr($current_page) . '" data-search="' . esc_attr($search_term) . '">';
         
@@ -1070,7 +1071,7 @@ class Smart_Gallery_Renderer {
         
         // Show first page and ellipsis if needed
         if ($start_page > 1) {
-            $this->render_page_number_button(1, $current_page, $search_term);
+            $this->render_page_number_button(1, $current_page, $search_term, $current_filters);
             if ($start_page > 2) {
                 echo '<span class="pagination-ellipsis" style="padding: 0 8px; color: #6c757d;">...</span>';
             }
@@ -1078,7 +1079,7 @@ class Smart_Gallery_Renderer {
         
         // Show page range
         for ($i = $start_page; $i <= $end_page; $i++) {
-            $this->render_page_number_button($i, $current_page, $search_term);
+            $this->render_page_number_button($i, $current_page, $search_term, $current_filters);
         }
         
         // Show last page and ellipsis if needed
@@ -1086,7 +1087,7 @@ class Smart_Gallery_Renderer {
             if ($end_page < $total_pages - 1) {
                 echo '<span class="pagination-ellipsis" style="padding: 0 8px; color: #6c757d;">...</span>';
             }
-            $this->render_page_number_button($total_pages, $current_page, $search_term);
+            $this->render_page_number_button($total_pages, $current_page, $search_term, $current_filters);
         }
     }
 
@@ -1096,8 +1097,9 @@ class Smart_Gallery_Renderer {
      * @param int $page_number
      * @param int $current_page
      * @param string $search_term
+     * @param array $current_filters
      */
-    private function render_page_number_button($page_number, $current_page, $search_term = '') {
+    private function render_page_number_button($page_number, $current_page, $search_term = '', $current_filters = []) {
         $is_current = ($page_number === $current_page);
         
         if ($is_current) {

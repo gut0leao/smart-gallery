@@ -508,14 +508,6 @@ class Smart_Gallery_Renderer {
             
             echo '</div>';
             
-            // Individual clear button for this field
-            if (isset($current_filters[$field_name])) {
-                echo '<button type="button" class="smart-gallery-filter-clear" onclick="' . esc_attr($this->get_clear_filter_js($field_name)) . '">';
-                echo '<span class="clear-icon">×</span> ';
-                echo esc_html__('Clear', 'smart-gallery');
-                echo '</button>';
-            }
-            
             echo '</div>'; // End filter-section
         }
 

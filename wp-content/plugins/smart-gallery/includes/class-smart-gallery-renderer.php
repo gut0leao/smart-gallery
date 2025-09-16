@@ -690,6 +690,11 @@ class Smart_Gallery_Renderer {
             echo '<div class="smart-gallery-filter-options">';
             
             foreach ($values as $value => $count) {
+                // Skip non-scalar values to prevent array-to-string conversion warnings
+                if (!is_scalar($value)) {
+                    continue;
+                }
+                
                 $is_selected = isset($current_filters[$field_name]) && in_array($value, $current_filters[$field_name]);
                 $checkbox_id = 'filter_' . sanitize_key($field_name) . '_' . sanitize_key($value);
                 
@@ -792,6 +797,11 @@ class Smart_Gallery_Renderer {
                 $term_name = $term_data['name'];
                 $term_count = $term_data['count'];
                 
+                // Skip non-scalar values to prevent array-to-string conversion warnings
+                if (!is_scalar($term_slug) || !is_scalar($term_name)) {
+                    continue;
+                }
+                
                 // Check if this term is currently selected
                 $is_selected = isset($current_taxonomy_filters[$taxonomy]) && 
                               in_array($term_slug, $current_taxonomy_filters[$taxonomy]);
@@ -877,8 +887,8 @@ class Smart_Gallery_Renderer {
      * Preserve existing URL parameters in unified form (simplified version)
      */
     private function preserve_url_parameters_unified() {
-        // Preserve search term
-        if (!empty($_GET['search_term'])) {
+        // Preserve search term (ensure it's a string)
+        if (!empty($_GET['search_term']) && is_string($_GET['search_term'])) {
             echo '<input type="hidden" name="search_term" value="' . esc_attr($_GET['search_term']) . '">';
         }
         
@@ -892,8 +902,8 @@ class Smart_Gallery_Renderer {
      * Preserve existing URL parameters in forms
      */
     private function preserve_url_parameters() {
-        // Preserve search term
-        if (!empty($_GET['search_term'])) {
+        // Preserve search term (ensure it's a string)
+        if (!empty($_GET['search_term']) && is_string($_GET['search_term'])) {
             echo '<input type="hidden" name="search_term" value="' . esc_attr($_GET['search_term']) . '">';
         }
         
@@ -907,9 +917,14 @@ class Smart_Gallery_Renderer {
             foreach ($_GET['filter'] as $field => $values) {
                 if (is_array($values)) {
                     foreach ($values as $value) {
-                        // These will be overridden by the specific filter form, but preserved for other fields
-                        echo '<input type="hidden" name="filter[' . esc_attr($field) . '][]" value="' . esc_attr($value) . '">';
+                        // Ensure value is a string before using esc_attr
+                        if (is_string($value) || is_numeric($value)) {
+                            echo '<input type="hidden" name="filter[' . esc_attr($field) . '][]" value="' . esc_attr($value) . '">';
+                        }
                     }
+                } elseif (is_string($values) || is_numeric($values)) {
+                    // Handle single value that's not an array
+                    echo '<input type="hidden" name="filter[' . esc_attr($field) . '][]" value="' . esc_attr($values) . '">';
                 }
             }
         }

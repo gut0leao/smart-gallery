@@ -443,15 +443,21 @@ class Smart_Gallery_Pods_Integration {
                         // Handle array values (like multi-select fields)
                         if (is_array($value)) {
                             foreach ($value as $single_value) {
-                                $clean_value = is_string($single_value) ? trim($single_value) : $single_value;
-                                if (!empty($clean_value)) {
-                                    $field_values[$clean_value] = ($field_values[$clean_value] ?? 0) + 1;
+                                // Only process scalar values (string, int, float, bool)
+                                if (is_scalar($single_value)) {
+                                    $clean_value = is_string($single_value) ? trim($single_value) : (string)$single_value;
+                                    if (!empty($clean_value) && $clean_value !== '0') {
+                                        $field_values[$clean_value] = ($field_values[$clean_value] ?? 0) + 1;
+                                    }
                                 }
                             }
                         } else {
-                            $clean_value = is_string($value) ? trim($value) : $value;
-                            if (!empty($clean_value)) {
-                                $field_values[$clean_value] = ($field_values[$clean_value] ?? 0) + 1;
+                            // Only process scalar values (string, int, float, bool)  
+                            if (is_scalar($value)) {
+                                $clean_value = is_string($value) ? trim($value) : (string)$value;
+                                if (!empty($clean_value) && $clean_value !== '0') {
+                                    $field_values[$clean_value] = ($field_values[$clean_value] ?? 0) + 1;
+                                }
                             }
                         }
                     }

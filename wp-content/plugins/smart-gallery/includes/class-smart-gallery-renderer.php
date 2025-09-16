@@ -69,7 +69,6 @@ class Smart_Gallery_Renderer {
         
         // Get current filters from URL (at the main level)
         $current_filters = $this->get_current_filters_from_url();
-        $current_taxonomy_filters = $this->get_current_taxonomy_filters_from_url();
         
         // Ensure page is at least 1
         $current_page = max(1, $current_page);
@@ -110,7 +109,7 @@ class Smart_Gallery_Renderer {
         
         // Gallery grid
         echo '<div class="smart-gallery-content">';
-        $this->render_gallery_grid($settings, $current_page, $search_term, $current_filters, $current_taxonomy_filters);
+        $this->render_gallery_grid($settings, $current_page, $search_term, $current_filters);
         echo '</div>';
         
         echo '</div>'; // End main content
@@ -118,7 +117,7 @@ class Smart_Gallery_Renderer {
         // Render debug status panel (if enabled) - positioned below gallery
         $show_debug = $settings['show_gallery_status_debug'] ?? '';
         if ($show_debug === 'yes') {
-            $this->render_unified_debug_panel($settings, $selected_cpt, $search_term, $posts_per_page, $current_filters, $current_taxonomy_filters);
+            $this->render_unified_debug_panel($settings, $selected_cpt, $search_term, $posts_per_page, $current_filters);
         }
         
         echo '</div>';
@@ -361,7 +360,7 @@ class Smart_Gallery_Renderer {
      * @param int $posts_per_page
      * @param array $current_filters
      */
-    public function render_unified_debug_panel($settings, $selected_cpt, $search_term, $posts_per_page, $current_filters = [], $current_taxonomy_filters = []) {
+    public function render_unified_debug_panel($settings, $selected_cpt, $search_term, $posts_per_page, $current_filters = []) {
         echo '<div class="smart-gallery-debug-panel" style="margin-top: 20px; padding: 20px; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif; font-size: 14px;">';
         echo '<h4 style="margin: 0 0 20px; color: #374151; font-size: 16px; font-weight: 600;">📊 Gallery Status (Debug Mode)</h4>';
         
@@ -460,21 +459,9 @@ class Smart_Gallery_Renderer {
             echo '<div style="color: #6b7280; margin-bottom: 8px;"><strong>Active filters:</strong> <em>None</em></div>';
         }
         
-        // Active taxonomy filters status
-        if (!empty($current_taxonomy_filters)) {
-            echo '<div style="color: #6b7280; margin-bottom: 8px;"><strong>Active taxonomy filters:</strong></div>';
-            foreach ($current_taxonomy_filters as $taxonomy => $term_ids) {
-                if (is_array($term_ids) && !empty($term_ids)) {
-                    echo '<div style="color: #9ca3af; font-size: 12px; margin-left: 16px;">• <strong>' . esc_html($taxonomy) . ':</strong> ' . esc_html(implode(', ', $term_ids)) . '</div>';
-                }
-            }
-        } else {
-            echo '<div style="color: #6b7280; margin-bottom: 8px;"><strong>Active taxonomy filters:</strong> <em>None</em></div>';
-        }
-        
         // Items found status (only if CPT is selected and Pods is available)
         if (!empty($selected_cpt) && $this->pods_integration->is_pods_available()) {
-            $pod_posts = $this->pods_integration->get_pod_posts($selected_cpt, $posts_per_page, 1, $search_term, $current_filters, $current_taxonomy_filters);
+            $pod_posts = $this->pods_integration->get_pod_posts($selected_cpt, $posts_per_page, 1, $search_term, $current_filters);
             
             if (is_wp_error($pod_posts)) {
                 echo '<div style="color: #6b7280;"><strong>Items found:</strong> <em>Error: ' . esc_html($pod_posts->get_error_message()) . '</em></div>';
@@ -498,7 +485,7 @@ class Smart_Gallery_Renderer {
      * @param string $search_term
      * @param array $current_filters
      */
-    public function render_gallery_grid($settings, $current_page = 1, $search_term = '', $current_filters = [], $current_taxonomy_filters = []) {
+    public function render_gallery_grid($settings, $current_page = 1, $search_term = '', $current_filters = []) {
         $selected_cpt = $settings['selected_cpt'] ?? '';
         $posts_per_page = $settings['posts_per_page'] ?? 12;
         $columns = $settings['columns'] ?? 3;
@@ -509,8 +496,8 @@ class Smart_Gallery_Renderer {
         echo '<div class="smart-gallery-grid" style="display: grid; grid-template-columns: repeat(' . esc_attr($columns) . ', 1fr); gap: ' . esc_attr($gap_size . $gap_unit) . ';">';
         
         if (!empty($selected_cpt) && $this->pods_integration->is_pods_available()) {
-            // Display real posts from selected Pod with pagination, search, custom field filtering, and taxonomy filtering
-            $pod_posts = $this->pods_integration->get_pod_posts($selected_cpt, $posts_per_page, $current_page, $search_term, $current_filters, $current_taxonomy_filters);
+            // Display real posts from selected Pod with pagination, search, and custom field filtering
+            $pod_posts = $this->pods_integration->get_pod_posts($selected_cpt, $posts_per_page, $current_page, $search_term, $current_filters);
             
             if (!is_wp_error($pod_posts) && !empty($pod_posts['posts'])) {
                 foreach ($pod_posts['posts'] as $post) {
@@ -521,7 +508,7 @@ class Smart_Gallery_Renderer {
                 echo '</div>'; // Close grid
                 
                 if ($this->should_show_pagination($settings, $pod_posts)) {
-                    $this->render_pagination($settings, $pod_posts, $current_page, $search_term, $current_filters, $current_taxonomy_filters);
+                    $this->render_pagination($settings, $pod_posts, $current_page, $search_term, $current_filters);
                 }
                 
                 return; // Early return to avoid closing grid again
@@ -589,18 +576,15 @@ class Smart_Gallery_Renderer {
      * @param string $search_term
      */
     public function render_filters_interface($settings, $search_term = '') {
-        // Debug: log that this method is being called
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log('Smart Gallery Debug - render_filters_interface called');
-        }
-        
         $selected_cpt = $settings['selected_cpt'] ?? '';
         $available_fields = $settings['available_fields_for_filtering'] ?? [];
+        $available_taxonomies = $settings['available_taxonomies_for_filtering'] ?? [];
         
         // Debug info (can be removed later)
         if (defined('WP_DEBUG') && WP_DEBUG) {
             error_log('Smart Gallery Filters Debug - CPT: ' . $selected_cpt);
             error_log('Smart Gallery Filters Debug - Available Fields: ' . print_r($available_fields, true));
+            error_log('Smart Gallery Filters Debug - Available Taxonomies: ' . print_r($available_taxonomies, true));
         }
         
         // Bail if no CPT selected
@@ -612,7 +596,6 @@ class Smart_Gallery_Renderer {
         }
 
         // Check if we have any filtering enabled (fields OR taxonomies)
-        $available_taxonomies = $settings['available_taxonomies_for_filtering'] ?? [];
         $has_fields = !empty($available_fields);
         $has_taxonomies = !empty($available_taxonomies);
         
@@ -631,85 +614,67 @@ class Smart_Gallery_Renderer {
         // Filter out empty values
         $available_fields = array_filter($available_fields);
         
-        // IMPORTANT: Filter fields to only include those that belong to the selected CPT
-        $cpt_fields = $this->pods_integration->get_pod_fields($selected_cpt);
+        // Process custom fields if any are configured
         $valid_fields = [];
+        $field_values = [];
         
-        if (!empty($cpt_fields)) {
-            foreach ($available_fields as $field_name) {
-                // Only include fields that actually exist in the selected CPT
-                if (isset($cpt_fields[$field_name])) {
-                    $valid_fields[] = $field_name;
+        if ($has_fields) {
+            // IMPORTANT: Filter fields to only include those that belong to the selected CPT
+            $cpt_fields = $this->pods_integration->get_pod_fields($selected_cpt);
+            
+            if (!empty($cpt_fields)) {
+                foreach ($available_fields as $field_name) {
+                    // Only include fields that actually exist in the selected CPT
+                    if (isset($cpt_fields[$field_name])) {
+                        $valid_fields[] = $field_name;
+                    }
                 }
             }
-        }
-
-        // Start rendering filter interface
-        echo '<div class="smart-gallery-filters">';
-        echo '<h4 class="smart-gallery-filters-title">' . esc_html__('Filter Options', 'smart-gallery') . '</h4>';
-        
-        // Start unified form
-        echo '<form method="get" class="smart-gallery-filters-form">';
-        
-        // Preserve URL parameters
-        $this->preserve_url_parameters_unified();
-        
-        // Get current filter values from URL
-        $current_filters = $this->get_current_filters_from_url();
-        
-        // Render custom fields filters only if we have valid fields
-        if (!empty($valid_fields)) {
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('Smart Gallery Filters Debug - Rendering custom fields');
-            }
+            
+            // Get current filter values from URL
+            $current_filters = $this->get_current_filters_from_url();
             
             // Get field values with counts (using only valid fields)
-            $field_values = $this->pods_integration->get_multiple_field_values(
-                $selected_cpt, 
-                $valid_fields, 
-                $current_filters, 
-                $search_term
-            );
+            if (!empty($valid_fields)) {
+                $field_values = $this->pods_integration->get_multiple_field_values(
+                    $selected_cpt, 
+                    $valid_fields, 
+                    $current_filters, 
+                    $search_term
+                );
 
-            // Only render fields interface if we have actual field values
-            if (!empty($field_values)) {
-                $this->render_custom_fields_filters($valid_fields, $field_values, $current_filters, $selected_cpt);
+                // Debug field values
+                if (defined('WP_DEBUG') && WP_DEBUG) {
+                    error_log('Smart Gallery Filters Debug - Valid Fields: ' . print_r($valid_fields, true));
+                    error_log('Smart Gallery Filters Debug - Field Values: ' . print_r($field_values, true));
+                }
             }
         } else {
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('Smart Gallery Filters Debug - No valid custom fields for CPT: ' . $selected_cpt);
-                error_log('Smart Gallery Filters Debug - CPT fields: ' . print_r(array_keys($cpt_fields), true));
-                error_log('Smart Gallery Filters Debug - Selected fields: ' . print_r($available_fields, true));
-            }
-        }
-            $selected_cpt, 
-            $valid_fields, 
-            $current_filters, 
-            $search_term
-        );
-
-        // Debug field values
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log('Smart Gallery Filters Debug - Valid Fields: ' . print_r($valid_fields, true));
-            error_log('Smart Gallery Filters Debug - Field Values: ' . print_r($field_values, true));
+            // Get current filter values from URL even if no custom fields
+            $current_filters = $this->get_current_filters_from_url();
         }
 
-        // Only render if we have actual field values
-        if (empty($field_values)) {
+        // Proceed to render if we have fields with values OR taxonomies configured
+        $should_render = (!empty($field_values)) || $has_taxonomies;
+        
+        if (!$should_render) {
             if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('Smart Gallery Filters Debug - No field values returned');
+                error_log('Smart Gallery Filters Debug - Nothing to render: no field values and no taxonomies');
             }
             return;
         }
 
         echo '<div class="smart-gallery-filters">';
-        echo '<h4 class="smart-gallery-filters-title">' . esc_html__('Filters', 'smart-gallery') . '</h4>';
+        echo '<h4 class="smart-gallery-filters-title">' . esc_html__('Filter Options', 'smart-gallery') . '</h4>';
 
         // Single form for all filters
         echo '<form method="get" class="smart-gallery-filters-form" id="smart-gallery-filters-form">';
         
         // Preserve existing URL parameters
         $this->preserve_url_parameters_unified();
+
+        // Render custom fields if we have valid field values
+        if (!empty($field_values)) {
 
         foreach ($valid_fields as $field_name) {
             if (!isset($field_values[$field_name]) || empty($field_values[$field_name])) {
@@ -745,17 +710,16 @@ class Smart_Gallery_Renderer {
             
             echo '</div>'; // End filter-section
         }
+        } // End if (!empty($field_values))
 
         // Add taxonomy filters (F3.3)
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log('Smart Gallery Debug - About to call render_taxonomy_filters');
-        }
         $this->render_taxonomy_filters($settings, $current_filters, $search_term);
 
         echo '</form>'; // End unified form
 
         // Global clear filters button
-        if (!empty($current_filters)) {
+        $current_taxonomy_filters = $this->get_current_taxonomy_filters_from_url();
+        if (!empty($current_filters) || !empty($current_taxonomy_filters)) {
             echo '<button type="button" class="smart-gallery-clear-all-filters" onclick="' . esc_attr($this->get_clear_all_filters_js()) . '">';
             echo '<span class="clear-icon">🗑️</span> ';
             echo esc_html__('Clear All Filters', 'smart-gallery');
@@ -775,119 +739,81 @@ class Smart_Gallery_Renderer {
      * @param array $current_filters
      * @param string $search_term
      */
-    private function render_taxonomy_filters($settings, $current_filters, $search_term = '') {
-        $selected_cpt = $settings['selected_cpt'] ?? '';
+    private function render_taxonomy_filters($settings, $current_filters, $search_term) {
         $available_taxonomies = $settings['available_taxonomies_for_filtering'] ?? [];
+        $selected_cpt = $settings['selected_cpt'] ?? '';
         
-        // Debug log
+        // Debug logging
         if (defined('WP_DEBUG') && WP_DEBUG) {
             error_log('Smart Gallery Debug - render_taxonomy_filters called');
-            error_log('Smart Gallery Debug - Selected CPT: ' . $selected_cpt);
-            error_log('Smart Gallery Debug - Available taxonomies setting: ' . print_r($available_taxonomies, true));
+            error_log('Smart Gallery Debug - Available Taxonomies: ' . print_r($available_taxonomies, true));
         }
         
-        // Bail if no CPT selected or no taxonomies configured
-        if (empty($selected_cpt) || empty($available_taxonomies)) {
+        // Bail if no taxonomies configured
+        if (empty($available_taxonomies) || empty($selected_cpt)) {
             if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('Smart Gallery Debug - Bailing from render_taxonomy_filters: CPT empty=' . empty($selected_cpt) . ', Taxonomies empty=' . empty($available_taxonomies));
+                error_log('Smart Gallery Debug - render_taxonomy_filters bailing: no taxonomies or CPT');
             }
             return;
         }
-
-        // Ensure available_taxonomies is a proper array
-        if (!is_array($available_taxonomies)) {
-            $available_taxonomies = [$available_taxonomies];
-        }
         
-        // Filter out empty values
-        $available_taxonomies = array_filter($available_taxonomies);
-        
-        // IMPORTANT: Filter taxonomies to only include those that belong to the selected CPT
-        $cpt_taxonomies = $this->pods_integration->get_pod_taxonomies($selected_cpt);
-        $valid_taxonomies = [];
-        
-        if (!empty($cpt_taxonomies)) {
-            foreach ($available_taxonomies as $taxonomy_name) {
-                // Only include taxonomies that actually exist for the selected CPT
-                if (isset($cpt_taxonomies[$taxonomy_name])) {
-                    $valid_taxonomies[] = $taxonomy_name;
-                }
-            }
-        }
-        
-        if (empty($valid_taxonomies)) {
-            return;
-        }
-
-        // Get current taxonomy filter values from URL
+        // Get current taxonomy filters from URL
         $current_taxonomy_filters = $this->get_current_taxonomy_filters_from_url();
         
-        // Get taxonomy terms with counts (using only valid taxonomies)
-        $taxonomy_terms = $this->pods_integration->get_multiple_taxonomy_terms(
-            $selected_cpt, 
-            $valid_taxonomies, 
-            $current_filters,  // Custom field filters
-            $current_taxonomy_filters,  // Taxonomy filters
+        // Get taxonomy terms with counts
+        $taxonomy_data = $this->pods_integration->get_multiple_taxonomy_terms(
+            $selected_cpt,
+            $available_taxonomies,
+            [], // custom_field_filters - empty for now
+            $current_taxonomy_filters,
             $search_term
         );
-
-        // Only render if we have actual taxonomy terms
-        if (empty($taxonomy_terms)) {
-            return;
+        
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('Smart Gallery Debug - Taxonomy data: ' . print_r($taxonomy_data, true));
         }
-
-        foreach ($valid_taxonomies as $taxonomy_name) {
-            if (!isset($taxonomy_terms[$taxonomy_name]) || empty($taxonomy_terms[$taxonomy_name])) {
-                continue; // Skip taxonomies with no terms
+        
+        // Render each taxonomy section
+        foreach ($available_taxonomies as $taxonomy) {
+            if (!isset($taxonomy_data[$taxonomy]) || empty($taxonomy_data[$taxonomy]['terms'])) {
+                continue;
             }
-
-            $taxonomy_label = $this->get_taxonomy_label($selected_cpt, $taxonomy_name);
-            $terms = $taxonomy_terms[$taxonomy_name];
             
-            echo '<div class="smart-gallery-taxonomy-filter-section">';
-            echo '<h5 class="smart-gallery-filter-title">' . esc_html($taxonomy_label) . '</h5>';
+            $taxonomy_info = $taxonomy_data[$taxonomy];
+            $terms = $taxonomy_info['terms'];
             
-            echo '<div class="smart-gallery-taxonomy-filter-options">';
+            echo '<div class="smart-gallery-filter-section taxonomy-filter" data-taxonomy="' . esc_attr($taxonomy) . '">';
+            echo '<h5 class="smart-gallery-filter-title">' . esc_html($taxonomy_info['label']) . '</h5>';
             
-            // Render hierarchical terms
-            $this->render_hierarchical_terms($terms, $taxonomy_name, $current_taxonomy_filters);
+            echo '<div class="smart-gallery-filter-options taxonomy-options">';
+            
+            foreach ($terms as $term_data) {
+                $term_slug = $term_data['slug'];
+                $term_name = $term_data['name'];
+                $term_count = $term_data['count'];
+                
+                // Check if this term is currently selected
+                $is_selected = isset($current_taxonomy_filters[$taxonomy]) && 
+                              in_array($term_slug, $current_taxonomy_filters[$taxonomy]);
+                
+                $checkbox_id = 'taxonomy_' . sanitize_key($taxonomy) . '_' . sanitize_key($term_slug);
+                
+                echo '<label class="smart-gallery-filter-option taxonomy-option" for="' . esc_attr($checkbox_id) . '">';
+                echo '<input type="checkbox" ';
+                echo 'id="' . esc_attr($checkbox_id) . '" ';
+                echo 'name="taxonomy_filter[' . esc_attr($taxonomy) . '][]" ';
+                echo 'value="' . esc_attr($term_slug) . '" ';
+                echo $is_selected ? 'checked' : '';
+                echo ' onchange="smartGallerySubmitFilters()"';
+                echo ' data-taxonomy="' . esc_attr($taxonomy) . '"';
+                echo '>';
+                echo '<span class="filter-value">' . esc_html($term_name) . '</span>';
+                echo '<span class="filter-count">(' . intval($term_count) . ')</span>';
+                echo '</label>';
+            }
             
             echo '</div>';
             echo '</div>'; // End taxonomy filter section
-        }
-    }
-
-    /**
-     * Render hierarchical taxonomy terms
-     * 
-     * @param array $terms
-     * @param string $taxonomy_name
-     * @param array $current_taxonomy_filters
-     * @param int $level
-     */
-    private function render_hierarchical_terms($terms, $taxonomy_name, $current_taxonomy_filters, $level = 0) {
-        foreach ($terms as $term) {
-            $is_selected = isset($current_taxonomy_filters[$taxonomy_name]) && 
-                          in_array($term['term_id'], $current_taxonomy_filters[$taxonomy_name]);
-            $checkbox_id = 'taxonomy_' . sanitize_key($taxonomy_name) . '_' . intval($term['term_id']);
-            $indent_class = $level > 0 ? 'smart-gallery-term-level-' . $level : '';
-            
-            echo '<label class="smart-gallery-taxonomy-filter-option ' . esc_attr($indent_class) . '" for="' . esc_attr($checkbox_id) . '">';
-            echo '<input type="checkbox" ';
-            echo 'id="' . esc_attr($checkbox_id) . '" ';
-            echo 'name="taxonomy_filter[' . esc_attr($taxonomy_name) . '][]" ';
-            echo 'value="' . esc_attr($term['term_id']) . '" ';
-            echo $is_selected ? 'checked' : '';
-            echo ' onchange="smartGallerySubmitFilters()"';
-            echo '>';
-            echo '<span class="taxonomy-term-name">' . esc_html($term['name']) . '</span>';
-            echo '<span class="taxonomy-term-count">(' . intval($term['count']) . ')</span>';
-            echo '</label>';
-            
-            // Render children if they exist
-            if (!empty($term['children'])) {
-                $this->render_hierarchical_terms($term['children'], $taxonomy_name, $current_taxonomy_filters, $level + 1);
-            }
         }
     }
 
@@ -900,32 +826,14 @@ class Smart_Gallery_Renderer {
         $taxonomy_filters = [];
         
         if (isset($_GET['taxonomy_filter']) && is_array($_GET['taxonomy_filter'])) {
-            foreach ($_GET['taxonomy_filter'] as $taxonomy_name => $term_ids) {
-                $clean_taxonomy = sanitize_key($taxonomy_name);
-                $clean_term_ids = array_map('intval', (array)$term_ids);
-                $taxonomy_filters[$clean_taxonomy] = array_filter($clean_term_ids);
+            foreach ($_GET['taxonomy_filter'] as $taxonomy => $values) {
+                $clean_taxonomy = sanitize_key($taxonomy);
+                $clean_values = array_map('sanitize_text_field', (array)$values);
+                $taxonomy_filters[$clean_taxonomy] = array_filter($clean_values);
             }
         }
         
         return $taxonomy_filters;
-    }
-
-    /**
-     * Get taxonomy label from Pods configuration
-     * 
-     * @param string $cpt_name
-     * @param string $taxonomy_name
-     * @return string
-     */
-    private function get_taxonomy_label($cpt_name, $taxonomy_name) {
-        $taxonomies = $this->pods_integration->get_pod_taxonomies($cpt_name);
-        
-        if (isset($taxonomies[$taxonomy_name]['label'])) {
-            return $taxonomies[$taxonomy_name]['label'];
-        }
-        
-        // Fallback: prettify taxonomy name
-        return ucfirst(str_replace('_', ' ', $taxonomy_name));
     }
 
     /**
@@ -978,7 +886,6 @@ class Smart_Gallery_Renderer {
         echo '<input type="hidden" name="paged" value="1">';
         
         // Note: filter parameters are handled by the checkboxes themselves
-        // Note: taxonomy_filter parameters are handled by the checkboxes themselves
     }
 
     /**
@@ -1055,7 +962,6 @@ class Smart_Gallery_Renderer {
         
         // Remove all filters and pagination
         unset($query_params['filter']);
-        unset($query_params['taxonomy_filter']);
         unset($query_params['paged']);
         
         $new_query = http_build_query($query_params);
@@ -1346,7 +1252,7 @@ class Smart_Gallery_Renderer {
      * @param int $current_page
      * @param string $search_term
      */
-    private function render_pagination($settings, $pod_posts, $current_page, $search_term = '', $current_filters = [], $current_taxonomy_filters = []) {
+    private function render_pagination($settings, $pod_posts, $current_page, $search_term = '', $current_filters = []) {
         $total_pages = $pod_posts['pages'] ?? 0;
         $show_prev_next = $settings['show_prev_next'] ?? 'yes';
         $show_page_numbers = $settings['show_page_numbers'] ?? 'yes';
@@ -1356,7 +1262,7 @@ class Smart_Gallery_Renderer {
         
         // Previous Button
         if ($show_prev_next === 'yes' && $current_page > 1) {
-            $prev_url = $this->get_pagination_url($current_page - 1, $search_term, $current_filters, $current_taxonomy_filters);
+            $prev_url = $this->get_pagination_url($current_page - 1, $search_term, $current_filters);
             echo '<a href="' . esc_url($prev_url) . '" class="pagination-button pagination-prev">';
             echo '<span style="margin-right: 5px;">←</span>' . esc_html__('Previous', 'smart-gallery');
             echo '</a>';
@@ -1364,12 +1270,12 @@ class Smart_Gallery_Renderer {
         
         // Page Numbers
         if ($show_page_numbers === 'yes') {
-            $this->render_page_numbers($current_page, $total_pages, $max_page_numbers, $search_term, $current_filters, $current_taxonomy_filters);
+            $this->render_page_numbers($current_page, $total_pages, $max_page_numbers, $search_term, $current_filters);
         }
         
         // Next Button
         if ($show_prev_next === 'yes' && $current_page < $total_pages) {
-            $next_url = $this->get_pagination_url($current_page + 1, $search_term, $current_filters, $current_taxonomy_filters);
+            $next_url = $this->get_pagination_url($current_page + 1, $search_term, $current_filters);
             echo '<a href="' . esc_url($next_url) . '" class="pagination-button pagination-next">';
             echo esc_html__('Next', 'smart-gallery') . '<span style="margin-left: 5px;">→</span>';
             echo '</a>';
@@ -1386,7 +1292,7 @@ class Smart_Gallery_Renderer {
      * @param int $max_page_numbers
      * @param string $search_term
      */
-    private function render_page_numbers($current_page, $total_pages, $max_page_numbers, $search_term = '', $current_filters = [], $current_taxonomy_filters = []) {
+    private function render_page_numbers($current_page, $total_pages, $max_page_numbers, $search_term = '', $current_filters = []) {
         // Calculate range of page numbers to show
         $half_range = floor($max_page_numbers / 2);
         $start_page = max(1, $current_page - $half_range);
@@ -1403,7 +1309,7 @@ class Smart_Gallery_Renderer {
         
         // Show first page and ellipsis if needed
         if ($start_page > 1) {
-            $this->render_page_number_button(1, $current_page, $search_term, $current_filters, $current_taxonomy_filters);
+            $this->render_page_number_button(1, $current_page, $search_term, $current_filters);
             if ($start_page > 2) {
                 echo '<span class="pagination-ellipsis" style="padding: 0 8px; color: #6c757d;">...</span>';
             }
@@ -1411,7 +1317,7 @@ class Smart_Gallery_Renderer {
         
         // Show page range
         for ($i = $start_page; $i <= $end_page; $i++) {
-            $this->render_page_number_button($i, $current_page, $search_term, $current_filters, $current_taxonomy_filters);
+            $this->render_page_number_button($i, $current_page, $search_term, $current_filters);
         }
         
         // Show last page and ellipsis if needed
@@ -1419,7 +1325,7 @@ class Smart_Gallery_Renderer {
             if ($end_page < $total_pages - 1) {
                 echo '<span class="pagination-ellipsis" style="padding: 0 8px; color: #6c757d;">...</span>';
             }
-            $this->render_page_number_button($total_pages, $current_page, $search_term, $current_filters, $current_taxonomy_filters);
+            $this->render_page_number_button($total_pages, $current_page, $search_term, $current_filters);
         }
     }
 
@@ -1431,7 +1337,7 @@ class Smart_Gallery_Renderer {
      * @param string $search_term
      * @param array $current_filters
      */
-    private function render_page_number_button($page_number, $current_page, $search_term = '', $current_filters = [], $current_taxonomy_filters = []) {
+    private function render_page_number_button($page_number, $current_page, $search_term = '', $current_filters = []) {
         $is_current = ($page_number === $current_page);
         
         if ($is_current) {
@@ -1439,7 +1345,7 @@ class Smart_Gallery_Renderer {
             echo esc_html($page_number);
             echo '</span>';
         } else {
-            $page_url = $this->get_pagination_url($page_number, $search_term, $current_filters, $current_taxonomy_filters);
+            $page_url = $this->get_pagination_url($page_number, $search_term, $current_filters);
             echo '<a href="' . esc_url($page_url) . '" class="pagination-button pagination-page">';
             echo esc_html($page_number);
             echo '</a>';
@@ -1453,7 +1359,7 @@ class Smart_Gallery_Renderer {
      * @param string $search_term
      * @return string
      */
-    private function get_pagination_url($page_number, $search_term = '', $current_filters = [], $current_taxonomy_filters = []) {
+    private function get_pagination_url($page_number, $search_term = '', $current_filters = []) {
         global $wp_rewrite;
         
         // Get current URL
@@ -1482,13 +1388,6 @@ class Smart_Gallery_Renderer {
             $query_params['filter'] = $current_filters;
         } else {
             unset($query_params['filter']);
-        }
-        
-        // Add current taxonomy filters
-        if (!empty($current_taxonomy_filters)) {
-            $query_params['taxonomy_filter'] = $current_taxonomy_filters;
-        } else {
-            unset($query_params['taxonomy_filter']);
         }
         
         if ($wp_rewrite->using_permalinks()) {

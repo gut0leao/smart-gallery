@@ -642,6 +642,14 @@ class Smart_Gallery_Pods_Integration {
             return [];
         }
 
+        // Ensure parameters are arrays
+        if (!is_array($custom_field_filters)) {
+            $custom_field_filters = [];
+        }
+        if (!is_array($current_taxonomy_filters)) {
+            $current_taxonomy_filters = [];
+        }
+
         try {
             // Build query args to determine which posts are available with current filters
             $query_args = [

@@ -79,6 +79,7 @@ class Smart_Gallery_Renderer {
         
         $this->render_configuration_panel($settings);
         $this->render_pods_status($selected_cpt, $posts_per_page);
+        $this->render_search_filtering_status($selected_cpt, $search_term, $posts_per_page);
         
         // Render search interface based on position
         if ($enable_search === 'yes' && $search_position === 'upper_bar') {
@@ -289,6 +290,61 @@ class Smart_Gallery_Renderer {
                 echo '<strong>🏷️ Taxonomies:</strong> ' . count($pod_taxonomies) . ' taxonomies detected';
                 echo '</div>';
             }
+        }
+        
+        echo '</div>';
+    }
+
+    /**
+     * Render Search and Filtering Status (for debugging/testing)
+     * 
+     * @param string $selected_cpt
+     * @param string $search_term
+     * @param int $posts_per_page
+     */
+    public function render_search_filtering_status($selected_cpt, $search_term, $posts_per_page) {
+        echo '<div class="smart-gallery-search-filtering-status" style="padding: 15px; background: #f0f8ff; border-radius: 8px; margin-bottom: 20px; font-size: 14px;">';
+        echo '<h5 style="margin: 0 0 10px; color: #1e3a8a;">🔍 Search and Filtering Status</h5>';
+        
+        // Search term status
+        echo '<div style="color: #1e40af; background: #e0f2fe; padding: 10px; border-radius: 6px; margin-bottom: 5px;">';
+        if (!empty($search_term)) {
+            echo '<strong>🔎 Search Term:</strong> "' . esc_html($search_term) . '"';
+        } else {
+            echo '<strong>🔎 Search Term:</strong> <em>None</em>';
+        }
+        echo '</div>';
+        
+        // Active filters status
+        echo '<div style="color: #1e40af; background: #e0f2fe; padding: 10px; border-radius: 6px; margin-bottom: 5px;">';
+        $current_filters = $this->get_current_filters_from_url();
+        if (!empty($current_filters)) {
+            echo '<strong>🏷️ Active Filters:</strong><br>';
+            foreach ($current_filters as $field => $values) {
+                if (is_array($values) && !empty($values)) {
+                    echo '• <strong>' . esc_html($field) . ':</strong> ' . esc_html(implode(', ', $values)) . '<br>';
+                }
+            }
+        } else {
+            echo '<strong>🏷️ Active Filters:</strong> <em>None</em>';
+        }
+        echo '</div>';
+        
+        // Items found status (only if CPT is selected and Pods is available)
+        if (!empty($selected_cpt) && $this->pods_integration->is_pods_available()) {
+            $pod_posts = $this->pods_integration->get_pod_posts($selected_cpt, $posts_per_page, 1, $search_term, $current_filters);
+            
+            echo '<div style="color: #065f46; background: #d1fae5; padding: 10px; border-radius: 6px;">';
+            if (is_wp_error($pod_posts)) {
+                echo '<strong>📊 Items Found:</strong> <em>Error: ' . esc_html($pod_posts->get_error_message()) . '</em>';
+            } else {
+                echo '<strong>📊 Items Found:</strong> ' . esc_html($pod_posts['total']) . ' items match current criteria';
+            }
+            echo '</div>';
+        } else {
+            echo '<div style="color: #374151; background: #f3f4f6; padding: 10px; border-radius: 6px;">';
+            echo '<strong>📊 Items Found:</strong> <em>CPT not selected or Pods unavailable</em>';
+            echo '</div>';
         }
         
         echo '</div>';

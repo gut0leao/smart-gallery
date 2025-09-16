@@ -79,10 +79,6 @@ class Smart_Gallery_Renderer {
         
         echo '<div class="smart-gallery-widget" data-page="' . esc_attr($current_page) . '" data-search="' . esc_attr($search_term) . '">';
         
-        $this->render_configuration_panel($settings);
-        $this->render_pods_status($selected_cpt, $posts_per_page);
-        $this->render_search_filtering_status($selected_cpt, $search_term, $posts_per_page, $current_filters);
-        
         // Render search interface based on position
         if ($enable_search === 'yes' && $search_position === 'upper_bar') {
             $this->render_search_interface($settings, $search_term, 'upper_bar');
@@ -118,7 +114,11 @@ class Smart_Gallery_Renderer {
         
         echo '</div>'; // End main content
         
-        $this->render_status_message($settings);
+        // Render debug status panel (if enabled) - positioned below gallery
+        $show_debug = $settings['show_gallery_status_debug'] ?? '';
+        if ($show_debug === 'yes') {
+            $this->render_unified_debug_panel($settings, $selected_cpt, $search_term, $posts_per_page, $current_filters);
+        }
         
         echo '</div>';
     }
@@ -347,6 +347,132 @@ class Smart_Gallery_Renderer {
             echo '<strong>📊 Items Found:</strong> <em>CPT not selected or Pods unavailable</em>';
             echo '</div>';
         }
+        
+        echo '</div>';
+    }
+
+    /**
+     * Render unified debug panel (combines Configuration, Pods Status, and Search/Filtering Status)
+     * 
+     * @param array $settings
+     * @param string $selected_cpt
+     * @param string $search_term
+     * @param int $posts_per_page
+     * @param array $current_filters
+     */
+    public function render_unified_debug_panel($settings, $selected_cpt, $search_term, $posts_per_page, $current_filters = []) {
+        echo '<div class="smart-gallery-debug-panel" style="margin-top: 20px; padding: 20px; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif; font-size: 14px;">';
+        echo '<h4 style="margin: 0 0 20px; color: #374151; font-size: 16px; font-weight: 600;">📊 Gallery Status (Debug Mode)</h4>';
+        
+        // Section 1: Configuration
+        echo '<div style="margin-bottom: 16px;">';
+        echo '<h5 style="margin: 0 0 8px; color: #6b7280; font-size: 14px; font-weight: 600;">⚙️ Configuration</h5>';
+        echo '<div style="background: #f3f4f6; padding: 12px; border-radius: 6px; color: #374151;">';
+        
+        $show_title = $settings['show_title'] ?? 'yes';
+        $show_description = $settings['show_description'] ?? 'yes';
+        $description_field = $settings['description_field'] ?? 'content';
+        $custom_field_name = $settings['custom_description_field'] ?? '';
+        $columns = $settings['columns'] ?? 3;
+        $gap = $settings['gap'] ?? ['size' => 20, 'unit' => 'px'];
+        $gap_size = is_array($gap) ? $gap['size'] : $gap;
+        $gap_unit = is_array($gap) ? $gap['unit'] : 'px';
+        $enable_image_hover = $settings['enable_image_hover'] ?? 'yes';
+        $enable_content_hover = $settings['enable_content_hover'] ?? 'yes';
+        $no_results_message = $settings['no_results_message'] ?? 'No results found...';
+        $enable_search = $settings['enable_search_input'] ?? 'yes';
+        $search_position = $settings['search_position'] ?? 'upper_bar';
+        $search_placeholder = $settings['search_placeholder_text'] ?? 'Search here...';
+
+        echo '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; color: #6b7280;">';
+        echo '<div><strong>CPT:</strong> ' . (empty($selected_cpt) ? '<em>None selected</em>' : esc_html($selected_cpt)) . '</div>';
+        echo '<div><strong>Posts per page:</strong> ' . esc_html($posts_per_page) . '</div>';
+        echo '<div><strong>Columns:</strong> ' . esc_html($columns) . '</div>';
+        echo '<div><strong>Gap:</strong> ' . esc_html($gap_size . $gap_unit) . '</div>';
+        echo '<div><strong>Show title:</strong> ' . ($show_title === 'yes' ? 'Yes' : 'No') . '</div>';
+        echo '<div><strong>Show description:</strong> ' . ($show_description === 'yes' ? 'Yes' : 'No') . '</div>';
+        echo '<div><strong>Image hover:</strong> ' . ($enable_image_hover === 'yes' ? 'Yes' : 'No') . '</div>';
+        echo '<div><strong>Content hover:</strong> ' . ($enable_content_hover === 'yes' ? 'Yes' : 'No') . '</div>';
+        echo '</div>';
+        echo '</div>';
+        echo '</div>';
+
+        // Section 2: Search Settings  
+        echo '<div style="margin-bottom: 16px;">';
+        echo '<h5 style="margin: 0 0 8px; color: #6b7280; font-size: 14px; font-weight: 600;">🔍 Search Settings</h5>';
+        echo '<div style="background: #f3f4f6; padding: 12px; border-radius: 6px; color: #374151;">';
+        if ($enable_search === 'yes') {
+            $position_label = $search_position === 'upper_bar' ? 'Upper Bar' : 'Left Bar';
+            echo '<div style="color: #6b7280;"><strong>Status:</strong> Enabled (' . esc_html($position_label) . ')</div>';
+            echo '<div style="color: #9ca3af; font-size: 12px; margin-top: 4px;">Placeholder: "' . esc_html($search_placeholder) . '"</div>';
+        } else {
+            echo '<div style="color: #6b7280;"><strong>Status:</strong> Disabled</div>';
+        }
+        echo '</div>';
+        echo '</div>';
+
+        // Section 3: Pods Integration Status
+        echo '<div style="margin-bottom: 16px;">';
+        echo '<h5 style="margin: 0 0 8px; color: #6b7280; font-size: 14px; font-weight: 600;">🔧 Pods Integration</h5>';
+        echo '<div style="background: #f3f4f6; padding: 12px; border-radius: 6px; color: #374151;">';
+        
+        if ($this->pods_integration->is_pods_available()) {
+            echo '<div style="color: #6b7280; margin-bottom: 8px;"><strong>Pods Status:</strong> Available</div>';
+            
+            if (!empty($selected_cpt)) {
+                $pod_fields = $this->pods_integration->get_pod_fields($selected_cpt);
+                $pod_taxonomies = $this->pods_integration->get_pod_taxonomies($selected_cpt);
+                
+                echo '<div style="color: #6b7280;"><strong>Selected CPT:</strong> ' . esc_html($selected_cpt) . '</div>';
+                echo '<div style="color: #6b7280;"><strong>Custom fields:</strong> ' . count($pod_fields) . ' fields detected</div>';
+                echo '<div style="color: #6b7280;"><strong>Taxonomies:</strong> ' . count($pod_taxonomies) . ' taxonomies detected</div>';
+            } else {
+                echo '<div style="color: #9ca3af;"><em>No CPT selected</em></div>';
+            }
+        } else {
+            echo '<div style="color: #6b7280;"><strong>Pods Status:</strong> Not available</div>';
+        }
+        echo '</div>';
+        echo '</div>';
+
+        // Section 4: Current Search & Filters Status
+        echo '<div style="margin-bottom: 16px;">';
+        echo '<h5 style="margin: 0 0 8px; color: #6b7280; font-size: 14px; font-weight: 600;">🏷️ Current Status</h5>';
+        echo '<div style="background: #f3f4f6; padding: 12px; border-radius: 6px; color: #374151;">';
+        
+        // Search term status
+        if (!empty($search_term)) {
+            echo '<div style="color: #6b7280; margin-bottom: 8px;"><strong>Search term:</strong> "' . esc_html($search_term) . '"</div>';
+        } else {
+            echo '<div style="color: #6b7280; margin-bottom: 8px;"><strong>Search term:</strong> <em>None</em></div>';
+        }
+        
+        // Active filters status
+        if (!empty($current_filters)) {
+            echo '<div style="color: #6b7280; margin-bottom: 8px;"><strong>Active filters:</strong></div>';
+            foreach ($current_filters as $field => $values) {
+                if (is_array($values) && !empty($values)) {
+                    echo '<div style="color: #9ca3af; font-size: 12px; margin-left: 16px;">• <strong>' . esc_html($field) . ':</strong> ' . esc_html(implode(', ', $values)) . '</div>';
+                }
+            }
+        } else {
+            echo '<div style="color: #6b7280; margin-bottom: 8px;"><strong>Active filters:</strong> <em>None</em></div>';
+        }
+        
+        // Items found status (only if CPT is selected and Pods is available)
+        if (!empty($selected_cpt) && $this->pods_integration->is_pods_available()) {
+            $pod_posts = $this->pods_integration->get_pod_posts($selected_cpt, $posts_per_page, 1, $search_term, $current_filters);
+            
+            if (is_wp_error($pod_posts)) {
+                echo '<div style="color: #6b7280;"><strong>Items found:</strong> <em>Error: ' . esc_html($pod_posts->get_error_message()) . '</em></div>';
+            } else {
+                echo '<div style="color: #6b7280;"><strong>Items found:</strong> ' . esc_html($pod_posts['total']) . ' items match current criteria</div>';
+            }
+        } else {
+            echo '<div style="color: #6b7280;"><strong>Items found:</strong> <em>CPT not selected or Pods unavailable</em></div>';
+        }
+        echo '</div>';
+        echo '</div>';
         
         echo '</div>';
     }
@@ -886,31 +1012,6 @@ class Smart_Gallery_Renderer {
     }
 
     /**
-     * Render status message
-     * 
-     * @param array $settings
-     */
-    public function render_status_message($settings) {
-        $selected_cpt = $settings['selected_cpt'] ?? '';
-        $posts_per_page = $settings['posts_per_page'] ?? 12;
-
-        echo '<div style="margin-top: 20px; padding: 15px; background: #d1ecf1; border: 1px solid #bee5eb; border-radius: 6px; color: #0c5460; font-size: 14px;">';
-        echo '<strong>📋 Status:</strong> F3.1 - Text Search functionality implemented successfully!<br>';
-        
-        if (!empty($selected_cpt) && $this->pods_integration->is_pods_available()) {
-            $pod_posts = $this->pods_integration->get_pod_posts($selected_cpt, $posts_per_page, 1, '', []);
-            if (!is_wp_error($pod_posts) && !empty($pod_posts['posts'])) {
-                echo '<strong>✅ Showing:</strong> Real content from ' . esc_html($selected_cpt) . ' posts with search capability<br>';
-            }
-        } else {
-            echo '<strong>⚠️ Preview mode:</strong> Select a pod to see real content with search functionality<br>';
-        }
-        
-        echo '<strong>🚀 Next:</strong> F3.2 - Custom Fields Filtering';
-        echo '</div>';
-    }
-
-    /**
      * Render Elementor content template
      * 
      * @return string
@@ -918,58 +1019,67 @@ class Smart_Gallery_Renderer {
     public function render_content_template() {
         return '
         <div class="smart-gallery-widget">
-            <div class="smart-gallery-config" style="padding: 20px; background: #f8f9fa; border-radius: 8px; margin-bottom: 20px; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif;">
-                <h4 style="margin: 0 0 15px; color: #495057; font-size: 16px;">🔧 Gallery Configuration</h4>
+            <# if (settings.show_gallery_status_debug === "yes") { #>
+            <div class="smart-gallery-debug-panel" style="padding: 20px; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; margin-bottom: 20px; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif; font-size: 14px;">
+                <h4 style="margin: 0 0 20px; color: #374151; font-size: 16px; font-weight: 600;">� Gallery Status (Debug Mode)</h4>
                 
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; font-size: 14px;">
-                    
-                    <div>
-                        <strong style="color: #6c757d;">Selected Pod:</strong><br>
+                <!-- Section 1: Configuration -->
+                <div style="margin-bottom: 16px;">
+                    <h5 style="margin: 0 0 8px; color: #6b7280; font-size: 14px; font-weight: 600;">⚙️ Configuration</h5>
+                    <div style="background: #f3f4f6; padding: 12px; border-radius: 6px; color: #374151;">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; color: #6b7280;">
+                            <div><strong>CPT:</strong> <# if (settings.selected_cpt) { #>{{{ settings.selected_cpt }}}<# } else { #><em>None selected</em><# } #></div>
+                            <div><strong>Posts per page:</strong> {{{ settings.posts_per_page }}}</div>
+                            <div><strong>Columns:</strong> {{{ settings.columns }}}</div>
+                            <div><strong>Gap:</strong> {{{ settings.gap.size }}}{{{ settings.gap.unit }}}</div>
+                            <div><strong>Show title:</strong> <# if (settings.show_title === "yes") { #>Yes<# } else { #>No<# } #></div>
+                            <div><strong>Show description:</strong> <# if (settings.show_description === "yes") { #>Yes<# } else { #>No<# } #></div>
+                            <div><strong>Image hover:</strong> <# if (settings.enable_image_hover === "yes") { #>Yes<# } else { #>No<# } #></div>
+                            <div><strong>Content hover:</strong> <# if (settings.enable_content_hover === "yes") { #>Yes<# } else { #>No<# } #></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 2: Search Settings -->
+                <div style="margin-bottom: 16px;">
+                    <h5 style="margin: 0 0 8px; color: #6b7280; font-size: 14px; font-weight: 600;">🔍 Search Settings</h5>
+                    <div style="background: #f3f4f6; padding: 12px; border-radius: 6px; color: #374151;">
+                        <# if (settings.enable_search_input === "yes") { #>
+                            <# var position_label = settings.search_position === "upper_bar" ? "Upper Bar" : "Left Bar"; #>
+                            <div style="color: #6b7280;"><strong>Status:</strong> Enabled ({{{ position_label }}})</div>
+                            <div style="color: #9ca3af; font-size: 12px; margin-top: 4px;">Placeholder: "{{{ settings.search_placeholder_text }}}"</div>
+                        <# } else { #>
+                            <div style="color: #6b7280;"><strong>Status:</strong> Disabled</div>
+                        <# } #>
+                    </div>
+                </div>
+
+                <!-- Section 3: Pods Integration -->
+                <div style="margin-bottom: 16px;">
+                    <h5 style="margin: 0 0 8px; color: #6b7280; font-size: 14px; font-weight: 600;">🔧 Pods Integration</h5>
+                    <div style="background: #f3f4f6; padding: 12px; border-radius: 6px; color: #374151;">
+                        <div style="color: #6b7280; margin-bottom: 8px;"><strong>Pods Status:</strong> Available (Preview Mode)</div>
                         <# if (settings.selected_cpt) { #>
-                            <span style="color: #28a745;">✅ {{{ settings.selected_cpt }}}</span>
+                            <div style="color: #6b7280;"><strong>Selected CPT:</strong> {{{ settings.selected_cpt }}}</div>
+                            <div style="color: #6b7280;"><strong>Custom fields:</strong> Preview mode - configure in frontend</div>
+                            <div style="color: #6b7280;"><strong>Taxonomies:</strong> Preview mode - configure in frontend</div>
                         <# } else { #>
-                            <span style="color: #dc3545;">⚠️ No pod selected</span>
+                            <div style="color: #9ca3af;"><em>No CPT selected</em></div>
                         <# } #>
                     </div>
-                    
-                    <div>
-                        <strong style="color: #6c757d;">Show Title:</strong><br>
-                        <# var titleStatus = settings.show_title === "yes" ? "✅ Enabled" : "❌ Disabled"; #>
-                        <# var titleColor = settings.show_title === "yes" ? "#28a745" : "#6c757d"; #>
-                        <span style="color: {{{ titleColor }}};">{{{ titleStatus }}}</span>
+                </div>
+
+                <!-- Section 4: Current Status -->
+                <div style="margin-bottom: 16px;">
+                    <h5 style="margin: 0 0 8px; color: #6b7280; font-size: 14px; font-weight: 600;">🏷️ Current Status</h5>
+                    <div style="background: #f3f4f6; padding: 12px; border-radius: 6px; color: #374151;">
+                        <div style="color: #6b7280; margin-bottom: 8px;"><strong>Search term:</strong> <em>Preview mode</em></div>
+                        <div style="color: #6b7280; margin-bottom: 8px;"><strong>Active filters:</strong> <em>Preview mode</em></div>
+                        <div style="color: #6b7280;"><strong>Items found:</strong> <em>Preview mode - configure in frontend</em></div>
                     </div>
-                    
-                    <div>
-                        <strong style="color: #6c757d;">Show Description:</strong><br>
-                        <# var descStatus = settings.show_description === "yes" ? "✅ Enabled" : "❌ Disabled"; #>
-                        <# var descColor = settings.show_description === "yes" ? "#28a745" : "#6c757d"; #>
-                        <span style="color: {{{ descColor }}};">{{{ descStatus }}}</span>
-                    </div>
-                    
-                    <# if (settings.show_description === "yes") { #>
-                    <div>
-                        <strong style="color: #6c757d;">Description Field:</strong><br>
-                        <# if (settings.description_field === "custom_field" && settings.custom_description_field) { #>
-                            <span style="color: #17a2b8;">🔧 {{{ settings.custom_description_field }}}</span>
-                        <# } else { #>
-                            <# var fieldLabel = settings.description_field === "content" ? "Post Content" : settings.description_field; #>
-                            <span style="color: #495057;">📝 {{{ fieldLabel }}}</span>
-                        <# } #>
-                    </div>
-                    <# } #>
-                    
-                    <div>
-                        <strong style="color: #6c757d;">Posts per Page:</strong><br>
-                        <span style="color: #495057;">{{{ settings.posts_per_page }}} posts</span>
-                    </div>
-                    
-                    <div>
-                        <strong style="color: #6c757d;">Columns:</strong><br>
-                        <span style="color: #495057;">{{{ settings.columns }}} columns</span>
-                    </div>
-                    
                 </div>
             </div>
+            <# } #>
             
             <div class="smart-gallery-grid" style="display: grid; grid-template-columns: repeat({{{ settings.columns }}}, 1fr); gap: {{{ settings.gap.size }}}{{{ settings.gap.unit }}};">
                 <# for (var i = 1; i <= Math.min(settings.posts_per_page, 6); i++) { #>
@@ -985,9 +1095,9 @@ class Smart_Gallery_Renderer {
                 <# } #>
             </div>
             
-            <div style="margin-top: 20px; padding: 15px; background: #d1ecf1; border: 1px solid #bee5eb; border-radius: 6px; color: #0c5460; font-size: 14px;">
-                <strong>📋 Status:</strong> Phase 2 Complete - F2.1 Pagination System implemented<br>
-                <strong>🚀 Next:</strong> Phase 3 - F3.1 Text Search
+            <div style="margin-top: 20px; padding: 15px; background: #f3f4f6; border: 1px solid #e9ecef; border-radius: 6px; color: #6b7280; font-size: 14px;">
+                <strong>📋 Status:</strong> F4.4 Debug Status Panel implemented - unified design with clean gray colors<br>
+                <strong>🚀 Next:</strong> F3.3 Taxonomy Filtering
             </div>
         </div>';
     }

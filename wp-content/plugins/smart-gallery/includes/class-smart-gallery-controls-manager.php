@@ -506,6 +506,33 @@ class Smart_Gallery_Controls_Manager {
         );
 
         $widget->end_controls_section();
+
+        // ==============================================
+        // DEBUG SETTINGS SECTION
+        // ==============================================
+        $widget->start_controls_section(
+            'debug_section',
+            [
+                'label' => esc_html__('Debug Settings', 'smart-gallery'),
+                'tab' => \Elementor\Controls_Manager::TAB_CONTENT,
+            ]
+        );
+
+        // Show Gallery Status (Debug)
+        $widget->add_control(
+            'show_gallery_status_debug',
+            [
+                'label' => esc_html__('Show Gallery Status (Debug)', 'smart-gallery'),
+                'type' => \Elementor\Controls_Manager::SWITCHER,
+                'label_on' => esc_html__('Show', 'smart-gallery'),
+                'label_off' => esc_html__('Hide', 'smart-gallery'),
+                'return_value' => 'yes',
+                'default' => '',
+                'description' => esc_html__('Display debug status panel below gallery for development and testing', 'smart-gallery'),
+            ]
+        );
+
+        $widget->end_controls_section();
     }
 
     /**

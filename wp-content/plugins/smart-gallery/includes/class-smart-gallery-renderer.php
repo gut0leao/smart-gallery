@@ -67,19 +67,20 @@ class Smart_Gallery_Renderer {
         // Get search term from URL
         $search_term = isset($_GET['search_term']) ? sanitize_text_field($_GET['search_term']) : '';
         
-        // Reset to page 1 when search term changes
-        if (!empty($search_term) && !isset($_GET['paged'])) {
-            $current_page = 1;
-        }
+        // Get current filters from URL (at the main level)
+        $current_filters = $this->get_current_filters_from_url();
         
         // Ensure page is at least 1
         $current_page = max(1, $current_page);
+        
+        // DEBUG: Let's see what's happening with pagination
+        // error_log("Smart Gallery Debug - Current Page: $current_page, Search Term: '$search_term', URI: " . $_SERVER['REQUEST_URI']);
         
         echo '<div class="smart-gallery-widget" data-page="' . esc_attr($current_page) . '" data-search="' . esc_attr($search_term) . '">';
         
         $this->render_configuration_panel($settings);
         $this->render_pods_status($selected_cpt, $posts_per_page);
-        $this->render_search_filtering_status($selected_cpt, $search_term, $posts_per_page);
+        $this->render_search_filtering_status($selected_cpt, $search_term, $posts_per_page, $current_filters);
         
         // Render search interface based on position
         if ($enable_search === 'yes' && $search_position === 'upper_bar') {
@@ -111,7 +112,7 @@ class Smart_Gallery_Renderer {
         
         // Gallery grid
         echo '<div class="smart-gallery-content">';
-        $this->render_gallery_grid($settings, $current_page, $search_term);
+        $this->render_gallery_grid($settings, $current_page, $search_term, $current_filters);
         echo '</div>';
         
         echo '</div>'; // End main content
@@ -302,7 +303,7 @@ class Smart_Gallery_Renderer {
      * @param string $search_term
      * @param int $posts_per_page
      */
-    public function render_search_filtering_status($selected_cpt, $search_term, $posts_per_page) {
+    public function render_search_filtering_status($selected_cpt, $search_term, $posts_per_page, $current_filters = []) {
         echo '<div class="smart-gallery-search-filtering-status" style="padding: 15px; background: #f0f8ff; border-radius: 8px; margin-bottom: 20px; font-size: 14px;">';
         echo '<h5 style="margin: 0 0 10px; color: #1e3a8a;">🔍 Search and Filtering Status</h5>';
         
@@ -317,7 +318,6 @@ class Smart_Gallery_Renderer {
         
         // Active filters status
         echo '<div style="color: #1e40af; background: #e0f2fe; padding: 10px; border-radius: 6px; margin-bottom: 5px;">';
-        $current_filters = $this->get_current_filters_from_url();
         if (!empty($current_filters)) {
             echo '<strong>🏷️ Active Filters:</strong><br>';
             foreach ($current_filters as $field => $values) {
@@ -356,8 +356,9 @@ class Smart_Gallery_Renderer {
      * @param array $settings
      * @param int $current_page
      * @param string $search_term
+     * @param array $current_filters
      */
-    public function render_gallery_grid($settings, $current_page = 1, $search_term = '') {
+    public function render_gallery_grid($settings, $current_page = 1, $search_term = '', $current_filters = []) {
         $selected_cpt = $settings['selected_cpt'] ?? '';
         $posts_per_page = $settings['posts_per_page'] ?? 12;
         $columns = $settings['columns'] ?? 3;
@@ -368,9 +369,6 @@ class Smart_Gallery_Renderer {
         echo '<div class="smart-gallery-grid" style="display: grid; grid-template-columns: repeat(' . esc_attr($columns) . ', 1fr); gap: ' . esc_attr($gap_size . $gap_unit) . ';">';
         
         if (!empty($selected_cpt) && $this->pods_integration->is_pods_available()) {
-            // Get current filters from URL
-            $current_filters = $this->get_current_filters_from_url();
-            
             // Display real posts from selected Pod with pagination, search, and custom field filtering
             $pod_posts = $this->pods_integration->get_pod_posts($selected_cpt, $posts_per_page, $current_page, $search_term, $current_filters);
             
@@ -1140,9 +1138,9 @@ class Smart_Gallery_Renderer {
         
         // Add search term if provided
         if (!empty($search_term)) {
-            $query_params['search'] = $search_term;
+            $query_params['search_term'] = $search_term;
         } else {
-            unset($query_params['search']);
+            unset($query_params['search_term']);
         }
 
         // Add current filters

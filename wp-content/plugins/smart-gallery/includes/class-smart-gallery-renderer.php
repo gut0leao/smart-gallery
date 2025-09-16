@@ -625,8 +625,8 @@ class Smart_Gallery_Renderer {
      */
     private function preserve_url_parameters_unified() {
         // Preserve search term
-        if (!empty($_GET['search'])) {
-            echo '<input type="hidden" name="search" value="' . esc_attr($_GET['search']) . '">';
+        if (!empty($_GET['search_term'])) {
+            echo '<input type="hidden" name="search_term" value="' . esc_attr($_GET['search_term']) . '">';
         }
         
         // Reset pagination when filters change
@@ -640,8 +640,8 @@ class Smart_Gallery_Renderer {
      */
     private function preserve_url_parameters() {
         // Preserve search term
-        if (!empty($_GET['search'])) {
-            echo '<input type="hidden" name="search" value="' . esc_attr($_GET['search']) . '">';
+        if (!empty($_GET['search_term'])) {
+            echo '<input type="hidden" name="search_term" value="' . esc_attr($_GET['search_term']) . '">';
         }
         
         // Preserve pagination

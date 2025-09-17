@@ -22,8 +22,6 @@ global $wpdb;
 if (!defined('PODS_DRY_RUN_ONLY')) {
     define('DOING_AJAX', true);
     $_POST['action'] = 'wp-cli-reset';
-    $_GET['force_delete_kit'] = '1'; // Force Elementor kit deletion
-    $_REQUEST['force_delete_kit'] = '1';
 }
 
 // 📊 INITIAL ANALYSIS

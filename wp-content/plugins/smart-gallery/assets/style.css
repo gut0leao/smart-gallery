@@ -277,8 +277,8 @@
 .smart-gallery-search-input {
     width: 100%;
     padding: 12px 50px 12px 16px; /* Right padding for internal button */
-    border: 1px solid #e5e5e5;
-    border-radius: 4px;
+    border: 1px solid #dedede !important;
+    border-radius: 8px !important;
     font-size: 14px;
     font-family: inherit;
     background-color: #fff;
@@ -298,23 +298,23 @@
 
 /* Internal Search Button (inside input) */
 .smart-gallery-search-button-internal {
-    position: absolute;
-    right: 4px;
-    top: 50%;
-    transform: translateY(-50%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 40px;
-    height: 40px;
-    background: transparent;
-    border: none;
+    position: absolute !important;
+    right: 8px !important;
+    top: 50% !important;
+    transform: translateY(-48%) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 40px !important;
+    height: 40px !important;
+    background: transparent !important;
+    border: none !important;
     border-radius: 4px;
     cursor: pointer;
     font-size: 16px;
     color: #666;
     transition: all 0.2s ease;
-    z-index: 3;
+    z-index: 10 !important;
     /* Reset button defaults and prevent red borders */
     -webkit-appearance: none;
     -moz-appearance: none;
@@ -334,7 +334,7 @@
 .smart-gallery-search-button-internal:hover:not(:disabled) {
     background-color: transparent; /* Sem fundo */
     color: #666;
-    transform: translateY(-50%);
+    transform: translateY(-48%) !important;
     border: none !important;
     outline: none !important;
     box-shadow: none !important;
@@ -343,7 +343,7 @@
 .smart-gallery-search-button-internal:active:not(:disabled) {
     background-color: transparent; /* Sem fundo */
     color: #666;
-    transform: translateY(-50%);
+    transform: translateY(-48%) !important;
     border: none !important;
     outline: none !important;
     box-shadow: none !important;
@@ -358,18 +358,56 @@
 }
 
 .smart-gallery-search-button-internal:disabled {
+    padding: 0;
     background-color: transparent !important;
     color: #ccc !important;
     border: none !important;
     cursor: not-allowed;
     opacity: 0.6;
-    transform: translateY(-50%);
+    transform: translateY(-48%) !important;
     box-shadow: none !important;
 }
 
 .smart-gallery-search-button-internal .search-button-icon {
-    font-size: 16px;
-    line-height: 1;
+    padding: 0 !important;
+    width: 20px !important;
+    height: 20px !important;
+    display: inline-block !important;
+    flex-shrink: 0 !important;
+    flex-grow: 0 !important;
+    min-width: 20px !important;
+    min-height: 20px !important;
+    max-width: 20px !important;
+    max-height: 20px !important;
+}
+
+.smart-gallery-search-button-internal .search-button-icon svg {
+    width: 20px !important;
+    height: 20px !important;
+    fill: #666;
+    stroke: none;
+    flex-shrink: 0 !important;
+}
+
+/* Ensure icon size is consistent in all button states */
+.smart-gallery-search-button-internal:hover:not(:disabled) .search-button-icon,
+.smart-gallery-search-button-internal:active:not(:disabled) .search-button-icon,
+.smart-gallery-search-button-internal:focus .search-button-icon,
+.smart-gallery-search-button-internal:disabled .search-button-icon {
+    width: 20px !important;
+    height: 20px !important;
+    min-width: 20px !important;
+    min-height: 20px !important;
+    max-width: 20px !important;
+    max-height: 20px !important;
+}
+
+.smart-gallery-search-button-internal:hover:not(:disabled) .search-button-icon svg,
+.smart-gallery-search-button-internal:active:not(:disabled) .search-button-icon svg,
+.smart-gallery-search-button-internal:focus .search-button-icon svg,
+.smart-gallery-search-button-internal:disabled .search-button-icon svg {
+    width: 20px !important;
+    height: 20px !important;
 }
 
 /* Search Button */
@@ -487,6 +525,8 @@
     .smart-gallery-search-input {
         padding: 10px 12px 10px 36px;
         font-size: 13px;
+        border-color: #dedede !important;
+        border-radius: 8px !important;
     }
     
     .smart-gallery-search-icon {
@@ -504,6 +544,13 @@
     .smart-gallery-search-button .search-button-icon,
     .smart-gallery-clear-button .clear-button-icon {
         font-size: 14px;
+    }
+    
+    /* Ensure internal search button icon keeps its size */
+    .smart-gallery-search-button-internal .search-button-icon {
+        width: 20px !important;
+        height: 20px !important;
+        font-size: inherit !important;
     }
     
     .smart-gallery-search-button .search-button-text,
@@ -555,14 +602,97 @@
     border: 1px solid #e5e5e5;
 }
 
+/* Filter Header and Title */
+.smart-gallery-filters-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 15px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e5e5e5;
+}
+
 .smart-gallery-filters-title {
-    margin: 0 0 15px 0;
+    margin: 0;
     padding: 0;
     font-size: 16px;
     font-weight: 600;
     color: #333;
-    border-bottom: 1px solid #e5e5e5;
-    padding-bottom: 8px;
+    display: flex;
+    align-items: center;
+}
+
+.smart-gallery-filters-title .smart-gallery-icon {
+    width: 20px;
+    height: 20px;
+    vertical-align: middle;
+    margin-right: 8px;
+    stroke: currentColor;
+    border: none !important;
+    background: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+
+.smart-gallery-clear-all-filters-header {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #6c757d;
+    width: 20px;
+    height: 20px;
+    outline: none !important;
+    box-shadow: none !important;
+    vertical-align: middle;
+}
+
+.smart-gallery-clear-all-filters-header:hover {
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    color: #5a6268 !important;
+    opacity: 1 !important;
+    transform: none !important;
+}
+
+.smart-gallery-clear-all-filters-header:active,
+.smart-gallery-clear-all-filters-header:focus {
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+.smart-gallery-clear-all-filters-header .smart-gallery-icon {
+    width: 20px;
+    height: 20px;
+    fill: currentColor;
+    border: none !important;
+    background: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+    display: block;
+}
+
+.smart-gallery-clear-all-filters-header:hover .smart-gallery-icon {
+    fill: currentColor !important;
+    background: none !important;
+    background-color: transparent !important;
+}
+
+.smart-gallery-filters-title .screen-reader-text {
+    position: absolute !important;
+    clip: rect(1px, 1px, 1px, 1px);
+    padding: 0 !important;
+    border: 0 !important;
+    height: 1px !important;
+    width: 1px !important;
+    overflow: hidden;
 }
 
 /* Filter Sections */

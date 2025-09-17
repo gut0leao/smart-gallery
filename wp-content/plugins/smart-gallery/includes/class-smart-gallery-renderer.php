@@ -567,7 +567,7 @@ class Smart_Gallery_Renderer {
         echo '<div class="smart-gallery-search-input-container">';
         echo '<input type="text" name="search_term" value="' . esc_attr($search_term) . '" placeholder="' . esc_attr($placeholder_text) . '" class="smart-gallery-search-input">';
         echo '<button type="submit" class="smart-gallery-search-button-internal" title="' . esc_attr__('Search', 'smart-gallery') . '">';
-        echo '<span class="search-button-icon">🔍</span>';
+        echo '<span class="search-button-icon">' . $this->get_inline_svg('magnifier_search_zoom_icon.svg') . '</span>';
         echo '</button>';
         echo '</div>';
         
@@ -658,7 +658,23 @@ class Smart_Gallery_Renderer {
         }
 
         echo '<div class="smart-gallery-filters">';
-        echo '<h4 class="smart-gallery-filters-title">' . esc_html__('Filter Options', 'smart-gallery') . '</h4>';
+        echo '<div class="smart-gallery-filters-header">';
+        echo '<h4 class="smart-gallery-filters-title">';
+        echo $this->get_inline_svg('funnel_simple_icon.svg');
+        echo '<span class="screen-reader-text">' . esc_html__('Filter Options', 'smart-gallery') . '</span>';
+        echo '</h4>';
+        
+        // Clear all filters button (only show if there are active filters)
+        $current_filters = $this->get_current_filters_from_url();
+        $current_taxonomy_filters = $this->get_current_taxonomy_filters_from_url();
+        if (!empty($current_filters) || !empty($current_taxonomy_filters)) {
+            echo '<button type="button" class="smart-gallery-clear-all-filters-header" onclick="' . esc_attr($this->get_clear_all_filters_js()) . '" title="' . esc_attr__('Clear All Filters', 'smart-gallery') . '">';
+            echo $this->get_inline_svg('can_trash_icon.svg');
+            echo '<span class="screen-reader-text">' . esc_html__('Clear All Filters', 'smart-gallery') . '</span>';
+            echo '</button>';
+        }
+        
+        echo '</div>'; // End filters header
 
         // Single form for all filters
         echo '<form method="get" class="smart-gallery-filters-form" id="smart-gallery-filters-form">';
@@ -714,15 +730,6 @@ class Smart_Gallery_Renderer {
         $this->render_taxonomy_filters($settings, $current_filters, $search_term);
 
         echo '</form>'; // End unified form
-
-        // Global clear filters button
-        $current_taxonomy_filters = $this->get_current_taxonomy_filters_from_url();
-        if (!empty($current_filters) || !empty($current_taxonomy_filters)) {
-            echo '<button type="button" class="smart-gallery-clear-all-filters" onclick="' . esc_attr($this->get_clear_all_filters_js()) . '">';
-            echo '<span class="clear-icon">🗑️</span> ';
-            echo esc_html__('Clear All Filters', 'smart-gallery');
-            echo '</button>';
-        }
 
         echo '</div>'; // End smart-gallery-filters
         
@@ -957,6 +964,7 @@ class Smart_Gallery_Renderer {
         
         // Remove all filters and pagination
         unset($query_params['filter']);
+        unset($query_params['taxonomy_filter']); // Remove taxonomy filters
         unset($query_params['paged']);
         
         $new_query = http_build_query($query_params);
@@ -1422,5 +1430,47 @@ class Smart_Gallery_Renderer {
             $new_query = http_build_query($query_params);
             return $base_url . ($new_query ? '?' . $new_query : '');
         }
+    }
+
+    /**
+     * Get inline SVG icon from assets/icons
+     * 
+     * @param string $filename SVG filename (e.g., 'funnel_simple_icon.svg')
+     * @return string Sanitized SVG content or empty string if file not found
+     */
+    private function get_inline_svg($filename) {
+        $icon_path = plugin_dir_path(__FILE__) . '../assets/icons/' . ltrim($filename, '/');
+        
+        if (!file_exists($icon_path) || !is_readable($icon_path)) {
+            return '';
+        }
+        
+        $svg_content = file_get_contents($icon_path);
+        
+        if ($svg_content === false) {
+            return '';
+        }
+        
+        // Basic sanitization: remove XML declaration and keep only SVG content
+        $svg_content = preg_replace('/<\?xml[^>]*\?>/', '', $svg_content);
+        $svg_content = trim($svg_content);
+        
+        // Remove background rectangle that may create visual borders
+        $svg_content = preg_replace('/<rect[^>]*fill="none"[^>]*\/>/', '', $svg_content);
+        
+        // Add CSS classes and ARIA attributes for accessibility
+        $svg_content = str_replace(
+            '<svg',
+            '<svg class="smart-gallery-icon" aria-hidden="true" role="img"',
+            $svg_content
+        );
+        
+        // Make stroke color inherit from CSS (currentColor)
+        $svg_content = str_replace('stroke="#000"', 'stroke="currentColor"', $svg_content);
+        
+        // Make fill color inherit from CSS (for filled icons like trash)
+        $svg_content = preg_replace('/fill="[^"]*"(?![^>]*fill="none")/', 'fill="currentColor"', $svg_content);
+        
+        return $svg_content;
     }
 }

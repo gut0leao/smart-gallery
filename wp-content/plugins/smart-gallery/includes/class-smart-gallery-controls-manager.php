@@ -638,29 +638,14 @@ class Smart_Gallery_Controls_Manager {
     private function get_all_possible_taxonomies() {
         $taxonomies = [];
         
-        // Debug log
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log('Smart Gallery Debug - get_all_possible_taxonomies called');
-        }
-        
         if (!$this->pods_integration->is_pods_available()) {
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('Smart Gallery Debug - Pods not available');
-            }
             return $taxonomies;
         }
         
         // Get all available CPTs
         $cpts = $this->pods_integration->get_available_cpts();
         
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log('Smart Gallery Debug - Available CPTs: ' . print_r($cpts, true));
-        }
-        
         if (empty($cpts)) {
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('Smart Gallery Debug - No CPTs found');
-            }
             return $taxonomies;
         }
         
@@ -673,10 +658,6 @@ class Smart_Gallery_Controls_Manager {
             
             $cpt_taxonomies = $this->pods_integration->get_pod_taxonomies($cpt_key);
             
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('Smart Gallery Debug - CPT: ' . $cpt_key . ', Taxonomies: ' . print_r($cpt_taxonomies, true));
-            }
-            
             if (!empty($cpt_taxonomies)) {
                 foreach ($cpt_taxonomies as $taxonomy_name => $taxonomy_config) {
                     $taxonomy_label = $taxonomy_config['label'] ?? ucfirst(str_replace('_', ' ', $taxonomy_name));
@@ -684,10 +665,6 @@ class Smart_Gallery_Controls_Manager {
                     $taxonomies[$taxonomy_name] = "[{$cpt_name}] {$taxonomy_label}";
                 }
             }
-        }
-        
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log('Smart Gallery Debug - Final taxonomies: ' . print_r($taxonomies, true));
         }
         
         return $taxonomies;

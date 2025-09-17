@@ -73,10 +73,6 @@ class Smart_Gallery_Renderer {
         // Ensure page is at least 1
         $current_page = max(1, $current_page);
         
-        // DEBUG: Let's see what's happening with pagination
-        // error_log("Smart Gallery Debug - Current Page: $current_page, Search Term: '$search_term', URI: " . $_SERVER['REQUEST_URI']);
-        // error_log("Smart Gallery Debug - Current Filters: " . print_r($current_filters, true));
-        
         echo '<div class="smart-gallery-widget" data-page="' . esc_attr($current_page) . '" data-search="' . esc_attr($search_term) . '">';
         
         // Render search interface based on position
@@ -580,18 +576,8 @@ class Smart_Gallery_Renderer {
         $available_fields = $settings['available_fields_for_filtering'] ?? [];
         $available_taxonomies = $settings['available_taxonomies_for_filtering'] ?? [];
         
-        // Debug info (can be removed later)
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log('Smart Gallery Filters Debug - CPT: ' . $selected_cpt);
-            error_log('Smart Gallery Filters Debug - Available Fields: ' . print_r($available_fields, true));
-            error_log('Smart Gallery Filters Debug - Available Taxonomies: ' . print_r($available_taxonomies, true));
-        }
-        
         // Bail if no CPT selected
         if (empty($selected_cpt)) {
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('Smart Gallery Filters Debug - Bailing: No CPT selected');
-            }
             return;
         }
 
@@ -600,9 +586,6 @@ class Smart_Gallery_Renderer {
         $has_taxonomies = !empty($available_taxonomies);
         
         if (!$has_fields && !$has_taxonomies) {
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('Smart Gallery Filters Debug - Bailing: No fields and no taxonomies configured');
-            }
             return;
         }
 
@@ -642,12 +625,6 @@ class Smart_Gallery_Renderer {
                     $current_filters, 
                     $search_term
                 );
-
-                // Debug field values
-                if (defined('WP_DEBUG') && WP_DEBUG) {
-                    error_log('Smart Gallery Filters Debug - Valid Fields: ' . print_r($valid_fields, true));
-                    error_log('Smart Gallery Filters Debug - Field Values: ' . print_r($field_values, true));
-                }
             }
         } else {
             // Get current filter values from URL even if no custom fields
@@ -658,9 +635,6 @@ class Smart_Gallery_Renderer {
         $should_render = (!empty($field_values)) || $has_taxonomies;
         
         if (!$should_render) {
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('Smart Gallery Filters Debug - Nothing to render: no field values and no taxonomies');
-            }
             return;
         }
 
@@ -748,17 +722,8 @@ class Smart_Gallery_Renderer {
         $available_taxonomies = $settings['available_taxonomies_for_filtering'] ?? [];
         $selected_cpt = $settings['selected_cpt'] ?? '';
         
-        // Debug logging
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log('Smart Gallery Debug - render_taxonomy_filters called');
-            error_log('Smart Gallery Debug - Available Taxonomies: ' . print_r($available_taxonomies, true));
-        }
-        
         // Bail if no taxonomies configured
         if (empty($available_taxonomies) || empty($selected_cpt)) {
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('Smart Gallery Debug - render_taxonomy_filters bailing: no taxonomies or CPT');
-            }
             return;
         }
         
@@ -773,11 +738,7 @@ class Smart_Gallery_Renderer {
             $current_taxonomy_filters,
             $search_term
         );
-        
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log('Smart Gallery Debug - Taxonomy data: ' . print_r($taxonomy_data, true));
-        }
-        
+                
         // Render each taxonomy section
         foreach ($available_taxonomies as $taxonomy) {
             if (!isset($taxonomy_data[$taxonomy]) || empty($taxonomy_data[$taxonomy]['terms'])) {

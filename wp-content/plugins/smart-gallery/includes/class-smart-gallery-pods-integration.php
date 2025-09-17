@@ -361,13 +361,13 @@ class Smart_Gallery_Pods_Integration {
     }
 
     /**
-     * Get unique values for a specific custom field from current result set
+     * Get unique values for a specific custom field from current result set (F3.2 Enhanced)
      * 
      * @param string $cpt_name
      * @param string $field_name
      * @param array $current_filters Additional filters to apply
      * @param string $search_term Search term to filter by
-     * @return array Array of unique values with counts
+     * @return array Array of unique values with counts (count > 0 only, sorted by count desc)
      */
     public function get_field_values_with_counts($cpt_name, $field_name, $current_filters = [], $search_term = '') {
         if (!$this->is_pods_available() || empty($cpt_name) || empty($field_name)) {
@@ -465,8 +465,13 @@ class Smart_Gallery_Pods_Integration {
                 wp_reset_postdata();
             }
 
-            // Sort by key (alphabetical) and return
-            ksort($field_values);
+            // F3.2 Enhancement: Filter out values with count = 0 and sort by count descending
+            $field_values = array_filter($field_values, function($count) {
+                return $count > 0;
+            });
+            
+            // F3.2 Enhancement: Sort by count descending (values with more posts first)
+            arsort($field_values);
             return $field_values;
 
         } catch (Exception $e) {
@@ -624,9 +629,20 @@ class Smart_Gallery_Pods_Integration {
         $results = [];
 
         foreach ($taxonomies as $taxonomy) {
-            $terms = $this->get_taxonomy_terms_with_counts($cpt_name, $taxonomy, $custom_field_filters, $current_taxonomy_filters, $search_term);
-            if (!empty($terms)) {
-                $results[$taxonomy] = $terms;
+            $hierarchical_terms = $this->get_taxonomy_terms_with_counts($cpt_name, $taxonomy, $custom_field_filters, $current_taxonomy_filters, $search_term);
+            if (!empty($hierarchical_terms)) {
+                // Convert hierarchical structure to flat array for renderer
+                $flat_terms = $this->flatten_hierarchical_terms($hierarchical_terms);
+                
+                // Get taxonomy object for label
+                $taxonomy_obj = get_taxonomy($taxonomy);
+                $taxonomy_label = $taxonomy_obj ? $taxonomy_obj->label : $taxonomy;
+                
+                $results[$taxonomy] = [
+                    'label' => $taxonomy_label,
+                    'terms' => $flat_terms,
+                    'hierarchical' => $hierarchical_terms // Keep hierarchical data for future use
+                ];
             }
         }
 
@@ -697,7 +713,7 @@ class Smart_Gallery_Pods_Integration {
             $terms = get_terms([
                 'taxonomy' => $taxonomy_name,
                 'hide_empty' => false,
-                'object_ids' => $post_ids // Only get terms that are used by our filtered posts
+                // Don't use object_ids here for hierarchical taxonomies as parent terms might not have direct posts
             ]);
 
             if (is_wp_error($terms) || empty($terms)) {
@@ -731,27 +747,66 @@ class Smart_Gallery_Pods_Integration {
                 // Get count for this term
                 $term_count = $this->get_term_post_count($term, $post_ids);
                 
-                if ($term_count > 0) { // Only include terms that have posts
+                // Get children recursively first to see if we should include this term
+                $children = $this->build_hierarchical_terms($terms, $post_ids, $term->term_id);
+                
+                // F3.3 Enhancement: Only include terms with posts (count > 0) OR with children that have posts
+                if ($term_count > 0 || !empty($children)) {
                     $term_data = [
                         'term_id' => $term->term_id,
                         'name' => $term->name,
                         'slug' => $term->slug,
                         'count' => $term_count,
-                        'children' => []
+                        'children' => $children
                     ];
-
-                    // Get children recursively
-                    $children = $this->build_hierarchical_terms($terms, $post_ids, $term->term_id);
-                    if (!empty($children)) {
-                        $term_data['children'] = $children;
-                    }
 
                     $result[] = $term_data;
                 }
             }
         }
 
+        // F3.3 Enhancement: Sort by count descending (terms with more posts first)
+        usort($result, function($a, $b) {
+            return $b['count'] <=> $a['count'];
+        });
+
         return $result;
+    }
+
+    /**
+     * Flatten hierarchical terms structure to a simple array with F3.3 enhancements
+     * 
+     * @param array $hierarchical_terms
+     * @return array
+     */
+    private function flatten_hierarchical_terms($hierarchical_terms) {
+        $flat_terms = [];
+        
+        foreach ($hierarchical_terms as $term_data) {
+            // F3.3 Enhancement: Only include terms with count > 0
+            if ($term_data['count'] > 0) {
+                // Add the parent/current term
+                $flat_terms[] = [
+                    'term_id' => $term_data['term_id'],
+                    'name' => $term_data['name'],
+                    'slug' => $term_data['slug'],
+                    'count' => $term_data['count']
+                ];
+            }
+            
+            // Add children recursively (they will also be filtered by count > 0)
+            if (!empty($term_data['children'])) {
+                $child_terms = $this->flatten_hierarchical_terms($term_data['children']);
+                $flat_terms = array_merge($flat_terms, $child_terms);
+            }
+        }
+        
+        // F3.3 Enhancement: Sort flat terms by count descending
+        usort($flat_terms, function($a, $b) {
+            return $b['count'] <=> $a['count'];
+        });
+        
+        return $flat_terms;
     }
 
     /**
@@ -770,6 +825,8 @@ class Smart_Gallery_Pods_Integration {
 
         // Count intersection of term posts and our filtered posts
         $intersection = array_intersect($term_posts, $post_ids);
-        return count($intersection);
+        $count = count($intersection);
+        
+        return $count;
     }
 }

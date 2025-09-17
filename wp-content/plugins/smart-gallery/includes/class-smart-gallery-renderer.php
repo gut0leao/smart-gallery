@@ -114,9 +114,8 @@ class Smart_Gallery_Renderer {
         // Render debug status panel (if enabled) - positioned below gallery
         $show_debug = $settings['show_gallery_status_debug'] ?? '';
         if ($show_debug === 'yes') {
-            // Combine both filter types for debug panel
-            $all_filters = array_merge($current_filters, $current_taxonomy_filters);
-            $this->render_unified_debug_panel($settings, $selected_cpt, $search_term, $posts_per_page, $all_filters);
+            // Pass both filter types separately to debug panel
+            $this->render_unified_debug_panel($settings, $selected_cpt, $search_term, $posts_per_page, $current_filters, $current_taxonomy_filters);
         }
         
         echo '</div>';
@@ -332,7 +331,7 @@ class Smart_Gallery_Renderer {
         
         // Items found status (only if CPT is selected and Pods is available)
         if (!empty($selected_cpt) && $this->pods_integration->is_pods_available()) {
-            $pod_posts = $this->pods_integration->get_pod_posts($selected_cpt, $posts_per_page, 1, $search_term, $current_filters);
+            $pod_posts = $this->pods_integration->get_pod_posts($selected_cpt, $posts_per_page, 1, $search_term, $current_filters, $current_taxonomy_filters);
             
             echo '<div style="color: #065f46; background: #d1fae5; padding: 10px; border-radius: 6px;">';
             if (is_wp_error($pod_posts)) {
@@ -358,8 +357,9 @@ class Smart_Gallery_Renderer {
      * @param string $search_term
      * @param int $posts_per_page
      * @param array $current_filters
+     * @param array $current_taxonomy_filters
      */
-    public function render_unified_debug_panel($settings, $selected_cpt, $search_term, $posts_per_page, $current_filters = []) {
+    public function render_unified_debug_panel($settings, $selected_cpt, $search_term, $posts_per_page, $current_filters = [], $current_taxonomy_filters = []) {
         echo '<div class="smart-gallery-debug-panel" style="margin-top: 20px; padding: 20px; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif; font-size: 14px;">';
         echo '<h4 style="margin: 0 0 20px; color: #374151; font-size: 16px; font-weight: 600;">📊 Gallery Status (Debug Mode)</h4>';
         
@@ -447,11 +447,27 @@ class Smart_Gallery_Renderer {
         }
         
         // Active filters status
-        if (!empty($current_filters)) {
+        $has_custom_filters = !empty($current_filters);
+        $has_taxonomy_filters = !empty($current_taxonomy_filters);
+        
+        if ($has_custom_filters || $has_taxonomy_filters) {
             echo '<div style="color: #6b7280; margin-bottom: 8px;"><strong>Active filters:</strong></div>';
-            foreach ($current_filters as $field => $values) {
-                if (is_array($values) && !empty($values)) {
-                    echo '<div style="color: #9ca3af; font-size: 12px; margin-left: 16px;">• <strong>' . esc_html($field) . ':</strong> ' . esc_html(implode(', ', $values)) . '</div>';
+            
+            // Show custom field filters
+            if ($has_custom_filters) {
+                foreach ($current_filters as $field => $values) {
+                    if (is_array($values) && !empty($values)) {
+                        echo '<div style="color: #9ca3af; font-size: 12px; margin-left: 16px;">• <strong>Field - ' . esc_html($field) . ':</strong> ' . esc_html(implode(', ', $values)) . '</div>';
+                    }
+                }
+            }
+            
+            // Show taxonomy filters
+            if ($has_taxonomy_filters) {
+                foreach ($current_taxonomy_filters as $taxonomy => $values) {
+                    if (is_array($values) && !empty($values)) {
+                        echo '<div style="color: #9ca3af; font-size: 12px; margin-left: 16px;">• <strong>Taxonomy - ' . esc_html($taxonomy) . ':</strong> ' . esc_html(implode(', ', $values)) . '</div>';
+                    }
                 }
             }
         } else {
@@ -460,7 +476,7 @@ class Smart_Gallery_Renderer {
         
         // Items found status (only if CPT is selected and Pods is available)
         if (!empty($selected_cpt) && $this->pods_integration->is_pods_available()) {
-            $pod_posts = $this->pods_integration->get_pod_posts($selected_cpt, $posts_per_page, 1, $search_term, $current_filters);
+            $pod_posts = $this->pods_integration->get_pod_posts($selected_cpt, $posts_per_page, 1, $search_term, $current_filters, $current_taxonomy_filters);
             
             if (is_wp_error($pod_posts)) {
                 echo '<div style="color: #6b7280;"><strong>Items found:</strong> <em>Error: ' . esc_html($pod_posts->get_error_message()) . '</em></div>';

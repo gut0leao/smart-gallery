@@ -69,6 +69,7 @@ class Smart_Gallery_Renderer {
         
         // Get current filters from URL (at the main level)
         $current_filters = $this->get_current_filters_from_url();
+        $current_taxonomy_filters = $this->get_current_taxonomy_filters_from_url();
         
         // Ensure page is at least 1
         $current_page = max(1, $current_page);
@@ -105,7 +106,7 @@ class Smart_Gallery_Renderer {
         
         // Gallery grid
         echo '<div class="smart-gallery-content">';
-        $this->render_gallery_grid($settings, $current_page, $search_term, $current_filters);
+        $this->render_gallery_grid($settings, $current_page, $search_term, $current_filters, $current_taxonomy_filters);
         echo '</div>';
         
         echo '</div>'; // End main content
@@ -113,7 +114,9 @@ class Smart_Gallery_Renderer {
         // Render debug status panel (if enabled) - positioned below gallery
         $show_debug = $settings['show_gallery_status_debug'] ?? '';
         if ($show_debug === 'yes') {
-            $this->render_unified_debug_panel($settings, $selected_cpt, $search_term, $posts_per_page, $current_filters);
+            // Combine both filter types for debug panel
+            $all_filters = array_merge($current_filters, $current_taxonomy_filters);
+            $this->render_unified_debug_panel($settings, $selected_cpt, $search_term, $posts_per_page, $all_filters);
         }
         
         echo '</div>';
@@ -481,7 +484,7 @@ class Smart_Gallery_Renderer {
      * @param string $search_term
      * @param array $current_filters
      */
-    public function render_gallery_grid($settings, $current_page = 1, $search_term = '', $current_filters = []) {
+    public function render_gallery_grid($settings, $current_page = 1, $search_term = '', $current_filters = [], $current_taxonomy_filters = []) {
         $selected_cpt = $settings['selected_cpt'] ?? '';
         $posts_per_page = $settings['posts_per_page'] ?? 12;
         $columns = $settings['columns'] ?? 3;
@@ -492,8 +495,8 @@ class Smart_Gallery_Renderer {
         echo '<div class="smart-gallery-grid" style="display: grid; grid-template-columns: repeat(' . esc_attr($columns) . ', 1fr); gap: ' . esc_attr($gap_size . $gap_unit) . ';">';
         
         if (!empty($selected_cpt) && $this->pods_integration->is_pods_available()) {
-            // Display real posts from selected Pod with pagination, search, and custom field filtering
-            $pod_posts = $this->pods_integration->get_pod_posts($selected_cpt, $posts_per_page, $current_page, $search_term, $current_filters);
+            // Display real posts from selected Pod with pagination, search, custom field filtering AND taxonomy filtering
+            $pod_posts = $this->pods_integration->get_pod_posts($selected_cpt, $posts_per_page, $current_page, $search_term, $current_filters, $current_taxonomy_filters);
             
             if (!is_wp_error($pod_posts) && !empty($pod_posts['posts'])) {
                 foreach ($pod_posts['posts'] as $post) {
@@ -504,7 +507,7 @@ class Smart_Gallery_Renderer {
                 echo '</div>'; // Close grid
                 
                 if ($this->should_show_pagination($settings, $pod_posts)) {
-                    $this->render_pagination($settings, $pod_posts, $current_page, $search_term, $current_filters);
+                    $this->render_pagination($settings, $pod_posts, $current_page, $search_term, $current_filters, $current_taxonomy_filters);
                 }
                 
                 return; // Early return to avoid closing grid again
@@ -1228,7 +1231,7 @@ class Smart_Gallery_Renderer {
      * @param int $current_page
      * @param string $search_term
      */
-    private function render_pagination($settings, $pod_posts, $current_page, $search_term = '', $current_filters = []) {
+    private function render_pagination($settings, $pod_posts, $current_page, $search_term = '', $current_filters = [], $current_taxonomy_filters = []) {
         $total_pages = $pod_posts['pages'] ?? 0;
         $show_prev_next = $settings['show_prev_next'] ?? 'yes';
         $show_page_numbers = $settings['show_page_numbers'] ?? 'yes';
@@ -1238,7 +1241,7 @@ class Smart_Gallery_Renderer {
         
         // Previous Button
         if ($show_prev_next === 'yes' && $current_page > 1) {
-            $prev_url = $this->get_pagination_url($current_page - 1, $search_term, $current_filters);
+            $prev_url = $this->get_pagination_url($current_page - 1, $search_term, $current_filters, $current_taxonomy_filters);
             echo '<a href="' . esc_url($prev_url) . '" class="pagination-button pagination-prev">';
             echo '<span style="margin-right: 5px;">←</span>' . esc_html__('Previous', 'smart-gallery');
             echo '</a>';
@@ -1246,12 +1249,12 @@ class Smart_Gallery_Renderer {
         
         // Page Numbers
         if ($show_page_numbers === 'yes') {
-            $this->render_page_numbers($current_page, $total_pages, $max_page_numbers, $search_term, $current_filters);
+            $this->render_page_numbers($current_page, $total_pages, $max_page_numbers, $search_term, $current_filters, $current_taxonomy_filters);
         }
         
         // Next Button
         if ($show_prev_next === 'yes' && $current_page < $total_pages) {
-            $next_url = $this->get_pagination_url($current_page + 1, $search_term, $current_filters);
+            $next_url = $this->get_pagination_url($current_page + 1, $search_term, $current_filters, $current_taxonomy_filters);
             echo '<a href="' . esc_url($next_url) . '" class="pagination-button pagination-next">';
             echo esc_html__('Next', 'smart-gallery') . '<span style="margin-left: 5px;">→</span>';
             echo '</a>';
@@ -1268,7 +1271,7 @@ class Smart_Gallery_Renderer {
      * @param int $max_page_numbers
      * @param string $search_term
      */
-    private function render_page_numbers($current_page, $total_pages, $max_page_numbers, $search_term = '', $current_filters = []) {
+    private function render_page_numbers($current_page, $total_pages, $max_page_numbers, $search_term = '', $current_filters = [], $current_taxonomy_filters = []) {
         // Calculate range of page numbers to show
         $half_range = floor($max_page_numbers / 2);
         $start_page = max(1, $current_page - $half_range);
@@ -1285,7 +1288,7 @@ class Smart_Gallery_Renderer {
         
         // Show first page and ellipsis if needed
         if ($start_page > 1) {
-            $this->render_page_number_button(1, $current_page, $search_term, $current_filters);
+            $this->render_page_number_button(1, $current_page, $search_term, $current_filters, $current_taxonomy_filters);
             if ($start_page > 2) {
                 echo '<span class="pagination-ellipsis" style="padding: 0 8px; color: #6c757d;">...</span>';
             }
@@ -1293,7 +1296,7 @@ class Smart_Gallery_Renderer {
         
         // Show page range
         for ($i = $start_page; $i <= $end_page; $i++) {
-            $this->render_page_number_button($i, $current_page, $search_term, $current_filters);
+            $this->render_page_number_button($i, $current_page, $search_term, $current_filters, $current_taxonomy_filters);
         }
         
         // Show last page and ellipsis if needed
@@ -1301,7 +1304,7 @@ class Smart_Gallery_Renderer {
             if ($end_page < $total_pages - 1) {
                 echo '<span class="pagination-ellipsis" style="padding: 0 8px; color: #6c757d;">...</span>';
             }
-            $this->render_page_number_button($total_pages, $current_page, $search_term, $current_filters);
+            $this->render_page_number_button($total_pages, $current_page, $search_term, $current_filters, $current_taxonomy_filters);
         }
     }
 
@@ -1313,7 +1316,7 @@ class Smart_Gallery_Renderer {
      * @param string $search_term
      * @param array $current_filters
      */
-    private function render_page_number_button($page_number, $current_page, $search_term = '', $current_filters = []) {
+    private function render_page_number_button($page_number, $current_page, $search_term = '', $current_filters = [], $current_taxonomy_filters = []) {
         $is_current = ($page_number === $current_page);
         
         if ($is_current) {
@@ -1321,7 +1324,7 @@ class Smart_Gallery_Renderer {
             echo esc_html($page_number);
             echo '</span>';
         } else {
-            $page_url = $this->get_pagination_url($page_number, $search_term, $current_filters);
+            $page_url = $this->get_pagination_url($page_number, $search_term, $current_filters, $current_taxonomy_filters);
             echo '<a href="' . esc_url($page_url) . '" class="pagination-button pagination-page">';
             echo esc_html($page_number);
             echo '</a>';
@@ -1335,7 +1338,7 @@ class Smart_Gallery_Renderer {
      * @param string $search_term
      * @return string
      */
-    private function get_pagination_url($page_number, $search_term = '', $current_filters = []) {
+    private function get_pagination_url($page_number, $search_term = '', $current_filters = [], $current_taxonomy_filters = []) {
         global $wp_rewrite;
         
         // Get current URL
@@ -1364,6 +1367,13 @@ class Smart_Gallery_Renderer {
             $query_params['filter'] = $current_filters;
         } else {
             unset($query_params['filter']);
+        }
+        
+        // Add current taxonomy filters
+        if (!empty($current_taxonomy_filters)) {
+            $query_params['taxonomy_filter'] = $current_taxonomy_filters;
+        } else {
+            unset($query_params['taxonomy_filter']);
         }
         
         if ($wp_rewrite->using_permalinks()) {

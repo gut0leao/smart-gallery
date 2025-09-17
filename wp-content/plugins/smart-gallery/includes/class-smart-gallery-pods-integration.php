@@ -581,19 +581,30 @@ class Smart_Gallery_Pods_Integration {
 
         $tax_queries = [];
 
-        foreach ($taxonomy_filters as $taxonomy => $term_ids) {
-            if (!empty($term_ids) && is_array($term_ids)) {
-                // Sanitize term IDs
-                $clean_term_ids = array_map('intval', $term_ids);
-                $clean_term_ids = array_filter($clean_term_ids, function($id) { return $id > 0; });
+        foreach ($taxonomy_filters as $taxonomy => $terms) {
+            if (!empty($terms) && is_array($terms)) {
+                // Handle both term IDs and slugs
+                $clean_terms = array_map('sanitize_text_field', $terms);
+                $clean_terms = array_filter($clean_terms);
 
-                if (!empty($clean_term_ids)) {
-                    $tax_queries[] = [
-                        'taxonomy' => sanitize_key($taxonomy),
-                        'field' => 'term_id',
-                        'terms' => $clean_term_ids,
-                        'operator' => 'IN' // OR logic within same taxonomy
-                    ];
+                if (!empty($clean_terms)) {
+                    // Check if terms are numeric (IDs) or text (slugs)
+                    $first_term = reset($clean_terms);
+                    $field = is_numeric($first_term) ? 'term_id' : 'slug';
+                    
+                    if ($field === 'term_id') {
+                        $clean_terms = array_map('intval', $clean_terms);
+                        $clean_terms = array_filter($clean_terms, function($id) { return $id > 0; });
+                    }
+
+                    if (!empty($clean_terms)) {
+                        $tax_queries[] = [
+                            'taxonomy' => sanitize_key($taxonomy),
+                            'field' => $field,
+                            'terms' => $clean_terms,
+                            'operator' => 'IN' // OR logic within same taxonomy
+                        ];
+                    }
                 }
             }
         }

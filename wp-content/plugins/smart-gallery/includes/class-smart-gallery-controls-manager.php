@@ -661,8 +661,22 @@ class Smart_Gallery_Controls_Manager {
             if (!empty($cpt_taxonomies)) {
                 foreach ($cpt_taxonomies as $taxonomy_name => $taxonomy_config) {
                     $taxonomy_label = $taxonomy_config['label'] ?? ucfirst(str_replace('_', ' ', $taxonomy_name));
-                    // Prefix with CPT name to make it clear which CPT the taxonomy belongs to
-                    $taxonomies[$taxonomy_name] = "[{$cpt_name}] {$taxonomy_label}";
+                    
+                    // Check if taxonomy already exists from another CPT
+                    if (isset($taxonomies[$taxonomy_name])) {
+                        // If already exists, append the current CPT name to show it's shared
+                        if (strpos($taxonomies[$taxonomy_name], ' + ') === false) {
+                            // Extract the first CPT name and add the current one
+                            $existing_label = $taxonomies[$taxonomy_name];
+                            $taxonomies[$taxonomy_name] = $existing_label . " + [{$cpt_name}]";
+                        } else {
+                            // Already has multiple CPTs, just add this one
+                            $taxonomies[$taxonomy_name] .= " + [{$cpt_name}]";
+                        }
+                    } else {
+                        // First time seeing this taxonomy
+                        $taxonomies[$taxonomy_name] = "[{$cpt_name}] {$taxonomy_label}";
+                    }
                 }
             }
         }

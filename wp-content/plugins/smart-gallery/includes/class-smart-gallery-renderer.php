@@ -573,13 +573,8 @@ class Smart_Gallery_Renderer {
         echo '</button>';
         echo '</div>';
         
-        // Clear button - only show when there's a search term
-        if (!empty($search_term)) {
-            echo '<button type="button" class="smart-gallery-clear-button" onclick="window.location.href=\'' . esc_url($current_url) . '\'" title="' . esc_attr__('Clear search', 'smart-gallery') . '">';
-            echo '<span class="clear-button-icon">🗑️</span>';
-            echo '<span class="clear-button-text">' . esc_html__('Clear', 'smart-gallery') . '</span>';
-            echo '</button>';
-        }
+        // NOTE: we no longer render a clear button next to the search input.
+        // Clearing search is handled by the unified "Clear All Filters" button in the filters panel.
         
         echo '</div>'; // End search-group
         echo '</form>';
@@ -977,10 +972,11 @@ class Smart_Gallery_Renderer {
             parse_str($parsed_url['query'], $query_params);
         }
         
-        // Remove all filters and pagination
-        unset($query_params['filter']);
-        unset($query_params['taxonomy_filter']); // Remove taxonomy filters
-        unset($query_params['paged']);
+    // Remove all filters, pagination and search term
+    unset($query_params['filter']);
+    unset($query_params['taxonomy_filter']); // Remove taxonomy filters
+    unset($query_params['paged']);
+    unset($query_params['search_term']); // Also clear the search term so there's a single unified clear action
         
         $new_query = http_build_query($query_params);
         $new_url = $parsed_url['path'] . (!empty($new_query) ? '?' . $new_query : '');

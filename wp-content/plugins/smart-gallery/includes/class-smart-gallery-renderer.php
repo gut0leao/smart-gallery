@@ -301,8 +301,10 @@ class Smart_Gallery_Renderer {
      * @param string $selected_cpt
      * @param string $search_term
      * @param int $posts_per_page
+     * @param array $current_filters
+     * @param array $current_taxonomy_filters
      */
-    public function render_search_filtering_status($selected_cpt, $search_term, $posts_per_page, $current_filters = []) {
+    public function render_search_filtering_status($selected_cpt, $search_term, $posts_per_page, $current_filters = [], $current_taxonomy_filters = []) {
         echo '<div class="smart-gallery-search-filtering-status" style="padding: 15px; background: #f0f8ff; border-radius: 8px; margin-bottom: 20px; font-size: 14px;">';
         echo '<h5 style="margin: 0 0 10px; color: #1e3a8a;">🔍 Search and Filtering Status</h5>';
         

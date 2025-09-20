@@ -673,10 +673,11 @@ class Smart_Gallery_Renderer {
         echo '<span class="screen-reader-text">' . esc_html__('Filter Options', 'smart-gallery') . '</span>';
         echo '</h4>';
         
-        // Clear all filters button (only show if there are active filters)
+        // Clear all filters button (show if there are active filters OR a search term is present)
         $current_filters = $this->get_current_filters_from_url();
         $current_taxonomy_filters = $this->get_current_taxonomy_filters_from_url();
-        if (!empty($current_filters) || !empty($current_taxonomy_filters)) {
+        $should_show_clear = !empty($current_filters) || !empty($current_taxonomy_filters) || !empty($search_term);
+        if ($should_show_clear) {
             echo '<button type="button" class="smart-gallery-clear-all-filters-header" onclick="' . esc_attr($this->get_clear_all_filters_js()) . '" title="' . esc_attr__('Clear All Filters', 'smart-gallery') . '">';
             echo $this->get_inline_svg('can_trash_icon.svg');
             echo '<span class="screen-reader-text">' . esc_html__('Clear All Filters', 'smart-gallery') . '</span>';

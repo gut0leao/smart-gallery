@@ -395,13 +395,17 @@ class Smart_Gallery_Pods_Integration {
             }
 
             // Apply current filters (excluding the field we're counting)
+            // Support special key '__taxonomy_filters' which contains taxonomy filters to apply
+            $taxonomy_filters_to_apply = [];
+            if (!empty($current_filters) && isset($current_filters['__taxonomy_filters']) && is_array($current_filters['__taxonomy_filters'])) {
+                $taxonomy_filters_to_apply = $current_filters['__taxonomy_filters'];
+                // Remove the special key so it is not treated as a meta filter below
+                unset($current_filters['__taxonomy_filters']);
+            }
+
             if (!empty($current_filters)) {
                 $meta_queries = [];
                 foreach ($current_filters as $filter_field => $filter_values) {
-                    // Skip the field we're currently getting values for
-                    if ($filter_field === $field_name) {
-                        continue;
-                    }
                     
                     if (!empty($filter_values) && is_array($filter_values)) {
                         if (count($filter_values) === 1) {
@@ -428,6 +432,11 @@ class Smart_Gallery_Pods_Integration {
                         $args['meta_query'] = $meta_queries;
                     }
                 }
+            }
+
+            // Apply taxonomy filters if provided
+            if (!empty($taxonomy_filters_to_apply)) {
+                $args = $this->apply_taxonomy_filters($args, $taxonomy_filters_to_apply);
             }
 
             // Execute query

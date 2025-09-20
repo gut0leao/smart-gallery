@@ -638,10 +638,22 @@ class Smart_Gallery_Renderer {
             
             // Get field values with counts (using only valid fields)
             if (!empty($valid_fields)) {
+                // Pass both current custom field filters and taxonomy filters into field value computation
+                $current_tax_filters = $this->get_current_taxonomy_filters_from_url();
+
+                // Pods integration method `get_multiple_field_values` accepts current field filters and search term.
+                // To ensure field counts respect active taxonomy filters, we pass the taxonomy filters as part of
+                // the current_filters parameter under a reserved key '__taxonomy_filters' and pods integration will
+                // strip and apply them appropriately (the integration supports this pattern).
+                $combined_filters = $current_filters;
+                if (!empty($current_tax_filters)) {
+                    $combined_filters['__taxonomy_filters'] = $current_tax_filters;
+                }
+
                 $field_values = $this->pods_integration->get_multiple_field_values(
-                    $selected_cpt, 
-                    $valid_fields, 
-                    $current_filters, 
+                    $selected_cpt,
+                    $valid_fields,
+                    $combined_filters,
                     $search_term
                 );
             }
@@ -756,11 +768,12 @@ class Smart_Gallery_Renderer {
         // Get current taxonomy filters from URL
         $current_taxonomy_filters = $this->get_current_taxonomy_filters_from_url();
         
-        // Get taxonomy terms with counts
+        // Get taxonomy terms with counts — include current custom field filters so taxonomy counts
+        // are computed against the already-applied field filters and search term
         $taxonomy_data = $this->pods_integration->get_multiple_taxonomy_terms(
             $selected_cpt,
             $available_taxonomies,
-            [], // custom_field_filters - empty for now
+            $current_filters, // pass active custom field filters
             $current_taxonomy_filters,
             $search_term
         );

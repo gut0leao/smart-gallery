@@ -770,13 +770,23 @@ class Smart_Gallery_Pods_Integration {
                 // Get children recursively first to see if we should include this term
                 $children = $this->build_hierarchical_terms($terms, $post_ids, $term->term_id);
                 
-                // F3.3 Enhancement: Only include terms with posts (count > 0) OR with children that have posts
-                if ($term_count > 0 || !empty($children)) {
+                // F3.3 Enhancement: compute total count as direct posts on this term plus all child counts
+                $children_total = 0;
+                if (!empty($children)) {
+                    foreach ($children as $child) {
+                        $children_total += intval($child['count'] ?? 0);
+                    }
+                }
+
+                $total_count = intval($term_count) + $children_total;
+
+                // Only include terms that have direct or descendant posts
+                if ($total_count > 0) {
                     $term_data = [
                         'term_id' => $term->term_id,
                         'name' => $term->name,
                         'slug' => $term->slug,
-                        'count' => $term_count,
+                        'count' => $total_count,
                         'children' => $children
                     ];
 

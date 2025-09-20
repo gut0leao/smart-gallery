@@ -408,6 +408,7 @@ Unlike basic Elementor image galleries that only list media files, Smart Gallery
       - Selecting child = parent becomes partially selected (intermediate state)
       - Unselecting parent = unselects all children
     - **Visual Indicators**: Different styling for parent/child terms
+    - **Implementation notes (concise)**: Renderer now outputs a server-side nested term tree and the client includes JS to handle cascade selection and `indeterminate` parent state. Parent term counts are aggregated as direct posts on the parent plus the sum of all children's counts; the filters' "Clear All" control also clears the search term. The data layer recalculates term counts using the active search term and filters.
   
   - **Taxonomy UI Structure**:
     - Each selected taxonomy becomes a filter section
@@ -462,6 +463,7 @@ Unlike basic Elementor image galleries that only list media files, Smart Gallery
   - **Term Extraction**: Query for distinct taxonomy terms in current result set
   - **Hierarchical Queries**: Efficiently handle parent-child relationships
   - **Count Calculation**: Count instances for each term, considering hierarchy
+  - **Count Calculation**: Count instances for each term, considering hierarchy (note: parent counts include children plus direct parent posts as implemented)
   - **Performance**: Optimized queries to handle hierarchical structures
   - **Parent Count Logic**: Parent counts include children unless explicitly excluded
   

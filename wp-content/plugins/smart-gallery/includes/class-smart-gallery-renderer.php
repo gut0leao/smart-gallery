@@ -765,9 +765,11 @@ class Smart_Gallery_Renderer {
         
         // Get current taxonomy filters from URL
         $current_taxonomy_filters = $this->get_current_taxonomy_filters_from_url();
-        
+
         // Get taxonomy terms with counts — include current custom field filters so taxonomy counts
-        // are computed against the already-applied field filters and search term
+        // are computed against the already-applied field filters and search term. The pods integration
+        // returns both a flat list and a hierarchical structure; we'll render the hierarchical tree
+        // so the left bar shows parent/child relationships.
         $taxonomy_data = $this->pods_integration->get_multiple_taxonomy_terms(
             $selected_cpt,
             $available_taxonomies,
@@ -775,54 +777,151 @@ class Smart_Gallery_Renderer {
             $current_taxonomy_filters,
             $search_term
         );
-                
-        // Render each taxonomy section
+
+        // Render each taxonomy section using the hierarchical data if available
         foreach ($available_taxonomies as $taxonomy) {
-            if (!isset($taxonomy_data[$taxonomy]) || empty($taxonomy_data[$taxonomy]['terms'])) {
+            if (!isset($taxonomy_data[$taxonomy]) || empty($taxonomy_data[$taxonomy]['hierarchical'])) {
                 continue;
             }
-            
+
             $taxonomy_info = $taxonomy_data[$taxonomy];
-            $terms = $taxonomy_info['terms'];
-            
+            $hierarchical_terms = $taxonomy_info['hierarchical'];
+
             echo '<div class="smart-gallery-filter-section taxonomy-filter" data-taxonomy="' . esc_attr($taxonomy) . '">';
             echo '<h5 class="smart-gallery-filter-title">' . esc_html($taxonomy_info['label']) . '</h5>';
-            
+
             echo '<div class="smart-gallery-filter-options taxonomy-options">';
-            
-            foreach ($terms as $term_data) {
-                $term_slug = $term_data['slug'];
-                $term_name = $term_data['name'];
-                $term_count = $term_data['count'];
-                
-                // Skip non-scalar values to prevent array-to-string conversion warnings
-                if (!is_scalar($term_slug) || !is_scalar($term_name)) {
-                    continue;
-                }
-                
-                // Check if this term is currently selected
-                $is_selected = isset($current_taxonomy_filters[$taxonomy]) && 
-                              in_array($term_slug, $current_taxonomy_filters[$taxonomy]);
-                
-                $checkbox_id = 'taxonomy_' . sanitize_key($taxonomy) . '_' . sanitize_key($term_slug);
-                
-                echo '<label class="smart-gallery-filter-option taxonomy-option" for="' . esc_attr($checkbox_id) . '">';
-                echo '<input type="checkbox" ';
-                echo 'id="' . esc_attr($checkbox_id) . '" ';
-                echo 'name="taxonomy_filter[' . esc_attr($taxonomy) . '][]" ';
-                echo 'value="' . esc_attr($term_slug) . '" ';
-                echo $is_selected ? 'checked' : '';
-                echo ' onchange="smartGallerySubmitFilters()"';
-                echo ' data-taxonomy="' . esc_attr($taxonomy) . '"';
-                echo '>';
-                echo '<span class="filter-value">' . esc_html($term_name) . '</span>';
-                echo '<span class="filter-count">(' . intval($term_count) . ')</span>';
-                echo '</label>';
-            }
-            
+
+            // Recursive rendering of hierarchical terms
+            $this->render_taxonomy_term_tree($hierarchical_terms, $taxonomy, $current_taxonomy_filters);
+
             echo '</div>';
             echo '</div>'; // End taxonomy filter section
         }
+    }
+
+    /**
+     * Recursively render hierarchical taxonomy term tree as nested lists with checkboxes
+     *
+     * @param array $terms
+     * @param string $taxonomy
+     * @param array $current_taxonomy_filters
+     * @param int $level
+     */
+    private function render_taxonomy_term_tree($terms, $taxonomy, $current_taxonomy_filters = [], $level = 0) {
+        if (empty($terms) || !is_array($terms)) {
+            return;
+        }
+
+        echo '<ul class="taxonomy-term-tree" style="list-style: none; margin: 0; padding-left: ' . (int)($level * 16) . 'px;">';
+
+        foreach ($terms as $term_data) {
+            $term_id = $term_data['term_id'] ?? 0;
+            $term_name = $term_data['name'] ?? '';
+            $term_slug = $term_data['slug'] ?? '';
+            $term_count = intval($term_data['count'] ?? 0);
+            $children = $term_data['children'] ?? [];
+
+            // Skip non-scalar or empty names/slugs
+            if (!is_scalar($term_slug) || !is_scalar($term_name)) {
+                continue;
+            }
+
+            $is_selected = isset($current_taxonomy_filters[$taxonomy]) && in_array($term_slug, $current_taxonomy_filters[$taxonomy]);
+            $checkbox_id = 'taxonomy_' . sanitize_key($taxonomy) . '_' . sanitize_key($term_slug);
+
+            echo '<li class="taxonomy-term-item" style="margin: 6px 0;">';
+
+            // Wrap checkbox and label
+            echo '<label class="smart-gallery-filter-option taxonomy-option" for="' . esc_attr($checkbox_id) . '" style="display: flex; align-items: center; gap: 8px;">';
+            echo '<input type="checkbox" ';
+            echo 'id="' . esc_attr($checkbox_id) . '" ';
+            echo 'name="taxonomy_filter[' . esc_attr($taxonomy) . '][]" ';
+            echo 'value="' . esc_attr($term_slug) . '" ';
+            echo $is_selected ? 'checked' : '';
+            echo ' onchange="smartGallerySubmitFilters()"';
+            echo ' data-taxonomy="' . esc_attr($taxonomy) . '"';
+            echo ' data-term-id="' . esc_attr($term_id) . '"';
+            // parent id will be added for children below
+            echo ' data-term-level="' . esc_attr($level) . '"';
+            echo '>';
+
+            echo '<span class="filter-value">' . esc_html($term_name) . '</span>';
+            echo '<span class="filter-count">(' . $term_count . ')</span>';
+            echo '</label>';
+
+            // If there are children, render them and add data-parent-id attributes to their inputs
+            if (!empty($children)) {
+                // Before rendering children, we need to ensure child inputs can reference parent id.
+                // We'll render children recursively and afterward patch their inputs by adding data-parent-id via a small inline script.
+                // Simpler: when rendering child inputs, include data-parent-id attribute by passing parent id down.
+                // So call an internal recursive helper that accepts parent id.
+                $this->render_taxonomy_term_tree_with_parent($children, $taxonomy, $current_taxonomy_filters, $level + 1, $term_id);
+            }
+
+            echo '</li>';
+        }
+
+        echo '</ul>';
+    }
+
+    /**
+     * Helper to render taxonomy term tree when a parent id must be attached to children inputs
+     *
+     * @param array $terms
+     * @param string $taxonomy
+     * @param array $current_taxonomy_filters
+     * @param int $level
+     * @param int $parent_id
+     */
+    private function render_taxonomy_term_tree_with_parent($terms, $taxonomy, $current_taxonomy_filters = [], $level = 0, $parent_id = 0) {
+        if (empty($terms) || !is_array($terms)) {
+            return;
+        }
+
+        echo '<ul class="taxonomy-term-tree" style="list-style: none; margin: 0; padding-left: ' . (int)($level * 16) . 'px;">';
+
+        foreach ($terms as $term_data) {
+            $term_id = $term_data['term_id'] ?? 0;
+            $term_name = $term_data['name'] ?? '';
+            $term_slug = $term_data['slug'] ?? '';
+            $term_count = intval($term_data['count'] ?? 0);
+            $children = $term_data['children'] ?? [];
+
+            if (!is_scalar($term_slug) || !is_scalar($term_name)) {
+                continue;
+            }
+
+            $is_selected = isset($current_taxonomy_filters[$taxonomy]) && in_array($term_slug, $current_taxonomy_filters[$taxonomy]);
+            $checkbox_id = 'taxonomy_' . sanitize_key($taxonomy) . '_' . sanitize_key($term_slug);
+
+            echo '<li class="taxonomy-term-item" style="margin: 6px 0;">';
+
+            echo '<label class="smart-gallery-filter-option taxonomy-option" for="' . esc_attr($checkbox_id) . '" style="display: flex; align-items: center; gap: 8px;">';
+            echo '<input type="checkbox" ';
+            echo 'id="' . esc_attr($checkbox_id) . '" ';
+            echo 'name="taxonomy_filter[' . esc_attr($taxonomy) . '][]" ';
+            echo 'value="' . esc_attr($term_slug) . '" ';
+            echo $is_selected ? 'checked' : '';
+            echo ' onchange="smartGallerySubmitFilters()"';
+            echo ' data-taxonomy="' . esc_attr($taxonomy) . '"';
+            echo ' data-term-id="' . esc_attr($term_id) . '"';
+            echo ' data-parent-id="' . esc_attr($parent_id) . '"';
+            echo ' data-term-level="' . esc_attr($level) . '"';
+            echo '>';
+
+            echo '<span class="filter-value">' . esc_html($term_name) . '</span>';
+            echo '<span class="filter-count">(' . $term_count . ')</span>';
+            echo '</label>';
+
+            if (!empty($children)) {
+                $this->render_taxonomy_term_tree_with_parent($children, $taxonomy, $current_taxonomy_filters, $level + 1, $term_id);
+            }
+
+            echo '</li>';
+        }
+
+        echo '</ul>';
     }
 
     /**
@@ -997,6 +1096,7 @@ class Smart_Gallery_Renderer {
         }
         
         echo "\n" . '<script type="text/javascript">' . "\n";
+        // Submit helper
         echo 'function smartGallerySubmitFilters() {' . "\n";
         echo '    // Small delay to allow checkbox state to update' . "\n";
         echo '    setTimeout(function() {' . "\n";
@@ -1006,6 +1106,45 @@ class Smart_Gallery_Renderer {
         echo '        }' . "\n";
         echo '    }, 10);' . "\n";
         echo '}' . "\n";
+        
+        // Hierarchy handling: parent toggles children; child selection updates parent indeterminate state
+        echo '(function() {' . "\n";
+        echo '    function setDescendantsChecked(rootInput, checked) {' . "\n";
+        echo '        var li = rootInput.closest("li");' . "\n";
+        echo '        if (!li) return;' . "\n";
+        echo '        var descendants = li.querySelectorAll("ul input[type=checkbox]");' . "\n";
+        echo '        descendants.forEach(function(cb) { cb.checked = checked; cb.indeterminate = false; });' . "\n";
+        echo '    }' . "\n";
+        
+        echo '    function updateAncestorsState(input) {' . "\n";
+        echo '        var parentId = input.getAttribute("data-parent-id");' . "\n";
+        echo '        if (!parentId) return;' . "\n";
+        echo '        var parentInput = document.querySelector("input[data-term-id=\"" + parentId + "\"]");' . "\n";
+        echo '        if (!parentInput) return;' . "\n";
+        echo '        var parentLi = parentInput.closest("li");' . "\n";
+        echo '        var childInputs = parentLi ? parentLi.querySelectorAll("ul > li input[type=checkbox]") : [];' . "\n";
+        echo '        if (!childInputs || childInputs.length === 0) { parentInput.checked = false; parentInput.indeterminate = false; return; }' . "\n";
+        echo '        var total = 0, checked = 0;' . "\n";
+        echo '        childInputs.forEach(function(ci) { total++; if (ci.checked) checked++; });' . "\n";
+        echo '        if (checked === 0) { parentInput.checked = false; parentInput.indeterminate = false; }' . "\n";
+        echo '        else if (checked === total) { parentInput.checked = true; parentInput.indeterminate = false; }' . "\n";
+        echo '        else { parentInput.checked = false; parentInput.indeterminate = true; }' . "\n";
+        echo '        // Recurse up the tree' . "\n";
+        echo '        updateAncestorsState(parentInput);' . "\n";
+        echo '    }' . "\n";
+        
+        echo '    document.addEventListener("change", function(e) {' . "\n";
+        echo '        var tgt = e.target;' . "\n";
+        echo '        if (!tgt || tgt.tagName !== "INPUT" || tgt.type !== "checkbox") return;' . "\n";
+        echo '        // If this checkbox has descendants, toggle them' . "\n";
+        echo '        var li = tgt.closest("li");' . "\n";
+        echo '        if (li && li.querySelector("ul")) { setDescendantsChecked(tgt, tgt.checked); }' . "\n";
+        echo '        // If this checkbox has a parent, update parent state' . "\n";
+        echo '        updateAncestorsState(tgt);' . "\n";
+        echo '    });' . "\n";
+        
+        echo '})();' . "\n";
+        
         echo '</script>' . "\n";
         
         $js_added = true;

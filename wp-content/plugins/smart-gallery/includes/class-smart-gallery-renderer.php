@@ -632,7 +632,7 @@ class Smart_Gallery_Renderer {
             
             // Get current filter values from URL
             $current_filters = $this->get_current_filters_from_url();
-            
+
             // Get field values with counts (using only valid fields)
             if (!empty($valid_fields)) {
                 // Pass both current custom field filters and taxonomy filters into field value computation
@@ -659,9 +659,97 @@ class Smart_Gallery_Renderer {
             $current_filters = $this->get_current_filters_from_url();
         }
 
+        // Precompute taxonomy data so we can validate/prune active taxonomy filters
+        $current_taxonomy_filters = $this->get_current_taxonomy_filters_from_url();
+        $taxonomy_data = [];
+        if ($has_taxonomies) {
+            $taxonomy_data = $this->pods_integration->get_multiple_taxonomy_terms(
+                $selected_cpt,
+                $available_taxonomies,
+                $current_filters,
+                $current_taxonomy_filters,
+                $search_term
+            );
+        }
+
+        // Prune incompatible filters (remove active filters that no longer exist in computed values)
+        $original_filters = $current_filters;
+        $original_tax_filters = $current_taxonomy_filters;
+
+        // Build valid values map for custom fields
+        $valid_field_values = [];
+        if (!empty($field_values) && is_array($field_values)) {
+            foreach ($field_values as $f => $vals) {
+                $valid_field_values[$f] = array_map('strval', array_keys($vals));
+            }
+        }
+
+        // Clean custom field filters
+        $clean_filters = [];
+        if (!empty($current_filters) && is_array($current_filters)) {
+            foreach ($current_filters as $f => $vals) {
+                $clean_vals = [];
+                if (!empty($valid_field_values[$f])) {
+                    foreach ((array)$vals as $v) {
+                        if (in_array((string)$v, $valid_field_values[$f], true)) {
+                            $clean_vals[] = $v;
+                        }
+                    }
+                }
+                if (!empty($clean_vals)) {
+                    $clean_filters[$f] = $clean_vals;
+                }
+            }
+        }
+
+        // Build valid term slugs per taxonomy from taxonomy_data (flat terms)
+        $valid_tax_terms = [];
+        if (!empty($taxonomy_data) && is_array($taxonomy_data)) {
+            foreach ($taxonomy_data as $tax => $tax_info) {
+                if (!empty($tax_info['terms']) && is_array($tax_info['terms'])) {
+                    $slugs = [];
+                    foreach ($tax_info['terms'] as $t) {
+                        if (isset($t['slug'])) {
+                            $slugs[] = (string)$t['slug'];
+                        }
+                    }
+
+                    $valid_tax_terms[$tax] = $slugs;
+                }
+            }
+        }
+
+        // Clean taxonomy filters
+        $clean_tax_filters = [];
+        if (!empty($current_taxonomy_filters) && is_array($current_taxonomy_filters)) {
+            foreach ($current_taxonomy_filters as $tax => $vals) {
+                $clean_vals = [];
+                if (!empty($valid_tax_terms[$tax])) {
+                    foreach ((array)$vals as $v) {
+                        if (in_array((string)$v, $valid_tax_terms[$tax], true)) {
+                            $clean_vals[] = $v;
+                        }
+                    }
+                }
+                if (!empty($clean_vals)) {
+                    $clean_tax_filters[$tax] = $clean_vals;
+                }
+            }
+        }
+
+        // If any pruning occurred, use the cleaned filters for rendering and update the URL via history.replaceState
+        $pruned = false;
+        if ($clean_filters !== $original_filters) {
+            $pruned = true;
+            $current_filters = $clean_filters;
+        }
+        if ($clean_tax_filters !== $original_tax_filters) {
+            $pruned = true;
+            $current_taxonomy_filters = $clean_tax_filters;
+        }
+
         // Proceed to render if we have fields with values OR taxonomies configured
         $should_render = (!empty($field_values)) || $has_taxonomies;
-        
         if (!$should_render) {
             return;
         }
@@ -690,7 +778,47 @@ class Smart_Gallery_Renderer {
         echo '<form method="get" class="smart-gallery-filters-form" id="smart-gallery-filters-form">';
         
         // Preserve existing URL parameters
+        // Preserve existing URL parameters (will render hidden inputs). The form will submit using the cleaned filters above.
         $this->preserve_url_parameters_unified();
+
+        // If we pruned incompatible filters, update browser URL without reloading so bookmark/share reflects cleaned state.
+        if (!empty($pruned)) {
+            // Build cleaned query string from current $_GET but replacing filter and taxonomy_filter with cleaned values
+            $current_url = (isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '');
+            $parsed = parse_url((is_ssl() ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'] . $current_url);
+            $query_params = [];
+            if (!empty($parsed['query'])) {
+                parse_str($parsed['query'], $query_params);
+            }
+
+            if (!empty($current_filters)) {
+                $query_params['filter'] = $current_filters;
+            } else {
+                unset($query_params['filter']);
+            }
+
+            if (!empty($current_taxonomy_filters)) {
+                $query_params['taxonomy_filter'] = $current_taxonomy_filters;
+            } else {
+                unset($query_params['taxonomy_filter']);
+            }
+
+            // Keep search_term if present
+            if (!empty($_GET['search_term'])) {
+                $query_params['search_term'] = sanitize_text_field($_GET['search_term']);
+            } else {
+                unset($query_params['search_term']);
+            }
+
+            // Remove pagination when pruning
+            unset($query_params['paged']);
+
+            $new_query = http_build_query($query_params);
+            $base_path = $parsed['path'] ?? '';
+            $new_url = $base_path . (!empty($new_query) ? '?' . $new_query : '');
+
+            echo '<script>if (window && window.history && window.history.replaceState) { window.history.replaceState(null, "", ' . json_encode($new_url) . '); }</script>';
+        }
 
         // Render custom fields if we have valid field values
         if (!empty($field_values)) {

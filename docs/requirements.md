@@ -538,8 +538,6 @@ Unlike basic Elementor image galleries that only list media files, Smart Gallery
   **🎮 Clear Functionality:**
   
   - **Multiple Clear Options**:
-    - **Individual Filter Clear**: X button for each custom field filter
-    - **Individual Term Clear**: X button for each selected taxonomy term
     - **Section Clear**: Clear all selections within a custom field or taxonomy
     - **Global Clear All**: Single button to clear search + all custom fields + all taxonomies
   

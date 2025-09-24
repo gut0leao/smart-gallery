@@ -40,6 +40,7 @@ A smart WordPress plugin that creates filterable galleries using Elementor widge
 - [Docker](https://www.docker.com/) installed
 - [DDEV](https://ddev.com/) installed  
 - [Git](https://git-scm.com/) installed
+- **zip** utility installed (for packaging scripts)
 - [mkcert](https://github.com/FiloSottile/mkcert) (optional, for HTTPS)
 
 ## ⚡ Quick Start

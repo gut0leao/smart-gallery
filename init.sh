@@ -76,6 +76,49 @@ check_prerequisites() {
         echo -e "      ${YELLOW}💡 DDEV may handle port conflicts automatically${NC}"
     fi
     
+    # Check if zip utility is installed (needed for packaging scripts)
+    echo -n "   📦 Zip Utility: "
+    if command -v zip &> /dev/null; then
+        echo -e "${GREEN}✅ Installed${NC}"
+    else
+        echo -e "${RED}❌ Not installed${NC}"
+        echo -e "      ${YELLOW}💡 Installing zip utility automatically...${NC}"
+        
+        # Auto-install zip based on the system
+        if command -v apt-get &> /dev/null; then
+            echo "      📥 Installing via apt-get..."
+            if sudo apt-get update &> /dev/null && sudo apt-get install -y zip &> /dev/null; then
+                echo -e "      ${GREEN}✅ Zip installed successfully${NC}"
+            else
+                echo -e "${RED}❌ Failed to install zip automatically${NC}"
+                echo -e "      ${YELLOW}💡 Please install manually: sudo apt-get install zip${NC}"
+                prerequisites_ok=false
+            fi
+        elif command -v yum &> /dev/null; then
+            echo "      📥 Installing via yum..."
+            if sudo yum install -y zip &> /dev/null; then
+                echo -e "      ${GREEN}✅ Zip installed successfully${NC}"
+            else
+                echo -e "${RED}❌ Failed to install zip automatically${NC}"
+                echo -e "      ${YELLOW}💡 Please install manually: sudo yum install zip${NC}"
+                prerequisites_ok=false
+            fi
+        elif command -v brew &> /dev/null; then
+            echo "      📥 Installing via brew..."
+            if brew install zip &> /dev/null; then
+                echo -e "      ${GREEN}✅ Zip installed successfully${NC}"
+            else
+                echo -e "${RED}❌ Failed to install zip automatically${NC}"
+                echo -e "      ${YELLOW}💡 Please install manually: brew install zip${NC}"
+                prerequisites_ok=false
+            fi
+        else
+            echo -e "${RED}❌ Cannot auto-install (unknown package manager)${NC}"
+            echo -e "      ${YELLOW}💡 Please install zip manually for your system${NC}"
+            prerequisites_ok=false
+        fi
+    fi
+
     # Check if project directory structure is correct
     echo -n "   📁 Project Structure: "
     if [ -f "./scripts/nuke.sh" ] && [ -f "./scripts/wp-setup.sh" ] && [ -f "./scripts/pods-import.sh" ]; then
@@ -130,6 +173,7 @@ check_success() {
             "Environment preparation")
                 echo "   • Check if Docker containers are running: docker ps"
                 echo "   • Try: ddev poweroff && ddev start"
+                echo "   • Install zip if missing: sudo apt-get install zip"
                 ;;
             "DDEV initialization")
                 echo "   • Check Docker service: sudo systemctl status docker"

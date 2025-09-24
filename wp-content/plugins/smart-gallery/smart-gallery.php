@@ -3,7 +3,7 @@
 Plugin Name: Smart Gallery
 Plugin URI: https://github.com/gut0leao/smart-gallery
 Description: Gallery widget for Elementor with advanced filtering and search. Requires Elementor Page Builder and Pods Framework for Custom Post Types and custom fields management.
-Version: 1.0.0
+Version: 1.5.0
 Author: gut0leao
 Author URI: https://github.com/gut0leao
 License: GPL2

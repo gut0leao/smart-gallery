@@ -1,0 +1,380 @@
+name: 🚀 Smart Gallery Plugin - Build & Deploy
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment Environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  PLUGIN_NAME: smart-gallery
+  PLUGIN_VERSION: 1.0.0-dev
+  PHP_VERSION: 8.3
+  NODE_VERSION: 20
+
+jobs:
+  # =====================================
+  # BUILD JOB - Code Quality & Package
+  # =====================================
+  build:
+    name: 🏗️ Build & Quality Check
+    runs-on: ubuntu-latest
+    
+    outputs:
+      plugin-version: ${{ steps.version.outputs.version }}
+      artifact-name: ${{ steps.package.outputs.artifact-name }}
+      
+    steps:
+      # Checkout code
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Setup PHP
+      - name: 🐘 Setup PHP ${{ env.PHP_VERSION }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: mysqli, zip, gd, imagick
+          coverage: none
+          tools: wp-cli
+
+      # Cache dependencies if any
+      - name: 💾 Cache PHP Extensions
+        uses: shivammathur/cache-extensions@v1
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: mysqli, zip, gd, imagick
+          key: php-ext-cache-v1
+
+      # Determine version
+      - name: 🏷️ Determine Version
+        id: version
+        run: |
+          if [[ $GITHUB_REF == refs/tags/* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/}
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            echo "Version from tag: $VERSION"
+          else
+            COMMIT_SHORT=$(git rev-parse --short HEAD)
+            VERSION="${{ env.PLUGIN_VERSION }}-${COMMIT_SHORT}"
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            echo "Version from commit: $VERSION"
+          fi
+
+      # PHP Syntax Check
+      - name: 🔍 PHP Syntax Check
+        run: |
+          echo "🔍 Checking PHP syntax for Smart Gallery plugin..."
+          find wp-content/plugins/smart-gallery -name "*.php" -print0 | \
+            xargs -0 -I {} php -l {} || exit 1
+          echo "✅ PHP syntax check passed!"
+
+      # WordPress Coding Standards (if we had phpcs setup)
+      - name: 📋 Code Quality Analysis
+        run: |
+          echo "📋 Running code quality checks..."
+          
+          # Check for common WordPress security issues
+          echo "🔒 Security checks..."
+          if grep -r "eval(" wp-content/plugins/smart-gallery --include="*.php"; then
+            echo "❌ Found eval() usage - security risk!"
+            exit 1
+          fi
+          
+          # Check for proper escaping
+          echo "🛡️ Checking output escaping..."
+          if grep -r "echo \$" wp-content/plugins/smart-gallery --include="*.php" | grep -v "esc_"; then
+            echo "⚠️ Found unescaped output - please review"
+          fi
+          
+          # Check file structure
+          echo "📁 Validating plugin structure..."
+          required_files=(
+            "wp-content/plugins/smart-gallery/smart-gallery.php"
+            "wp-content/plugins/smart-gallery/includes/"
+            "wp-content/plugins/smart-gallery/assets/"
+          )
+          
+          for file in "${required_files[@]}"; do
+            if [[ ! -e "$file" ]]; then
+              echo "❌ Missing required file/directory: $file"
+              exit 1
+            fi
+          done
+          
+          echo "✅ Code quality checks passed!"
+
+      # Update plugin version in main file
+      - name: 🏷️ Update Plugin Version
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          echo "Updating plugin version to: $VERSION"
+          
+          # Update version in main plugin file
+          sed -i "s/Version: .*/Version: $VERSION/" wp-content/plugins/smart-gallery/smart-gallery.php
+          sed -i "s/define('SMART_GALLERY_VERSION', '[^']*')/define('SMART_GALLERY_VERSION', '$VERSION')/" wp-content/plugins/smart-gallery/smart-gallery.php
+
+      # Create plugin package
+      - name: 📦 Package Plugin
+        id: package
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          ARTIFACT_NAME="smart-gallery-${VERSION}"
+          
+          echo "📦 Creating plugin package..."
+          
+          # Create temporary directory
+          mkdir -p dist
+          
+          # Copy plugin files
+          cp -r wp-content/plugins/smart-gallery dist/
+          
+          # Remove development files
+          find dist/smart-gallery -name "*.md" -not -name "README.md" -delete
+          find dist/smart-gallery -name ".git*" -delete
+          find dist/smart-gallery -name "*.tmp" -delete
+          find dist/smart-gallery -name "*.log" -delete
+          find dist/smart-gallery -name "debug-*.php" -delete
+          
+          # Create ZIP
+          cd dist
+          zip -r "../${ARTIFACT_NAME}.zip" smart-gallery/
+          cd ..
+          
+          # Calculate checksums
+          sha256sum "${ARTIFACT_NAME}.zip" > "${ARTIFACT_NAME}.zip.sha256"
+          
+          echo "artifact-name=${ARTIFACT_NAME}" >> $GITHUB_OUTPUT
+          echo "✅ Plugin packaged successfully!"
+          
+          # Display package info
+          ls -la "${ARTIFACT_NAME}.zip"
+          echo "📊 Package size: $(du -h "${ARTIFACT_NAME}.zip" | cut -f1)"
+
+      # Upload build artifacts
+      - name: 📤 Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.package.outputs.artifact-name }}
+          path: |
+            ${{ steps.package.outputs.artifact-name }}.zip
+            ${{ steps.package.outputs.artifact-name }}.zip.sha256
+          retention-days: 30
+
+  # =====================================
+  # DEPLOY JOB - Deploy to GCP VM
+  # =====================================
+  deploy:
+    name: 🚀 Deploy to GCP
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    
+    environment: 
+      name: ${{ github.event.inputs.environment || (startsWith(github.ref, 'refs/tags/') && 'production' || 'staging') }}
+      url: ${{ steps.deploy.outputs.site-url }}
+    
+    steps:
+      # Checkout for deployment scripts
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      # Download build artifacts
+      - name: 📥 Download Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build.outputs.artifact-name }}
+
+      # Setup Google Cloud SDK
+      - name: ☁️ Setup Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          service_account_key: ${{ secrets.GCP_SA_KEY }}
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          export_default_credentials: true
+
+      # Authenticate to GCP
+      - name: 🔐 Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      # Deploy to GCP VM
+      - name: 🚀 Deploy to GCP VM
+        id: deploy
+        env:
+          VM_INSTANCE: ${{ secrets.GCP_VM_INSTANCE }}
+          VM_ZONE: ${{ secrets.GCP_VM_ZONE }}
+          SITE_URL: ${{ secrets.SITE_URL }}
+        run: |
+          ARTIFACT_NAME="${{ needs.build.outputs.artifact-name }}"
+          VERSION="${{ needs.build.outputs.plugin-version }}"
+          
+          echo "🚀 Starting deployment to GCP VM..."
+          echo "Instance: $VM_INSTANCE"
+          echo "Zone: $VM_ZONE"
+          echo "Version: $VERSION"
+          
+          # Verify checksum
+          echo "🔍 Verifying package integrity..."
+          sha256sum -c "${ARTIFACT_NAME}.zip.sha256"
+          
+          # Copy plugin to VM
+          echo "📤 Uploading plugin to GCP VM..."
+          gcloud compute scp "${ARTIFACT_NAME}.zip" \
+            $VM_INSTANCE:~/smart-gallery-latest.zip \
+            --zone=$VM_ZONE \
+            --quiet
+          
+          # Deploy plugin on VM
+          echo "🔧 Installing plugin on WordPress..."
+          gcloud compute ssh $VM_INSTANCE \
+            --zone=$VM_ZONE \
+            --quiet \
+            --command="
+              set -e
+              echo '🔧 Starting plugin installation...'
+              
+              # Backup current plugin if exists
+              if [ -d '/var/www/html/wp-content/plugins/smart-gallery' ]; then
+                echo '💾 Backing up current plugin...'
+                sudo cp -r /var/www/html/wp-content/plugins/smart-gallery /var/www/html/wp-content/plugins/smart-gallery.backup.$(date +%Y%m%d-%H%M%S)
+              fi
+              
+              # Extract new plugin
+              echo '📦 Extracting new plugin...'
+              cd /tmp
+              unzip -q ~/smart-gallery-latest.zip
+              
+              # Install plugin
+              echo '📥 Installing plugin...'
+              sudo rm -rf /var/www/html/wp-content/plugins/smart-gallery
+              sudo mv smart-gallery /var/www/html/wp-content/plugins/
+              sudo chown -R www-data:www-data /var/www/html/wp-content/plugins/smart-gallery
+              sudo chmod -R 755 /var/www/html/wp-content/plugins/smart-gallery
+              
+              # Activate plugin using WP-CLI
+              echo '⚡ Activating plugin...'
+              cd /var/www/html
+              sudo -u www-data wp plugin activate smart-gallery --quiet || echo 'Plugin activation attempted'
+              
+              # Clear any caches
+              echo '🧹 Clearing caches...'
+              sudo -u www-data wp cache flush --quiet 2>/dev/null || echo 'Cache flush attempted'
+              
+              # Verify installation
+              echo '✅ Verifying installation...'
+              if sudo -u www-data wp plugin is-active smart-gallery --quiet; then
+                echo '✅ Smart Gallery plugin is active!'
+              else
+                echo '⚠️ Plugin installed but may need manual activation'
+              fi
+              
+              echo '🎉 Deployment completed successfully!'
+            "
+          
+          # Set output
+          echo "site-url=${SITE_URL}" >> $GITHUB_OUTPUT
+          echo "✅ Deployment completed!"
+
+      # Health check
+      - name: 🏥 Health Check
+        env:
+          SITE_URL: ${{ secrets.SITE_URL }}
+        run: |
+          echo "🏥 Running health check..."
+          
+          # Wait a moment for services to stabilize
+          sleep 10
+          
+          # Check if site responds
+          if curl -sSf "$SITE_URL" > /dev/null; then
+            echo "✅ Site is responding!"
+          else
+            echo "❌ Site health check failed!"
+            exit 1
+          fi
+          
+          echo "🎉 Health check passed!"
+
+      # Notify success
+      - name: 📢 Deployment Success Notification
+        if: success()
+        run: |
+          echo "🎉 Smart Gallery Plugin Deployment Successful!"
+          echo "📦 Version: ${{ needs.build.outputs.plugin-version }}"
+          echo "🌐 Site: ${{ secrets.SITE_URL }}"
+          echo "⏰ Deployed at: $(date -u)"
+
+  # =====================================
+  # RELEASE JOB - Create GitHub Release
+  # =====================================
+  release:
+    name: 📦 Create Release
+    runs-on: ubuntu-latest
+    needs: [build, deploy]
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+      # Download build artifacts
+      - name: 📥 Download Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build.outputs.artifact-name }}
+
+      # Create GitHub Release
+      - name: 🏷️ Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Smart Gallery Plugin ${{ needs.build.outputs.plugin-version }}
+          body: |
+            ## 🚀 Smart Gallery Plugin Release ${{ needs.build.outputs.plugin-version }}
+            
+            ### 📦 What's Included
+            - Complete Smart Gallery WordPress plugin
+            - Elementor widget integration
+            - Advanced search and filtering system
+            - Taxonomy and custom fields support
+            - SVG icon system with professional UI
+            
+            ### 🎯 Features
+            - ✅ Text search with manual submission
+            - ✅ Custom fields filtering with dynamic loading
+            - ✅ Taxonomy filtering with hierarchical support
+            - ✅ Responsive design with hover effects
+            - ✅ URL state persistence
+            - ✅ Debug status panel
+            
+            ### 📥 Installation
+            1. Download the `smart-gallery-*.zip` file
+            2. Upload to WordPress via Plugins > Add New > Upload
+            3. Activate the plugin
+            4. Add Smart Gallery widget in Elementor
+            
+            ### 🔗 Links
+            - [Documentation](https://github.com/gut0leao/smart-gallery/blob/main/README.md)
+            - [Requirements](https://github.com/gut0leao/smart-gallery/blob/main/docs/requirements.md)
+            
+            ---
+            **Deployed to**: ${{ secrets.SITE_URL }}  
+            **Build**: ${{ github.sha }}
+          files: |
+            ${{ needs.build.outputs.artifact-name }}.zip
+            ${{ needs.build.outputs.artifact-name }}.zip.sha256
+          draft: false
+          prerelease: ${{ contains(needs.build.outputs.plugin-version, 'dev') || contains(needs.build.outputs.plugin-version, 'beta') || contains(needs.build.outputs.plugin-version, 'alpha') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

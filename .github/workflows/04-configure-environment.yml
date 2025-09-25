@@ -5,7 +5,15 @@ on:
     inputs:
       project_id:
         description: 'GCP Project ID (optional if stored as variable)'
-        required: false
+                # Verify WP-CLI is available
+          echo "🔧 Verifying WP-CLI installation..."
+          if ! /usr/local/bin/wp --version >/dev/null 2>&1; then
+            echo "❌ WP-CLI not found at /usr/local/bin/wp!"
+            echo "💡 Please run the 'Install Packages' workflow first."
+            exit 1
+          else
+            echo "✅ WP-CLI is available: \$(/usr/local/bin/wp --version)"
+          fid: false
         type: string
       vm_instance:
         description: 'VM Instance Name (optional if stored as variable)'
@@ -183,10 +191,10 @@ jobs:
           rm -rf *
           
           # Download WordPress
-          wp core download --allow-root
+          /usr/local/bin/wp core download --allow-root
           
           # Create wp-config.php
-          wp config create \
+          /usr/local/bin/wp config create \
               --dbname=$DB_NAME \
               --dbuser=$DB_USER \
               --dbpass=$DB_PASS \
@@ -194,7 +202,7 @@ jobs:
               --allow-root
           
           # Install WordPress
-          wp core install \
+          /usr/local/bin/wp core install \
               --url="http://$DOMAIN_NAME" \
               --title="$SITE_TITLE" \
               --admin_user=$ADMIN_USER \
@@ -206,10 +214,10 @@ jobs:
           echo "⚙️ Configuring WordPress..."
           
           # Set permalink structure
-          wp option update permalink_structure '/%postname%/' --allow-root
+          /usr/local/bin/wp option update permalink_structure '/%postname%/' --allow-root
           
           # Configure timezone
-          wp option update timezone_string 'UTC' --allow-root
+          /usr/local/bin/wp option update timezone_string 'UTC' --allow-root
           
           # Set proper file permissions
           chown -R www-data:www-data /var/www/html
@@ -221,22 +229,22 @@ jobs:
           echo "🔌 Installing essential plugins..."
           
           # Install Elementor
-          wp plugin install elementor --activate --allow-root
+          /usr/local/bin/wp plugin install elementor --activate --allow-root
           
           # Install Pods (required for Smart Gallery)
-          wp plugin install pods --activate --allow-root
+          /usr/local/bin/wp plugin install pods --activate --allow-root
           
           # Install WordPress SEO
-          wp plugin install wordpress-seo --activate --allow-root
+          /usr/local/bin/wp plugin install wordpress-seo --activate --allow-root
           
           # Install security plugin
-          wp plugin install wordfence --activate --allow-root
+          /usr/local/bin/wp plugin install wordfence --activate --allow-root
           
           # Create some demo content
           echo "📝 Creating demo content..."
           
           # Create a sample page
-          wp post create \
+          /usr/local/bin/wp post create \
               --post_type=page \
               --post_title='Smart Gallery Demo' \
               --post_content='<p>This page will showcase the Smart Gallery plugin functionality.</p>' \
@@ -255,8 +263,8 @@ jobs:
               --redirect
           
           # Update WordPress URL to HTTPS
-          wp option update home "https://$DOMAIN_NAME" --allow-root
-          wp option update siteurl "https://$DOMAIN_NAME" --allow-root
+          /usr/local/bin/wp option update home "https://$DOMAIN_NAME" --allow-root
+          /usr/local/bin/wp option update siteurl "https://$DOMAIN_NAME" --allow-root
           
           # Setup auto-renewal
           echo "🔄 Setting up certificate auto-renewal..."

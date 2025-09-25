@@ -138,11 +138,44 @@ jobs:
           mysql -e "DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';"
           mysql -e "FLUSH PRIVILEGES;"
           
-          # Install WP-CLI
+          # Install WP-CLI with verification
           echo "🔧 Installing WP-CLI..."
-          curl -O https://raw.githubusercontent.com/wp-cli/wp-cli/v2.8.1/bin/wp-cli.phar
-          chmod +x wp-cli.phar
-          mv wp-cli.phar /usr/local/bin/wp
+          
+          # Download WP-CLI with error handling and fallback
+          WP_CLI_INSTALLED=false
+          
+          # Try primary source
+          if curl -L -o wp-cli.phar https://raw.githubusercontent.com/wp-cli/wp-cli/v2.8.1/bin/wp-cli.phar; then
+            if [ -s wp-cli.phar ] && php wp-cli.phar --version >/dev/null 2>&1; then
+              chmod +x wp-cli.phar
+              mv wp-cli.phar /usr/local/bin/wp
+              WP_CLI_INSTALLED=true
+              echo "✅ WP-CLI installed from primary source"
+            else
+              rm -f wp-cli.phar
+            fi
+          fi
+          
+          # Try alternative source if primary failed
+          if [ "$WP_CLI_INSTALLED" = false ]; then
+            echo "🔄 Trying alternative WP-CLI source..."
+            if curl -L -o wp-cli.phar https://github.com/wp-cli/wp-cli/releases/download/v2.8.1/wp-cli-2.8.1.phar; then
+              if [ -s wp-cli.phar ] && php wp-cli.phar --version >/dev/null 2>&1; then
+                chmod +x wp-cli.phar
+                mv wp-cli.phar /usr/local/bin/wp
+                WP_CLI_INSTALLED=true
+                echo "✅ WP-CLI installed from alternative source"
+              else
+                rm -f wp-cli.phar
+              fi
+            fi
+          fi
+          
+          # Final check
+          if [ "$WP_CLI_INSTALLED" = false ]; then
+            echo "❌ Failed to install WP-CLI from all sources"
+            exit 1
+          fi
           
           # Install additional tools
           echo "🛠️ Installing additional tools..."

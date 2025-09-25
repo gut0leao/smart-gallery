@@ -344,37 +344,39 @@ jobs:
           echo "📝 Database User: $DB_USER"
           echo "🔐 Database Password: [STORED SECURELY ON VM]"
 
-      # Store database password as GitHub Secret
+      # Store database password as GitHub Secret (simplified approach)
       - name: 🔐 Store Database Password as Secret
         run: |
-          echo "🔐 Storing database password as GitHub Secret..."
+          echo "🔐 Storing database password information..."
           
-          # Get the database password from VM
+          # Get the database password from VM for verification only
           DB_PASS=$(gcloud compute ssh $VM_INSTANCE \
             --zone=$VM_ZONE \
             --quiet \
             --command="sudo grep 'DB_PASS=' /root/.wp-db-config | cut -d'=' -f2")
           
-          # Get the repository's public key for encryption
-          PUBLIC_KEY_DATA=$(curl -s \
+          # For security, we'll store just a hash/checksum for verification
+          DB_HASH=$(echo -n "$DB_PASS" | sha256sum | cut -d' ' -f1)
+          
+          # Store database password hash as a variable for verification purposes
+          curl -L \
+            -X PATCH \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
-            https://api.github.com/repos/${{ github.repository }}/actions/secrets/public-key)
+            https://api.github.com/repos/${{ github.repository }}/actions/variables/WP_DB_PASS_HASH \
+            -d "{\"name\":\"WP_DB_PASS_HASH\",\"value\":\"$DB_HASH\"}" \
+            2>/dev/null || \
+          curl -L \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/${{ github.repository }}/actions/variables \
+            -d "{\"name\":\"WP_DB_PASS_HASH\",\"value\":\"$DB_HASH\"}"
           
-          PUBLIC_KEY=$(echo "$PUBLIC_KEY_DATA" | jq -r .key)
-          KEY_ID=$(echo "$PUBLIC_KEY_DATA" | jq -r .key_id)
-          
-          # Encrypt the password using sodium (libsodium)
-          # For now, we'll store it as a variable since encryption requires additional tools
-          # In production, this would be properly encrypted
-          
-          # Store database password as a repository secret using GitHub CLI
-          echo "$DB_PASS" | gh secret set WP_DB_PASSWORD --repo ${{ github.repository }}
-          
-          echo "✅ Database password stored as GitHub Secret"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          echo "✅ Database password hash stored for verification"
+          echo "💡 The actual password is securely stored on the VM at /root/.wp-db-config"
 
       # Configure log rotation
       - name: 📝 Configure Log Rotation
@@ -470,7 +472,8 @@ jobs:
               echo '### 💾 Stored Variables:' >> /tmp/status.md
               echo '- **WP_DB_NAME**: Available in GitHub Variables' >> /tmp/status.md
               echo '- **WP_DB_USER**: Available in GitHub Variables' >> /tmp/status.md
-              echo '- **WP_DB_PASSWORD**: Available in GitHub Secrets' >> /tmp/status.md
+              echo '- **WP_DB_PASSWORD**: Stored securely on VM (/root/.wp-db-config)' >> /tmp/status.md
+              echo '- **WP_DB_PASS_HASH**: Available in GitHub Variables (for verification)' >> /tmp/status.md
               echo '' >> /tmp/status.md
               echo '### 🎯 Next Steps:' >> /tmp/status.md
               echo '1. Run **Configure Environment** workflow' >> /tmp/status.md

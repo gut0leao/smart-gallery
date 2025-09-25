@@ -1,0 +1,48 @@
+name: "📋 Show Infrastructure Info"
+
+on:
+  workflow_dispatch:
+
+jobs:
+  show-info:
+    name: "📋 Display Infrastructure Information"
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: "📋 Infrastructure Information"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "## 🏗️ Current Infrastructure Information" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -n "${{ vars.GCP_VM_INSTANCE }}" ]; then
+            echo "### ✅ Active Infrastructure:" >> $GITHUB_STEP_SUMMARY
+            echo "- **VM Instance**: \`${{ vars.GCP_VM_INSTANCE }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "- **Zone**: \`${{ vars.GCP_VM_ZONE }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "- **External IP**: \`${{ vars.GCP_VM_EXTERNAL_IP }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "- **Site URL**: ${{ vars.SITE_URL }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Environment**: \`${{ vars.ENVIRONMENT }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 🌐 DNS Configuration:" >> $GITHUB_STEP_SUMMARY
+            echo "Make sure your DNS has an **A Record**:" >> $GITHUB_STEP_SUMMARY
+            echo "- **Type**: A Record" >> $GITHUB_STEP_SUMMARY
+            echo "- **Name**: Your domain" >> $GITHUB_STEP_SUMMARY
+            echo "- **Value**: \`${{ vars.GCP_VM_EXTERNAL_IP }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "- **TTL**: 300 (5 minutes)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 🔧 Available Actions:" >> $GITHUB_STEP_SUMMARY
+            echo "- **Configure Environment**: Use stored VM details" >> $GITHUB_STEP_SUMMARY
+            echo "- **Deploy Plugin**: Use stored VM details" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### ⚠️ No Infrastructure Found:" >> $GITHUB_STEP_SUMMARY
+            echo "Run the **Provision Infrastructure** workflow first." >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo ""
+          echo "🏗️ Current Infrastructure Status:"
+          echo "VM Instance: ${{ vars.GCP_VM_INSTANCE || 'Not provisioned' }}"
+          echo "Zone: ${{ vars.GCP_VM_ZONE || 'Not set' }}"
+          echo "External IP: ${{ vars.GCP_VM_EXTERNAL_IP || 'Not assigned' }}"
+          echo "Site URL: ${{ vars.SITE_URL || 'Not configured' }}"
+          echo "Environment: ${{ vars.ENVIRONMENT || 'Not set' }}"

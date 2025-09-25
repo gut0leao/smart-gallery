@@ -157,6 +157,40 @@ jobs:
             sleep 10
           done
 
+      # Store infrastructure details as GitHub Variables
+      - name: 💾 Store Infrastructure Details
+        env:
+          VM_NAME: ${{ steps.terraform.outputs.vm_name }}
+          VM_ZONE: ${{ steps.terraform.outputs.vm_zone }}
+          VM_IP: ${{ steps.terraform.outputs.vm_external_ip }}
+          SITE_URL: ${{ steps.terraform.outputs.site_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "💾 Storing infrastructure details as GitHub Variables..."
+          
+          # Store VM details for use in other workflows
+          gh variable set GCP_VM_INSTANCE --body "$VM_NAME" --repo ${{ github.repository }}
+          gh variable set GCP_VM_ZONE --body "$VM_ZONE" --repo ${{ github.repository }}
+          gh variable set GCP_VM_EXTERNAL_IP --body "$VM_IP" --repo ${{ github.repository }}
+          gh variable set SITE_URL --body "$SITE_URL" --repo ${{ github.repository }}
+          gh variable set ENVIRONMENT --body "${{ env.ENVIRONMENT }}" --repo ${{ github.repository }}
+          
+          echo "✅ Infrastructure details stored successfully!"
+          echo ""
+          echo "📋 Stored Variables:"
+          echo "- GCP_VM_INSTANCE: $VM_NAME"
+          echo "- GCP_VM_ZONE: $VM_ZONE"
+          echo "- GCP_VM_EXTERNAL_IP: $VM_IP"
+          echo "- SITE_URL: $SITE_URL"
+          echo "- ENVIRONMENT: ${{ env.ENVIRONMENT }}"
+          echo ""
+          echo "🔍 DNS Configuration:"
+          echo "Configure your DNS provider with:"
+          echo "- Type: A Record"
+          echo "- Name: ${{ env.DOMAIN_NAME }}"
+          echo "- Value: $VM_IP"
+          echo "- TTL: 300 (5 minutes)"
+
       # Store SSH private key as secret for next workflows
       - name: 🔐 Store SSH Key
         run: |
@@ -181,7 +215,23 @@ jobs:
           echo "- **Site URL**: $SITE_URL" >> $GITHUB_STEP_SUMMARY
           echo "- **Environment**: \`${{ env.ENVIRONMENT }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🌐 DNS Configuration Required:" >> $GITHUB_STEP_SUMMARY
+          echo "Configure your DNS provider with an **A Record**:" >> $GITHUB_STEP_SUMMARY
+          echo "- **Type**: A Record" >> $GITHUB_STEP_SUMMARY
+          echo "- **Name**: \`${{ env.DOMAIN_NAME }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Value**: \`$VM_IP\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **TTL**: 300 (5 minutes)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📋 Stored GitHub Variables:" >> $GITHUB_STEP_SUMMARY
+          echo "- \`GCP_VM_INSTANCE\`: $VM_NAME" >> $GITHUB_STEP_SUMMARY
+          echo "- \`GCP_VM_ZONE\`: $VM_ZONE" >> $GITHUB_STEP_SUMMARY  
+          echo "- \`GCP_VM_EXTERNAL_IP\`: $VM_IP" >> $GITHUB_STEP_SUMMARY
+          echo "- \`SITE_URL\`: $SITE_URL" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🎯 Next Steps:" >> $GITHUB_STEP_SUMMARY
-          echo "1. Run **Install Packages** workflow" >> $GITHUB_STEP_SUMMARY
-          echo "2. Run **Configure Environment** workflow" >> $GITHUB_STEP_SUMMARY
-          echo "3. Run **Deploy Plugin** workflow" >> $GITHUB_STEP_SUMMARY
+          echo "1. **Configure DNS** with your domain provider" >> $GITHUB_STEP_SUMMARY
+          echo "2. Wait 5-10 minutes for DNS propagation" >> $GITHUB_STEP_SUMMARY
+          echo "3. Run **Install Packages** workflow" >> $GITHUB_STEP_SUMMARY
+          echo "4. Run **Configure Environment** workflow" >> $GITHUB_STEP_SUMMARY
+          echo "5. Run **Deploy Plugin** workflow" >> $GITHUB_STEP_SUMMARY

@@ -4,16 +4,16 @@ on:
   workflow_dispatch:
     inputs:
       project_id:
-        description: 'GCP Project ID'
-        required: true
+        description: 'GCP Project ID (optional if stored as variable)'
+        required: false
         type: string
       vm_instance:
-        description: 'VM Instance Name'
-        required: true
+        description: 'VM Instance Name (optional if stored as variable)'
+        required: false
         type: string
       vm_zone:
-        description: 'VM Zone'
-        required: true
+        description: 'VM Zone (optional if stored as variable)'
+        required: false
         type: string
       domain_name:
         description: 'Domain name'
@@ -39,9 +39,9 @@ on:
         type: string
 
 env:
-  GCP_PROJECT_ID: ${{ github.event.inputs.project_id }}
-  VM_INSTANCE: ${{ github.event.inputs.vm_instance }}
-  VM_ZONE: ${{ github.event.inputs.vm_zone }}
+  GCP_PROJECT_ID: ${{ github.event.inputs.project_id || vars.GCP_PROJECT_ID }}
+  VM_INSTANCE: ${{ github.event.inputs.vm_instance || vars.GCP_VM_INSTANCE }}
+  VM_ZONE: ${{ github.event.inputs.vm_zone || vars.GCP_VM_ZONE }}
   DOMAIN_NAME: ${{ github.event.inputs.domain_name }}
   SITE_TITLE: ${{ github.event.inputs.site_title }}
   ADMIN_USER: ${{ github.event.inputs.admin_user }}

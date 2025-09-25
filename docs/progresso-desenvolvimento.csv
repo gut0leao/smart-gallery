@@ -20,3 +20,5 @@ Extra: Infraestrutura,INFRA-2,Configuração Demo Docker,Médio,3-4,3,✅ Comple
 Extra: Infraestrutura,INFRA-3,Documentação e Requisitos,Baixo,2-3,6,✅ Completo,"Requirements.md centralizado, decisões documentadas, tags de versão"
 Extra: Infraestrutura,INFRA-4,Sistema de Limpeza URL,Médio,4-5,5,✅ Completo,Sistema de remoção de filtros incompatíveis da URL
 Extra: Infraestrutura,INFRA-5,Gerenciamento Repositório,Baixo,1-2,2,✅ Completo,"Tags Git, commits estruturados, backup de progresso"
+Extra: Infraestrutura,INFRA-6,Deploy com SSL Automático,Alto,6-8,7,✅ Completo,"GitHub Actions com Let's Encrypt, configuração SSL automática, documentação"
+Extra: Infraestrutura,INFRA-7,Script Limpeza GCP,Alto,6-8,8,✅ Completo,"Script abrangente cleanup GCP, autenticação service account, dry-run testado"

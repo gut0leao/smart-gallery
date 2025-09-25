@@ -1,0 +1,310 @@
+name: 📦 Install Packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      project_id:
+        description: 'GCP Project ID'
+        required: true
+        type: string
+      vm_instance:
+        description: 'VM Instance Name'
+        required: true
+        type: string
+      vm_zone:
+        description: 'VM Zone'
+        required: true
+        type: string
+      php_version:
+        description: 'PHP Version'
+        required: false
+        default: '8.3'
+        type: choice
+        options:
+          - '8.1'
+          - '8.2'
+          - '8.3'
+
+env:
+  GCP_PROJECT_ID: ${{ github.event.inputs.project_id }}
+  VM_INSTANCE: ${{ github.event.inputs.vm_instance }}
+  VM_ZONE: ${{ github.event.inputs.vm_zone }}
+  PHP_VERSION: ${{ github.event.inputs.php_version }}
+
+jobs:
+  install-packages:
+    name: 📦 Install Server Packages
+    runs-on: ubuntu-latest
+    
+    steps:
+      # Checkout repository for scripts
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      # Setup Google Cloud SDK
+      - name: ☁️ Setup Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          service_account_key: ${{ secrets.GCP_SA_KEY }}
+          project_id: ${{ env.GCP_PROJECT_ID }}
+          export_default_credentials: true
+
+      # Authenticate to GCP
+      - name: 🔐 Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      # Create installation script based on DDEV environment
+      - name: 📝 Create Installation Script
+        run: |
+          cat > install-packages.sh << 'EOF'
+          #!/bin/bash
+          # Package installation script based on DDEV environment requirements
+          
+          set -e
+          exec > >(tee /var/log/package-installation.log)
+          exec 2>&1
+          
+          echo "📦 Smart Gallery Package Installation - $(date)"
+          echo "PHP Version: $1"
+          
+          # Update system
+          echo "🔄 Updating system packages..."
+          apt-get update -y
+          apt-get upgrade -y
+          
+          # Install Nginx
+          echo "🌐 Installing Nginx..."
+          apt-get install -y nginx
+          systemctl enable nginx
+          systemctl start nginx
+          
+          # Add PHP repository
+          echo "🐘 Adding PHP $1 repository..."
+          add-apt-repository -y ppa:ondrej/php
+          apt-get update -y
+          
+          # Install PHP and extensions (matching DDEV environment)
+          echo "🐘 Installing PHP $1 and extensions..."
+          apt-get install -y \
+              php$1 \
+              php$1-fpm \
+              php$1-mysql \
+              php$1-mysqli \
+              php$1-xml \
+              php$1-xmlrpc \
+              php$1-curl \
+              php$1-gd \
+              php$1-imagick \
+              php$1-cli \
+              php$1-dev \
+              php$1-imap \
+              php$1-mbstring \
+              php$1-opcache \
+              php$1-soap \
+              php$1-zip \
+              php$1-intl \
+              php$1-bcmath \
+              php$1-json \
+              php$1-readline \
+              php$1-common \
+              php$1-tokenizer \
+              php$1-fileinfo \
+              php$1-ctype \
+              php$1-dom \
+              php$1-phar \
+              php$1-posix \
+              php$1-simplexml \
+              php$1-sockets \
+              php$1-exif \
+              php$1-ftp \
+              php$1-gettext \
+              php$1-calendar \
+              php$1-pcntl \
+              php$1-shmop \
+              php$1-sysvmsg \
+              php$1-sysvsem \
+              php$1-sysvshm
+          
+          # Configure PHP-FPM
+          echo "⚙️ Configuring PHP-FPM..."
+          systemctl enable php$1-fpm
+          systemctl start php$1-fpm
+          
+          # Install MariaDB
+          echo "🗄️ Installing MariaDB..."
+          apt-get install -y mariadb-server mariadb-client
+          systemctl enable mariadb
+          systemctl start mariadb
+          
+          # Secure MariaDB installation
+          echo "🔒 Securing MariaDB..."
+          mysql -e "DELETE FROM mysql.user WHERE User='';"
+          mysql -e "DROP DATABASE IF EXISTS test;"
+          mysql -e "DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';"
+          mysql -e "FLUSH PRIVILEGES;"
+          
+          # Install WP-CLI
+          echo "🔧 Installing WP-CLI..."
+          curl -O https://raw.githubusercontent.com/wp-cli/wp-cli/v2.8.1/bin/wp-cli.phar
+          chmod +x wp-cli.phar
+          mv wp-cli.phar /usr/local/bin/wp
+          
+          # Install additional tools
+          echo "🛠️ Installing additional tools..."
+          apt-get install -y \
+              certbot \
+              python3-certbot-nginx \
+              htop \
+              nano \
+              vim \
+              tree \
+              jq \
+              rsync \
+              logrotate
+          
+          # Install Composer
+          echo "🎼 Installing Composer..."
+          curl -sS https://getcomposer.org/installer | php
+          mv composer.phar /usr/local/bin/composer
+          chmod +x /usr/local/bin/composer
+          
+          # Create database and user for WordPress
+          echo "🗄️ Creating WordPress database..."
+          DB_NAME="wordpress"
+          DB_USER="wordpress"
+          DB_PASS=$(openssl rand -base64 32)
+          
+          mysql -e "CREATE DATABASE IF NOT EXISTS ${DB_NAME};"
+          mysql -e "CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASS}';"
+          mysql -e "GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'localhost';"
+          mysql -e "FLUSH PRIVILEGES;"
+          
+          # Store database credentials securely
+          cat > /root/.wp-db-config << EOL
+          DB_NAME=${DB_NAME}
+          DB_USER=${DB_USER}
+          DB_PASS=${DB_PASS}
+          EOL
+          chmod 600 /root/.wp-db-config
+          
+          # Configure log rotation
+          echo "📝 Configuring log rotation..."
+          cat > /etc/logrotate.d/smart-gallery << EOL
+          /var/log/smart-gallery/*.log {
+              daily
+              missingok
+              rotate 14
+              compress
+              notifempty
+              create 644 www-data www-data
+              postrotate
+                  systemctl reload nginx > /dev/null 2>&1 || true
+              endscript
+          }
+          EOL
+          
+          echo "✅ Package installation completed successfully!"
+          touch /var/log/packages-installed
+          EOF
+          
+          chmod +x install-packages.sh
+
+      # Execute package installation on VM
+      - name: 📦 Install Packages on VM
+        run: |
+          echo "📦 Starting package installation on VM..."
+          
+          # Copy installation script to VM
+          gcloud compute scp install-packages.sh \
+            $VM_INSTANCE:~/install-packages.sh \
+            --zone=$VM_ZONE \
+            --quiet
+          
+          # Execute installation script
+          gcloud compute ssh $VM_INSTANCE \
+            --zone=$VM_ZONE \
+            --quiet \
+            --command="
+              sudo chmod +x ~/install-packages.sh
+              sudo ~/install-packages.sh $PHP_VERSION
+            "
+          
+          echo "✅ Package installation completed!"
+
+      # Verify installation
+      - name: ✅ Verify Package Installation
+        run: |
+          echo "🔍 Verifying package installation..."
+          
+          gcloud compute ssh $VM_INSTANCE \
+            --zone=$VM_ZONE \
+            --quiet \
+            --command="
+              echo '🔍 Checking installed packages...'
+              
+              # Check Nginx
+              nginx -v 2>&1 | head -1
+              systemctl is-active nginx
+              
+              # Check PHP
+              php -v | head -1
+              systemctl is-active php$PHP_VERSION-fpm
+              
+              # Check MariaDB
+              mysql --version | head -1
+              systemctl is-active mariadb
+              
+              # Check WP-CLI
+              wp --version
+              
+              # Check Composer
+              composer --version | head -1
+              
+              # Check Certbot
+              certbot --version | head -1
+              
+              echo '✅ All packages verified successfully!'
+            "
+
+      # Display service status
+      - name: 📊 Service Status Summary
+        run: |
+          echo "📊 Getting service status summary..."
+          
+          gcloud compute ssh $VM_INSTANCE \
+            --zone=$VM_ZONE \
+            --quiet \
+            --command="
+              echo '## 📊 Service Status Summary' > /tmp/status.md
+              echo '' >> /tmp/status.md
+              echo '### 🌐 Web Server:' >> /tmp/status.md
+              echo '- **Nginx**: ' \$(systemctl is-active nginx) >> /tmp/status.md
+              echo '' >> /tmp/status.md
+              echo '### 🐘 PHP:' >> /tmp/status.md
+              echo '- **PHP Version**: ' \$(php -v | head -1) >> /tmp/status.md
+              echo '- **PHP-FPM**: ' \$(systemctl is-active php$PHP_VERSION-fpm) >> /tmp/status.md
+              echo '' >> /tmp/status.md
+              echo '### 🗄️ Database:' >> /tmp/status.md
+              echo '- **MariaDB**: ' \$(systemctl is-active mariadb) >> /tmp/status.md
+              echo '' >> /tmp/status.md
+              echo '### 🛠️ Tools:' >> /tmp/status.md
+              echo '- **WP-CLI**: ' \$(wp --version) >> /tmp/status.md
+              echo '- **Composer**: Available' >> /tmp/status.md
+              echo '- **Certbot**: Available' >> /tmp/status.md
+              echo '' >> /tmp/status.md
+              echo '### 🎯 Next Steps:' >> /tmp/status.md
+              echo '1. Run **Configure Environment** workflow' >> /tmp/status.md
+              echo '2. Configure WordPress and SSL' >> /tmp/status.md
+              echo '3. Deploy Smart Gallery plugin' >> /tmp/status.md
+              
+              cat /tmp/status.md
+            " >> $GITHUB_STEP_SUMMARY
+
+      # Cleanup
+      - name: 🗑️ Cleanup
+        if: always()
+        run: |
+          rm -f install-packages.sh
+          echo "✅ Installation workflow completed"

@@ -1,5 +1,14 @@
 name: 🚀 Smart Gallery Plugin - Build & Deploy
 
+# Required GitHub Secrets:
+# - GCP_SA_KEY: Google Cloud service account JSON key
+# - GCP_PROJECT_ID: Google Cloud project ID
+# - GCP_VM_INSTANCE: GCP VM instance name
+# - GCP_VM_ZONE: GCP VM zone (e.g., us-central1-a)
+# - SITE_URL: Full HTTPS URL of the site (e.g., https://smartgallery.exemplo.com)
+# - DOMAIN_NAME: Domain name only (e.g., smartgallery.exemplo.com)
+# - LETSENCRYPT_EMAIL: Email for Let's Encrypt certificate registration
+
 on:
   push:
     branches: [ main ]
@@ -290,21 +299,129 @@ jobs:
           echo "site-url=${SITE_URL}" >> $GITHUB_OUTPUT
           echo "✅ Deployment completed!"
 
+      # Setup Let's Encrypt SSL
+      - name: 🔒 Setup Let's Encrypt SSL
+        env:
+          VM_INSTANCE: ${{ secrets.GCP_VM_INSTANCE }}
+          VM_ZONE: ${{ secrets.GCP_VM_ZONE }}
+          DOMAIN_NAME: ${{ secrets.DOMAIN_NAME }}
+          LETSENCRYPT_EMAIL: ${{ secrets.LETSENCRYPT_EMAIL }}
+        run: |
+          echo "🔒 Setting up Let's Encrypt SSL certificate..."
+          echo "Domain: $DOMAIN_NAME"
+          
+          gcloud compute ssh $VM_INSTANCE \
+            --zone=$VM_ZONE \
+            --quiet \
+            --command="
+              set -e
+              echo '🔒 Starting SSL certificate setup...'
+              
+              # Update system packages
+              echo '📦 Updating system packages...'
+              sudo apt-get update -qq
+              
+              # Install certbot if not already installed
+              echo '📥 Installing Certbot...'
+              sudo apt-get install -y certbot python3-certbot-apache snapd
+              
+              # Ensure Apache is running
+              echo '🔧 Ensuring Apache is running...'
+              sudo systemctl enable apache2
+              sudo systemctl start apache2
+              
+              # Check if certificate already exists
+              if sudo certbot certificates 2>/dev/null | grep -q '$DOMAIN_NAME'; then
+                echo '✅ Certificate for $DOMAIN_NAME already exists, renewing if needed...'
+                sudo certbot renew --quiet --no-self-upgrade
+              else
+                echo '🆕 Obtaining new SSL certificate for $DOMAIN_NAME...'
+                
+                # Get SSL certificate
+                sudo certbot --apache \
+                  --non-interactive \
+                  --agree-tos \
+                  --email '$LETSENCRYPT_EMAIL' \
+                  --domains '$DOMAIN_NAME' \
+                  --redirect \
+                  --no-eff-email \
+                  --keep-until-expiring \
+                  --expand
+              fi
+              
+              # Setup auto-renewal
+              echo '🔄 Setting up certificate auto-renewal...'
+              if ! sudo crontab -l 2>/dev/null | grep -q 'certbot renew'; then
+                echo '0 12 * * * /usr/bin/certbot renew --quiet' | sudo crontab -
+                echo '✅ Auto-renewal crontab added'
+              else
+                echo '✅ Auto-renewal already configured'
+              fi
+              
+              # Test Apache configuration
+              echo '🔍 Testing Apache configuration...'
+              sudo apache2ctl configtest
+              
+              # Reload Apache to apply SSL changes
+              echo '🔄 Reloading Apache...'
+              sudo systemctl reload apache2
+              
+              # Verify SSL certificate
+              echo '✅ Verifying SSL certificate...'
+              if sudo certbot certificates | grep -q '$DOMAIN_NAME'; then
+                echo '🎉 SSL certificate successfully configured!'
+                sudo certbot certificates | grep -A 10 '$DOMAIN_NAME'
+              else
+                echo '❌ SSL certificate verification failed'
+                exit 1
+              fi
+              
+              echo '🔒 SSL setup completed successfully!'
+            "
+          
+          echo "✅ Let's Encrypt SSL configured!"
+
       # Health check
       - name: 🏥 Health Check
         env:
           SITE_URL: ${{ secrets.SITE_URL }}
+          DOMAIN_NAME: ${{ secrets.DOMAIN_NAME }}
         run: |
           echo "🏥 Running health check..."
           
-          # Wait a moment for services to stabilize
-          sleep 10
+          # Wait a moment for services to stabilize after SSL setup
+          sleep 15
           
-          # Check if site responds
-          if curl -sSf "$SITE_URL" > /dev/null; then
-            echo "✅ Site is responding!"
+          # Check HTTP redirect to HTTPS
+          echo "🔍 Testing HTTP to HTTPS redirect..."
+          HTTP_URL="http://$DOMAIN_NAME"
+          if curl -sSL -w "%{http_code}" "$HTTP_URL" -o /dev/null | grep -q "30[1-8]"; then
+            echo "✅ HTTP redirects to HTTPS!"
           else
-            echo "❌ Site health check failed!"
+            echo "⚠️ HTTP redirect may not be working properly"
+          fi
+          
+          # Check HTTPS site responds
+          echo "🔍 Testing HTTPS site..."
+          if curl -sSf "$SITE_URL" > /dev/null; then
+            echo "✅ HTTPS site is responding!"
+          else
+            echo "❌ HTTPS site health check failed!"
+            exit 1
+          fi
+          
+          # Check SSL certificate validity
+          echo "🔍 Verifying SSL certificate..."
+          if curl -sSf --connect-timeout 10 "$SITE_URL" > /dev/null; then
+            CERT_INFO=$(echo | openssl s_client -servername "$DOMAIN_NAME" -connect "$DOMAIN_NAME:443" 2>/dev/null | openssl x509 -noout -dates 2>/dev/null)
+            if [ ! -z "$CERT_INFO" ]; then
+              echo "✅ SSL certificate is valid!"
+              echo "$CERT_INFO"
+            else
+              echo "⚠️ Could not verify SSL certificate details"
+            fi
+          else
+            echo "❌ SSL connection failed!"
             exit 1
           fi
           

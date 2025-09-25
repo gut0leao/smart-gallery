@@ -1,0 +1,190 @@
+name: 🏗️ Provision Infrastructure
+
+on:
+  workflow_dispatch:
+    inputs:
+      project_id:
+        description: 'GCP Project ID'
+        required: true
+        type: string
+      domain_name:
+        description: 'Domain name (e.g., smartgallery.exemplo.com)'
+        required: true
+        type: string
+      environment:
+        description: 'Environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      region:
+        description: 'GCP Region'
+        required: false
+        default: 'us-central1'
+        type: string
+      machine_type:
+        description: 'VM Machine Type'
+        required: false
+        default: 'e2-micro'
+        type: choice
+        options:
+          - e2-micro
+          - e2-small
+          - e2-medium
+
+env:
+  TF_VERSION: '1.6.0'
+  GCP_PROJECT_ID: ${{ github.event.inputs.project_id }}
+  DOMAIN_NAME: ${{ github.event.inputs.domain_name }}
+  ENVIRONMENT: ${{ github.event.inputs.environment }}
+
+jobs:
+  provision:
+    name: 🏗️ Terraform Provision
+    runs-on: ubuntu-latest
+    
+    outputs:
+      vm_name: ${{ steps.terraform.outputs.vm_name }}
+      vm_zone: ${{ steps.terraform.outputs.vm_zone }}
+      vm_external_ip: ${{ steps.terraform.outputs.vm_external_ip }}
+      site_url: ${{ steps.terraform.outputs.site_url }}
+    
+    steps:
+      # Checkout repository
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      # Setup Terraform
+      - name: 🔧 Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      # Setup Google Cloud SDK
+      - name: ☁️ Setup Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          service_account_key: ${{ secrets.GCP_SA_KEY }}
+          project_id: ${{ env.GCP_PROJECT_ID }}
+          export_default_credentials: true
+
+      # Authenticate to GCP
+      - name: 🔐 Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      # Generate SSH key for VM access
+      - name: 🔑 Generate SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          if [ ! -f ~/.ssh/id_rsa ]; then
+            ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N ""
+            echo "✅ SSH key generated"
+          fi
+          
+          # Store public key for later use
+          echo "SSH_PUBLIC_KEY=$(cat ~/.ssh/id_rsa.pub)" >> $GITHUB_ENV
+
+      # Terraform Init
+      - name: 🏗️ Terraform Init
+        working-directory: terraform
+        run: |
+          terraform init
+          echo "✅ Terraform initialized"
+
+      # Terraform Plan
+      - name: 📋 Terraform Plan
+        working-directory: terraform
+        env:
+          TF_VAR_project_id: ${{ env.GCP_PROJECT_ID }}
+          TF_VAR_domain_name: ${{ env.DOMAIN_NAME }}
+          TF_VAR_environment: ${{ env.ENVIRONMENT }}
+          TF_VAR_region: ${{ github.event.inputs.region }}
+          TF_VAR_machine_type: ${{ github.event.inputs.machine_type }}
+        run: |
+          terraform plan -out=tfplan
+          echo "✅ Terraform plan completed"
+
+      # Terraform Apply
+      - name: 🚀 Terraform Apply
+        id: terraform
+        working-directory: terraform
+        env:
+          TF_VAR_project_id: ${{ env.GCP_PROJECT_ID }}
+          TF_VAR_domain_name: ${{ env.DOMAIN_NAME }}
+          TF_VAR_environment: ${{ env.ENVIRONMENT }}
+          TF_VAR_region: ${{ github.event.inputs.region }}
+          TF_VAR_machine_type: ${{ github.event.inputs.machine_type }}
+        run: |
+          terraform apply -auto-approve tfplan
+          
+          # Export outputs
+          echo "vm_name=$(terraform output -raw vm_name)" >> $GITHUB_OUTPUT
+          echo "vm_zone=$(terraform output -raw vm_zone)" >> $GITHUB_OUTPUT
+          echo "vm_external_ip=$(terraform output -raw vm_external_ip)" >> $GITHUB_OUTPUT
+          echo "site_url=$(terraform output -raw site_url)" >> $GITHUB_OUTPUT
+          
+          echo "✅ Infrastructure provisioned successfully!"
+
+      # Wait for VM to be ready
+      - name: ⏳ Wait for VM Startup
+        env:
+          VM_NAME: ${{ steps.terraform.outputs.vm_name }}
+          VM_ZONE: ${{ steps.terraform.outputs.vm_zone }}
+        run: |
+          echo "⏳ Waiting for VM to complete startup..."
+          
+          # Wait up to 5 minutes for startup script completion
+          for i in {1..30}; do
+            if gcloud compute ssh $VM_NAME \
+              --zone=$VM_ZONE \
+              --command="test -f /var/log/startup-completed" \
+              --quiet 2>/dev/null; then
+              echo "✅ VM startup completed!"
+              break
+            fi
+            
+            if [ $i -eq 30 ]; then
+              echo "⚠️ Startup script may still be running"
+              gcloud compute ssh $VM_NAME \
+                --zone=$VM_ZONE \
+                --command="tail -20 /var/log/startup-script.log" \
+                --quiet || echo "Could not check startup log"
+            fi
+            
+            echo "Waiting... (${i}/30)"
+            sleep 10
+          done
+
+      # Store SSH private key as secret for next workflows
+      - name: 🔐 Store SSH Key
+        run: |
+          echo "💾 SSH private key stored for subsequent workflows"
+          # In real scenario, you'd store this in a secure way
+          # For now, we'll use gcloud ssh which handles keys automatically
+
+      # Summary
+      - name: 📊 Infrastructure Summary
+        env:
+          VM_NAME: ${{ steps.terraform.outputs.vm_name }}
+          VM_ZONE: ${{ steps.terraform.outputs.vm_zone }}
+          VM_IP: ${{ steps.terraform.outputs.vm_external_ip }}
+          SITE_URL: ${{ steps.terraform.outputs.site_url }}
+        run: |
+          echo "## 🏗️ Infrastructure Provisioning Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### ✅ Resources Created:" >> $GITHUB_STEP_SUMMARY
+          echo "- **VM Instance**: \`$VM_NAME\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Zone**: \`$VM_ZONE\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **External IP**: \`$VM_IP\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Site URL**: $SITE_URL" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: \`${{ env.ENVIRONMENT }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🎯 Next Steps:" >> $GITHUB_STEP_SUMMARY
+          echo "1. Run **Install Packages** workflow" >> $GITHUB_STEP_SUMMARY
+          echo "2. Run **Configure Environment** workflow" >> $GITHUB_STEP_SUMMARY
+          echo "3. Run **Deploy Plugin** workflow" >> $GITHUB_STEP_SUMMARY

@@ -1,4 +1,4 @@
-name: Configure Environment
+name: 4. Configure Environment
 
 on:
   workflow_dispatch:

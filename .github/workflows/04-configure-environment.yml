@@ -165,32 +165,14 @@ jobs:
           nginx -t
           systemctl reload nginx
           
-          # Verify and install WP-CLI if needed
+          # Verify WP-CLI is available
           echo "🔧 Verifying WP-CLI installation..."
           if ! wp --version >/dev/null 2>&1; then
-            echo "⚠️ WP-CLI not found or corrupted, reinstalling..."
-            rm -f /usr/local/bin/wp
-            
-            # Download and install WP-CLI with verification
-            curl -o wp-cli.phar https://raw.githubusercontent.com/wp-cli/wp-cli/v2.8.1/bin/wp-cli.phar
-            
-            # Verify the download
-            if [ ! -s wp-cli.phar ]; then
-              echo "❌ Failed to download WP-CLI"
-              exit 1
-            fi
-            
-            # Check if it's actually the WP-CLI binary
-            if ! php wp-cli.phar --version >/dev/null 2>&1; then
-              echo "❌ Downloaded WP-CLI is corrupted"
-              exit 1
-            fi
-            
-            chmod +x wp-cli.phar
-            mv wp-cli.phar /usr/local/bin/wp
-            echo "✅ WP-CLI reinstalled successfully"
+            echo "❌ WP-CLI not found! Please run the 'Install Packages' workflow first."
+            echo "� The Install Packages workflow should have installed WP-CLI."
+            exit 1
           else
-            echo "✅ WP-CLI is working correctly"
+            echo "✅ WP-CLI is available: \$(wp --version)"
           fi
           
           # Download and install WordPress

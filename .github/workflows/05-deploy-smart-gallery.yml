@@ -235,13 +235,11 @@ jobs:
               
               # Update plugin version info
               echo '📝 Recording deployment info...'
-              cat > /var/log/smart-gallery-deployment.log << EOL
-              Deployment Date: \$(date -u)
-              Plugin Version: $PLUGIN_VERSION
-              Deployed By: GitHub Actions
-              Workflow Run: ${{ github.run_id }}
-              Commit: ${{ github.sha }}
-              EOL
+              echo \"Deployment Date: \$(date -u)\" > /var/log/smart-gallery-deployment.log
+              echo \"Plugin Version: $PLUGIN_VERSION\" >> /var/log/smart-gallery-deployment.log
+              echo \"Deployed By: GitHub Actions\" >> /var/log/smart-gallery-deployment.log
+              echo \"Workflow Run: ${{ github.run_id }}\" >> /var/log/smart-gallery-deployment.log
+              echo \"Commit: ${{ github.sha }}\" >> /var/log/smart-gallery-deployment.log
               
               echo '🎉 Plugin deployment completed successfully!'
             "

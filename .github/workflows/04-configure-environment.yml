@@ -34,7 +34,7 @@ on:
         required: true
         type: string
       letsencrypt_email:
-        description: 'Let\'s Encrypt Email'
+        description: "Let's Encrypt Email"
         required: true
         type: string
 
@@ -110,7 +110,7 @@ jobs:
           # Store root password
           echo "[client]" > /root/.my.cnf
           echo "user=root" >> /root/.my.cnf
-          echo "password=\$DB_ROOT_PASSWORD" >> /root/.my.cnf
+          echo "password=$DB_ROOT_PASSWORD" >> /root/.my.cnf
           chmod 600 /root/.my.cnf
           
           # Configure Nginx
@@ -156,7 +156,7 @@ jobs:
               location ~ /\. { deny all; }
               location ~ ^/(wp-config\.php|wp-config-sample\.php|readme\.html|license\.txt) { deny all; }
           }
-NGINX_CONF
+          NGINX_CONF
           
           # Enable site
           ln -sf /etc/nginx/sites-available/wordpress /etc/nginx/sites-enabled/
@@ -255,10 +255,10 @@ NGINX_CONF
           fi
           
           # Store credentials for later use
-          echo "ADMIN_USER=\$ADMIN_USER" > /root/.wp-admin-config
-          echo "ADMIN_PASSWORD=\$ADMIN_PASSWORD" >> /root/.wp-admin-config
-          echo "ADMIN_EMAIL=\$ADMIN_EMAIL" >> /root/.wp-admin-config
-          echo "SITE_URL=https://\$DOMAIN_NAME" >> /root/.wp-admin-config
+          echo "ADMIN_USER=$ADMIN_USER" > /root/.wp-admin-config
+          echo "ADMIN_PASSWORD=$ADMIN_PASSWORD" >> /root/.wp-admin-config
+          echo "ADMIN_EMAIL=$ADMIN_EMAIL" >> /root/.wp-admin-config
+          echo "SITE_URL=https://$DOMAIN_NAME" >> /root/.wp-admin-config
           chmod 600 /root/.wp-admin-config
           
           # Final Nginx reload

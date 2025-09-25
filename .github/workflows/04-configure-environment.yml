@@ -1,0 +1,11 @@
+name: 4. Configure environment ⚙️
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🧪 Test Step
+        run: echo "Testing workflow name display"

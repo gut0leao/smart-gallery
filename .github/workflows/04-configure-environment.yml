@@ -1,6 +1,6 @@
-name: 4. Configure environment ⚙️
+name: "4. Configure environment ⚙️"
 
-on:
+"on":
   workflow_dispatch:
     inputs:
       project_id:

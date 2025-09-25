@@ -187,11 +187,32 @@ jobs:
             exit 1
           fi
           
+          # Validate subdomain format (no special chars, reasonable length)
+          if [[ ! "$DUCKDNS_SUBDOMAIN" =~ ^[a-zA-Z0-9-]{1,63}$ ]]; then
+            echo "❌ Invalid Duck DNS subdomain format: $DUCKDNS_SUBDOMAIN"
+            echo "Subdomain must contain only letters, numbers, and hyphens (1-63 chars)"
+            echo "Examples: mysite, smart-gallery, test123"
+            exit 1
+          fi
+          
           echo "🦆 Configuring Duck DNS for $DUCKDNS_SUBDOMAIN.duckdns.org..."
           echo "📍 Setting IP to: $VM_IP"
+          echo "🔍 Using token: ${DUCKDNS_TOKEN:0:8}... (masked)"
           
-          # Update Duck DNS
+          # Test Duck DNS API first
+          echo "🧪 Testing Duck DNS API connectivity..."
+          TEST_RESPONSE=$(curl -s -w "%{http_code}" -o /dev/null "https://www.duckdns.org/update?domains=$DUCKDNS_SUBDOMAIN&token=$DUCKDNS_TOKEN&txt=test")
+          if [ "$TEST_RESPONSE" != "200" ]; then
+            echo "❌ Cannot reach Duck DNS API. HTTP status: $TEST_RESPONSE"
+            echo "Please check your internet connection or try again later"
+            exit 1
+          fi
+          
+          # Update Duck DNS with detailed error handling
+          echo "🔄 Updating Duck DNS record..."
           RESPONSE=$(curl -s "https://www.duckdns.org/update?domains=$DUCKDNS_SUBDOMAIN&token=$DUCKDNS_TOKEN&ip=$VM_IP")
+          
+          echo "📡 Duck DNS API Response: $RESPONSE"
           
           if [ "$RESPONSE" = "OK" ]; then
             echo "✅ Duck DNS updated successfully!"
@@ -199,9 +220,30 @@ jobs:
             echo ""
             echo "🕒 DNS propagation typically takes 1-5 minutes"
             echo "🔍 You can check with: nslookup $DUCKDNS_SUBDOMAIN.duckdns.org"
+          elif [ "$RESPONSE" = "KO" ]; then
+            echo "❌ Duck DNS update failed with 'KO' response"
+            echo ""
+            echo "🔍 Common causes:"
+            echo "1. ❌ Invalid Duck DNS token"
+            echo "2. ❌ Subdomain doesn't exist or not owned by this token"
+            echo "3. ❌ Subdomain name format issue"
+            echo ""
+            echo "🛠️ Troubleshooting steps:"
+            echo "1. Visit https://www.duckdns.org/ and log in"
+            echo "2. Verify your token matches the one in GitHub Secrets"
+            echo "3. Check that subdomain '$DUCKDNS_SUBDOMAIN' exists in your account"
+            echo "4. If subdomain doesn't exist, create it first"
+            echo "5. Test manually: curl 'https://www.duckdns.org/update?domains=$DUCKDNS_SUBDOMAIN&token=YOUR_TOKEN&ip=$VM_IP'"
+            echo ""
+            echo "📋 Current values:"
+            echo "- Subdomain: $DUCKDNS_SUBDOMAIN"
+            echo "- Full domain: $DUCKDNS_SUBDOMAIN.duckdns.org"
+            echo "- Target IP: $VM_IP"
+            echo "- Token (first 8 chars): ${DUCKDNS_TOKEN:0:8}..."
+            exit 1
           else
-            echo "❌ Failed to update Duck DNS. Response: $RESPONSE"
-            echo "Please check your token and subdomain name"
+            echo "❌ Unexpected Duck DNS response: $RESPONSE"
+            echo "Please check Duck DNS service status or try again later"
             exit 1
           fi
 

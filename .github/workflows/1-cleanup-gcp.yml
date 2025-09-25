@@ -1,3 +1,4 @@
+# Fixed authentication order: auth@v2 before setup-gcloud@v2  
 name: 🧹 Cleanup GCP Resources
 
 on:

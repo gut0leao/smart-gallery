@@ -4,16 +4,16 @@ on:
   workflow_dispatch:
     inputs:
       project_id:
-        description: 'GCP Project ID'
-        required: true
+        description: 'GCP Project ID (optional if stored as variable)'
+        required: false
         type: string
       vm_instance:
-        description: 'VM Instance Name'
-        required: true
+        description: 'VM Instance Name (optional if stored as variable)'
+        required: false
         type: string
       vm_zone:
-        description: 'VM Zone'
-        required: true
+        description: 'VM Zone (optional if stored as variable)'
+        required: false
         type: string
       php_version:
         description: 'PHP Version'
@@ -26,9 +26,9 @@ on:
           - '8.3'
 
 env:
-  GCP_PROJECT_ID: ${{ github.event.inputs.project_id }}
-  VM_INSTANCE: ${{ github.event.inputs.vm_instance }}
-  VM_ZONE: ${{ github.event.inputs.vm_zone }}
+  GCP_PROJECT_ID: ${{ github.event.inputs.project_id || vars.GCP_PROJECT_ID }}
+  VM_INSTANCE: ${{ github.event.inputs.vm_instance || vars.GCP_VM_INSTANCE }}
+  VM_ZONE: ${{ github.event.inputs.vm_zone || vars.GCP_VM_ZONE }}
   PHP_VERSION: ${{ github.event.inputs.php_version }}
 
 jobs:
@@ -82,47 +82,43 @@ jobs:
           add-apt-repository -y ppa:ondrej/php
           apt-get update -y
           
-          # Install PHP and extensions (matching DDEV environment)
-          echo "🐘 Installing PHP $1 and extensions..."
+          # Install core PHP and essential extensions
+          echo "🐘 Installing PHP $1 core packages..."
           apt-get install -y \
               php$1 \
               php$1-fpm \
+              php$1-cli \
+              php$1-common
+          
+          # Install essential PHP extensions for WordPress
+          echo "🔌 Installing essential PHP extensions..."
+          apt-get install -y \
               php$1-mysql \
-              php$1-mysqli \
               php$1-xml \
-              php$1-xmlrpc \
               php$1-curl \
               php$1-gd \
-              php$1-imagick \
-              php$1-cli \
-              php$1-dev \
-              php$1-imap \
               php$1-mbstring \
               php$1-opcache \
-              php$1-soap \
               php$1-zip \
               php$1-intl \
-              php$1-bcmath \
-              php$1-json \
-              php$1-readline \
-              php$1-common \
-              php$1-tokenizer \
-              php$1-fileinfo \
-              php$1-ctype \
-              php$1-dom \
-              php$1-phar \
-              php$1-posix \
-              php$1-simplexml \
-              php$1-sockets \
-              php$1-exif \
-              php$1-ftp \
-              php$1-gettext \
-              php$1-calendar \
-              php$1-pcntl \
-              php$1-shmop \
-              php$1-sysvmsg \
-              php$1-sysvsem \
-              php$1-sysvshm
+              php$1-bcmath
+          
+          # Install additional PHP extensions (with error handling)
+          echo "📦 Installing additional PHP extensions..."
+          PHP_EXTENSIONS="imagick soap imap readline exif gettext calendar shmop sysvmsg sysvsem sysvshm"
+          
+          for ext in $PHP_EXTENSIONS; do
+              if apt-cache show php$1-$ext >/dev/null 2>&1; then
+                  echo "Installing php$1-$ext..."
+                  apt-get install -y php$1-$ext || echo "Warning: Failed to install php$1-$ext"
+              else
+                  echo "Skipping php$1-$ext (not available)"
+              fi
+          done
+          
+          # Install PHP dev tools
+          echo "🛠️ Installing PHP development tools..."
+          apt-get install -y php$1-dev || echo "Warning: php$1-dev not available"
           
           # Configure PHP-FPM
           echo "⚙️ Configuring PHP-FPM..."

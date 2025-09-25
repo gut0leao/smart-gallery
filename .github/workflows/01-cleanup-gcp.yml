@@ -36,11 +36,15 @@ jobs:
       # Check authentication method
       - name: 🔍 Check GCP Authentication
         id: check_auth
+        env:
+          SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          WIF_PROVIDER: ${{ secrets.WIF_PROVIDER }}
+          WIF_SA: ${{ secrets.WIF_SERVICE_ACCOUNT }}
         run: |
-          if [ -n "${{ secrets.GCP_SA_KEY }}" ]; then
+          if [ -n "${SA_KEY}" ]; then
             echo "auth_method=credentials_json" >> $GITHUB_OUTPUT
             echo "✅ Using service account JSON credentials"
-          elif [ -n "${{ secrets.WIF_PROVIDER }}" ] && [ -n "${{ secrets.WIF_SERVICE_ACCOUNT }}" ]; then
+          elif [ -n "${WIF_PROVIDER}" ] && [ -n "${WIF_SA}" ]; then
             echo "auth_method=workload_identity" >> $GITHUB_OUTPUT
             echo "✅ Using workload identity federation"
           else

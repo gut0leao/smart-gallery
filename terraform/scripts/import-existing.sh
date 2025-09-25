@@ -96,14 +96,24 @@ safe_import \
     "gcloud compute addresses describe '$NAME_PREFIX-ip' --region='$REGION' --project='$PROJECT_ID'" \
     "Static IP Address"
 
-# Import firewall rules
-for fw_rule in "ssh" "http" "https" "icmp"; do
-    tf_resource_name=$(echo "$fw_rule" | tr '-' '_')
+# Import firewall rules with correct resource names
+fw_rules=(
+    "ssh:smart_gallery_ssh"
+    "http:smart_gallery_http"
+    "https:smart_gallery_https" 
+    "icmp:smart_gallery_icmp"
+)
+
+for fw_mapping in "${fw_rules[@]}"; do
+    fw_type="${fw_mapping%:*}"
+    tf_resource_name="${fw_mapping#*:}"
+    gcp_rule_name="$NAME_PREFIX-allow-$fw_type"
+    
     safe_import \
-        "google_compute_firewall.smart_gallery_$tf_resource_name" \
-        "$PROJECT_ID/$NAME_PREFIX-allow-$fw_rule" \
-        "gcloud compute firewall-rules describe '$NAME_PREFIX-allow-$fw_rule' --project='$PROJECT_ID'" \
-        "Firewall rule: $fw_rule"
+        "google_compute_firewall.$tf_resource_name" \
+        "$PROJECT_ID/$gcp_rule_name" \
+        "gcloud compute firewall-rules describe '$gcp_rule_name' --project='$PROJECT_ID'" \
+        "Firewall rule: $fw_type"
 done
 
 # Import VM instance

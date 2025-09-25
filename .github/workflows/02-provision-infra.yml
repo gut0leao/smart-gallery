@@ -124,6 +124,7 @@ jobs:
             local resource_type="$1"
             local resource_name="$2"
             local gcp_resource_id="$3"
+            local gcp_command="$4"
             
             echo "🔍 Checking $resource_type: $resource_name"
             
@@ -134,7 +135,7 @@ jobs:
             fi
             
             # Check if resource exists in GCP and import if needed
-            if gcloud compute $4 describe "$gcp_resource_id" --quiet >/dev/null 2>&1; then
+            if eval "$gcp_command" >/dev/null 2>&1; then
               echo "📥 Importing existing $resource_name from GCP..."
               terraform import "$resource_type.$resource_name" "$gcp_resource_id" || {
                 echo "⚠️ Import failed for $resource_name, will create new resource"
@@ -145,9 +146,9 @@ jobs:
           }
           
           # Import existing resources if they exist
-          safe_import "google_compute_network" "smart_gallery_network" "$NAME_PREFIX-network" "networks"
-          safe_import "google_compute_subnetwork" "smart_gallery_subnet" "${{ github.event.inputs.region }}/$NAME_PREFIX-subnet" "networks subnets"
-          safe_import "google_compute_address" "smart_gallery_ip" "${{ github.event.inputs.region }}/$NAME_PREFIX-ip" "addresses"
+          safe_import "google_compute_network" "smart_gallery_network" "$NAME_PREFIX-network" "gcloud compute networks describe '$NAME_PREFIX-network' --quiet"
+          safe_import "google_compute_subnetwork" "smart_gallery_subnet" "${{ github.event.inputs.region }}/$NAME_PREFIX-subnet" "gcloud compute networks subnets describe '$NAME_PREFIX-subnet' --region='${{ github.event.inputs.region }}' --quiet"
+          safe_import "google_compute_address" "smart_gallery_ip" "${{ github.event.inputs.region }}/$NAME_PREFIX-ip" "gcloud compute addresses describe '$NAME_PREFIX-ip' --region='${{ github.event.inputs.region }}' --quiet"
           
           # For VM, check if it exists
           if gcloud compute instances describe "$NAME_PREFIX-vm" --zone="${{ github.event.inputs.region }}-a" --quiet >/dev/null 2>&1; then
@@ -163,15 +164,30 @@ jobs:
             echo "➕ VM will be created"
           fi
           
-          # Import firewall rules
-          for fw_rule in "$NAME_PREFIX-allow-ssh" "$NAME_PREFIX-allow-http" "$NAME_PREFIX-allow-https" "$NAME_PREFIX-allow-icmp"; do
-            if gcloud compute firewall-rules describe "$fw_rule" --quiet >/dev/null 2>&1; then
-              if ! terraform state show "google_compute_firewall.${fw_rule//-/_}" >/dev/null 2>&1; then
-                echo "📥 Importing firewall rule: $fw_rule"
-                terraform import "google_compute_firewall.${fw_rule//-/_}" "${{ env.GCP_PROJECT_ID }}/$fw_rule" || {
-                  echo "⚠️ Firewall import failed for $fw_rule"
+          # Import firewall rules with correct mapping
+          fw_rules=(
+            "ssh:smart_gallery_ssh"
+            "http:smart_gallery_http" 
+            "https:smart_gallery_https"
+            "icmp:smart_gallery_icmp"
+          )
+          
+          for fw_mapping in "${fw_rules[@]}"; do
+            fw_type="${fw_mapping%:*}"
+            tf_resource_name="${fw_mapping#*:}"
+            gcp_rule_name="$NAME_PREFIX-allow-$fw_type"
+            
+            if gcloud compute firewall-rules describe "$gcp_rule_name" --quiet >/dev/null 2>&1; then
+              if ! terraform state show "google_compute_firewall.$tf_resource_name" >/dev/null 2>&1; then
+                echo "📥 Importing firewall rule: $gcp_rule_name -> $tf_resource_name"
+                terraform import "google_compute_firewall.$tf_resource_name" "${{ env.GCP_PROJECT_ID }}/$gcp_rule_name" || {
+                  echo "⚠️ Firewall import failed for $gcp_rule_name"
                 }
+              else
+                echo "✅ Firewall rule $tf_resource_name already in Terraform state"
               fi
+            else
+              echo "➕ Firewall rule $gcp_rule_name will be created"
             fi
           done
           

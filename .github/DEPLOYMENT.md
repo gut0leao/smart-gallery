@@ -2,15 +2,19 @@
 
 Este documento explica como configurar os secrets necessários para a pipeline de CI/CD do Smart Gallery Plugin.
 
-## 📋 Secrets Necessários
+## 📋 Secrets e Variáveis Necessários
 
-Configure os seguintes secrets no GitHub (Settings > Secrets and variables > Actions):
+Configure no GitHub: **Settings > Secrets and variables > Actions**
 
-### 🌐 Google Cloud Platform (GCP)
+### 🔐 Repository Secrets (OBRIGATÓRIOS)
 
-```bash
-# Service Account Key (JSON format)
-GCP_SA_KEY='{
+| Secret | Descrição | Usado em |
+|--------|-----------|----------|
+| `GCP_SA_KEY` | Service Account JSON completo | Todos workflows |
+
+**Exemplo do GCP_SA_KEY:**
+```json
+{
   "type": "service_account",
   "project_id": "your-project-id",
   "private_key_id": "...",
@@ -19,18 +23,21 @@ GCP_SA_KEY='{
   "client_id": "...",
   "auth_uri": "https://accounts.google.com/o/oauth2/auth",
   "token_uri": "https://oauth2.googleapis.com/token"
-}'
-
-# GCP Project ID
-GCP_PROJECT_ID=your-gcp-project-id
-
-# VM Instance Details
-GCP_VM_INSTANCE=wordpress-vm-instance
-GCP_VM_ZONE=us-central1-a
-
-# Site URL for health checks
-SITE_URL=https://your-demo-site.com
+}
 ```
+
+### 🌐 Repository Variables (OPCIONAIS)
+
+| Variável | Descrição | Padrão |
+|----------|-----------|---------|
+| `GCP_PROJECT_ID` | ID do projeto GCP | Pode ser input |
+| `GCP_VM_INSTANCE` | Nome da VM | Pode ser input |
+| `GCP_VM_ZONE` | Zona da VM | Pode ser input |
+
+### 🏠 Environments (OPCIONAL)
+
+- Crie environment **`production`** para workflow 01-cleanup
+- Configure protection rules se necessário
 
 ## 🛠️ GCP Setup Instructions
 
@@ -144,23 +151,29 @@ define('WP_DEBUG_LOG', true);
 - ✅ Upload plugin ZIP
 - ✅ Generate release notes
 
-## 🚀 Usage
+## 🚀 Como Usar os Workflows
 
-### Automatic Deployment
+### Deployment Modular (Recomendado)
 ```bash
-# Deploy to staging on main branch push
-git push origin main
+# Sequência completa para novo projeto:
+1. Execute: 🧹 Cleanup GCP Resources (se necessário)
+2. Execute: 🏗️ Provision Infrastructure  
+3. Execute: 📦 Install Packages
+4. Execute: ⚙️ Configure Environment
+5. Execute: 🚀 Deploy Plugin
 
-# Deploy to production with version tag
-git tag v1.0.0
-git push origin v1.0.0
+# Apenas deploy do plugin (projeto existente):
+- Execute: 🚀 Deploy Plugin
 ```
 
-### Manual Deployment
+### Single Workflow (Legado)
 ```bash
-# Via GitHub Actions UI
-# Go to Actions tab > Smart Gallery Plugin - Build & Deploy > Run workflow
-# Select environment: staging or production
+# Via commit automático
+git push origin main        # Deploy staging
+git tag v1.0.0 && git push origin v1.0.0  # Deploy production
+
+# Via manual trigger
+# Actions > Smart Gallery Plugin - Build & Deploy > Run workflow
 ```
 
 ## 🛡️ Security Best Practices

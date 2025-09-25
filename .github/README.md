@@ -33,54 +33,78 @@ Este diretório contém a configuração completa de CI/CD para o Smart Gallery 
 - **Asset Upload**: Plugin ZIP e checksums
 - **Release Notes**: Documentação automática
 
-## 🎯 Triggers
+## 🎯 Workflows Disponíveis
 
+### 🔧 Modulares (Recomendado)
+| Workflow | Propósito | Inputs Principais |
+|----------|-----------|-------------------|
+| 🧹 Cleanup GCP | Limpeza de recursos | project_id, dry_run |
+| 🏗️ Provision Infrastructure | Criar VM + rede | project_id, domain_name |
+| 📦 Install Packages | LAMP stack | vm_instance, php_version |
+| ⚙️ Configure Environment | WordPress + SSL | domain_name, admin_email |
+| 🚀 Deploy Plugin | Smart Gallery | vm_instance, plugin_version |
+
+### 📈 Single Deploy (Legado)
 | Trigger | Environment | Action |
 |---------|-------------|--------|
 | `push main` | Staging | Build + Deploy |
 | `push tag v*` | Production | Build + Deploy + Release |
-| `pull_request` | - | Build only |
 | Manual dispatch | Staging/Production | Build + Deploy |
 
 ## 🔧 Setup Rápido
 
-### 1. Configure Secrets
+### 1. Configure Repository Secrets
 ```bash
-# No GitHub: Settings > Secrets and variables > Actions
-GCP_SA_KEY          # Service Account JSON
-GCP_PROJECT_ID      # GCP Project ID
-GCP_VM_INSTANCE     # VM instance name
-GCP_VM_ZONE         # VM zone (e.g., us-central1-a)
-SITE_URL           # Site URL for health checks
+# Settings > Secrets and variables > Actions > Secrets
+GCP_SA_KEY          # Service Account JSON (OBRIGATÓRIO)
+
+# Settings > Secrets and variables > Actions > Variables (OPCIONAL)
+GCP_PROJECT_ID      # ID do projeto GCP
+GCP_VM_INSTANCE     # Nome da VM
+GCP_VM_ZONE         # Zona da VM
 ```
 
-### 2. Prepare GCP VM
+### 2. Crie Environment (Opcional)
 ```bash
-# WordPress + WP-CLI instalados
-# Service Account com permissões adequadas
-# OS Login habilitado
+# Settings > Environments > New environment
+# Nome: "production" (para workflow cleanup)
 ```
 
-### 3. Test Pipeline
+### 3. Execute Workflows Modulares
 ```bash
-# Commit para main (staging)
-git push origin main
+# Para novo projeto (sequência completa):
+1. 🧹 Cleanup GCP Resources (se necessário)
+2. 🏗️ Provision Infrastructure
+3. 📦 Install Packages  
+4. ⚙️ Configure Environment
+5. 🚀 Deploy Plugin
 
-# Tag para production
-git tag v1.0.0 && git push origin v1.0.0
+# Apenas deploy do plugin:
+- 🚀 Deploy Plugin
 ```
 
-## 🛠️ Local Development
+## 🛠️ Scripts Locais
 
-### Script de Deploy Local
+### Deploy Local (DDEV)
 ```bash
-# Executar package local
-./scripts/deploy.sh
+# Para ambiente local DDEV
+./scripts/deploy-package-local.sh
 
-# Saída:
-# - smart-gallery-{version}.zip
-# - checksums (.sha256, .md5)
-# - deployment info (.info)
+# Automaticamente:
+# - Cria package
+# - Deploy no DDEV WordPress
+# - Ativa plugin
+```
+
+### Deploy GitHub Packages
+```bash
+# Para publicar no GitHub Container Registry
+./scripts/deploy-package-github.sh v1.0.0
+
+# Cria:
+# - Docker image
+# - GitHub Release
+# - Container package
 ```
 
 ### Testes Manuais

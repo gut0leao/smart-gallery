@@ -1,1147 +1,393 @@
-name: 4. Configure environment ⚙️name: 4. Configure environment ⚙️name: 4. Configure environment ⚙️
-
-
+name: 4. Configure environment ⚙️
 
 on:
-
   workflow_dispatch:
-
-    inputs:on:on:
-
+    inputs:
       project_id:
-
-        description: 'GCP Project ID (optional if stored as variable)'  workflow_dispatch:  workflow_dispatch:
-
+        description: 'GCP Project ID (optional if stored as variable)'
         required: false
-
-        type: string    inputs:    inputs:
-
+        type: string
       vm_instance:
-
-        description: 'VM Instance Name (optional if stored as variable)'      project_id:      project_id:
-
+        description: 'VM Instance Name (optional if stored as variable)'
         required: false
-
-        type: string        description: 'GCP Project ID (optional if stored as variable)'        description: 'GCP Project ID (optional if stored as variable)'
-
+        type: string
       vm_zone:
-
-        description: 'VM Zone (optional if stored as variable)'        required: false                # Verify WP-CLI is available
-
+        description: 'VM Zone (optional if stored as variable)'
         required: false
-
-        type: string        type: string          echo "🔧 Verifying WP-CLI installation..."
-
+        type: string
       domain_name:
-
-        description: 'Domain name'      vm_instance:          if ! /usr/local/bin/wp --version >/dev/null 2>&1; then
-
+        description: 'Domain name'
         required: true
-
-        type: string        description: 'VM Instance Name (optional if stored as variable)'            echo "❌ WP-CLI not found at /usr/local/bin/wp!"
-
+        type: string
       site_title:
-
-        description: 'WordPress Site Title'        required: false            echo "💡 Please run the 'Install Packages' workflow first."
-
+        description: 'WordPress Site Title'
         required: false
-
-        default: 'Smart Gallery Demo'        type: string            exit 1
-
+        default: 'Smart Gallery Demo'
+        type: string
+      admin_user:
+        description: 'WordPress Admin Username'
+        required: false
+        default: 'admin'
+        type: string
+      admin_email:
+        description: 'WordPress Admin Email'
+        required: true
+        type: string
+      letsencrypt_email:
+        description: "Let's Encrypt Email"
+        required: true
         type: string
 
-      admin_user:      vm_zone:          else
-
-        description: 'WordPress Admin Username'
-
-        required: false        description: 'VM Zone (optional if stored as variable)'            echo "✅ WP-CLI is available: \$(/usr/local/bin/wp --version)"
-
-        default: 'admin'
-
-        type: string        required: false          fid: false
-
-      admin_email:
-
-        description: 'WordPress Admin Email'        type: string        type: string
-
-        required: true
-
-        type: string      domain_name:      vm_instance:
-
-      letsencrypt_email:
-
-        description: "Let's Encrypt Email"        description: 'Domain name'        description: 'VM Instance Name (optional if stored as variable)'
-
-        required: true
-
-        type: string        required: true        required: false
-
-
-
-env:        type: string        type: string
-
+env:
   GCP_PROJECT_ID: ${{ github.event.inputs.project_id || vars.GCP_PROJECT_ID }}
-
-  VM_INSTANCE: ${{ github.event.inputs.vm_instance || vars.GCP_VM_INSTANCE }}      site_title:      vm_zone:
-
+  VM_INSTANCE: ${{ github.event.inputs.vm_instance || vars.GCP_VM_INSTANCE }}
   VM_ZONE: ${{ github.event.inputs.vm_zone || vars.GCP_VM_ZONE }}
-
-  DOMAIN_NAME: ${{ github.event.inputs.domain_name }}        description: 'WordPress Site Title'        description: 'VM Zone (optional if stored as variable)'
-
+  DOMAIN_NAME: ${{ github.event.inputs.domain_name }}
   SITE_TITLE: ${{ github.event.inputs.site_title }}
-
-  ADMIN_USER: ${{ github.event.inputs.admin_user }}        required: false        required: false
-
+  ADMIN_USER: ${{ github.event.inputs.admin_user }}
   ADMIN_EMAIL: ${{ github.event.inputs.admin_email }}
+  LETSENCRYPT_EMAIL: ${{ github.event.inputs.letsencrypt_email }}
 
-  LETSENCRYPT_EMAIL: ${{ github.event.inputs.letsencrypt_email }}        default: 'Smart Gallery Demo'        type: string
-
-
-
-jobs:        type: string      domain_name:
-
+jobs:
   configure:
-
-    name: Configure Environment      admin_user:        description: 'Domain name'
-
+    name: Configure Environment
     runs-on: ubuntu-latest
-
-            description: 'WordPress Admin Username'        required: true
-
+    
     outputs:
-
-      site_url: ${{ steps.configure.outputs.site_url }}        required: false        type: string
-
+      site_url: ${{ steps.configure.outputs.site_url }}
       admin_password: ${{ steps.configure.outputs.admin_password }}
-
-            default: 'admin'      site_title:
-
+    
     steps:
-
-      - name: 📥 Checkout Repository        type: string        description: 'WordPress Site Title'
-
+      # Checkout repository
+      - name: 📥 Checkout Repository
         uses: actions/checkout@v4
 
-      admin_email:        required: false
-
+      # Authenticate to GCP
       - name: 🔐 Authenticate to Google Cloud
-
-        uses: google-github-actions/auth@v2        description: 'WordPress Admin Email'        default: 'Smart Gallery Demo'
-
+        uses: google-github-actions/auth@v2
         with:
-
-          credentials_json: ${{ secrets.GCP_SA_KEY }}        required: true        type: string
-
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
           project_id: ${{ env.GCP_PROJECT_ID }}
 
-        type: string      admin_user:
-
+      # Setup Google Cloud SDK
       - name: ☁️ Setup Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
 
-        uses: google-github-actions/setup-gcloud@v2      letsencrypt_email:        description: 'WordPress Admin Username'
-
-
-
-      - name: 📝 Create Configuration Script        description: "Let's Encrypt Email"        required: false
-
+      # Create configuration script
+      - name: 📝 Create Configuration Script
         run: |
-
-          cat > configure-environment.sh << 'EOF'        required: true        default: 'admin'
-
+          cat > configure-environment.sh << 'EOF'
           #!/bin/bash
-
-          set -e        type: string        type: string
-
+          # Environment configuration script
+          
+          set -e
           exec > >(tee /var/log/environment-configuration.log)
-
-          exec 2>&1      admin_email:
-
+          exec 2>&1
           
-
-          DOMAIN_NAME="$1"env:        description: 'WordPress Admin Email'
-
+          DOMAIN_NAME="$1"
           SITE_TITLE="$2"
-
-          ADMIN_USER="$3"  GCP_PROJECT_ID: ${{ github.event.inputs.project_id || vars.GCP_PROJECT_ID }}        required: true
-
+          ADMIN_USER="$3"
           ADMIN_EMAIL="$4"
-
-          LETSENCRYPT_EMAIL="$5"  VM_INSTANCE: ${{ github.event.inputs.vm_instance || vars.GCP_VM_INSTANCE }}        type: string
-
+          LETSENCRYPT_EMAIL="$5"
           
-
-          echo "⚙️ Smart Gallery Environment Configuration - $(date)"  VM_ZONE: ${{ github.event.inputs.vm_zone || vars.GCP_VM_ZONE }}      letsencrypt_email:
-
+          echo "⚙️ Smart Gallery Environment Configuration - $(date)"
           echo "Domain: $DOMAIN_NAME"
-
-          echo "Site Title: $SITE_TITLE"  DOMAIN_NAME: ${{ github.event.inputs.domain_name }}        description: "Let's Encrypt Email"
-
+          echo "Site Title: $SITE_TITLE"
           echo "Admin User: $ADMIN_USER"
-
-          echo "Admin Email: $ADMIN_EMAIL"  SITE_TITLE: ${{ github.event.inputs.site_title }}        required: true
-
+          echo "Admin Email: $ADMIN_EMAIL"
           
-
-          # Load database credentials  ADMIN_USER: ${{ github.event.inputs.admin_user }}        type: string
-
+          # Load database credentials
           source /root/.wp-db-config
-
-            ADMIN_EMAIL: ${{ github.event.inputs.admin_email }}
-
+          
           # Generate secure passwords
-
-          ADMIN_PASSWORD=$(openssl rand -base64 24)  LETSENCRYPT_EMAIL: ${{ github.event.inputs.letsencrypt_email }}env:
-
+          ADMIN_PASSWORD=$(openssl rand -base64 24)
           DB_ROOT_PASSWORD=$(openssl rand -base64 32)
-
-            GCP_PROJECT_ID: ${{ github.event.inputs.project_id || vars.GCP_PROJECT_ID }}
-
+          
           # Set MariaDB root password
-
-          echo "🔒 Setting MariaDB root password..."jobs:  VM_INSTANCE: ${{ github.event.inputs.vm_instance || vars.GCP_VM_INSTANCE }}
-
+          echo "🔒 Setting MariaDB root password..."
           mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '$DB_ROOT_PASSWORD';"
-
-            configure:  VM_ZONE: ${{ github.event.inputs.vm_zone || vars.GCP_VM_ZONE }}
-
+          
           # Store root password
-
-          echo "[client]" > /root/.my.cnf    name: Configure Environment  DOMAIN_NAME: ${{ github.event.inputs.domain_name }}
-
+          echo "[client]" > /root/.my.cnf
           echo "user=root" >> /root/.my.cnf
-
-          echo "password=$DB_ROOT_PASSWORD" >> /root/.my.cnf    runs-on: ubuntu-latest  SITE_TITLE: ${{ github.event.inputs.site_title }}
-
+          echo "password=$DB_ROOT_PASSWORD" >> /root/.my.cnf
           chmod 600 /root/.my.cnf
-
-                ADMIN_USER: ${{ github.event.inputs.admin_user }}
-
+          
           # Configure Nginx
-
-          echo "🌐 Configuring Nginx..."    outputs:  ADMIN_EMAIL: ${{ github.event.inputs.admin_email }}
-
+          echo "🌐 Configuring Nginx..."
+          
+          # Remove default site
           rm -f /etc/nginx/sites-enabled/default
-
-                site_url: ${{ steps.configure.outputs.site_url }}  LETSENCRYPT_EMAIL: ${{ github.event.inputs.letsencrypt_email }}
-
+          
+          # Create WordPress site configuration
           cat > /etc/nginx/sites-available/wordpress <<'NGINX_CONF'
-
-          server {      admin_password: ${{ steps.configure.outputs.admin_password }}
-
+          server {
               listen 80;
-
-              server_name $DOMAIN_NAME;    jobs:
-
+              server_name $DOMAIN_NAME;
               root /var/www/html;
-
-              index index.php index.html index.htm;    steps:  configure:
-
+              index index.php index.html index.htm;
               
-
-              add_header X-Frame-Options "SAMEORIGIN" always;      # Checkout repository    name: Configure Environment
-
+              # Security headers
+              add_header X-Frame-Options "SAMEORIGIN" always;
               add_header X-XSS-Protection "1; mode=block" always;
-
-              add_header X-Content-Type-Options "nosniff" always;      - name: 📥 Checkout Repository    runs-on: ubuntu-latest
-
+              add_header X-Content-Type-Options "nosniff" always;
               add_header Referrer-Policy "no-referrer-when-downgrade" always;
-
-              add_header Content-Security-Policy "default-src 'self' http: https: data: blob: 'unsafe-inline'" always;        uses: actions/checkout@v4    
-
+              add_header Content-Security-Policy "default-src 'self' http: https: data: blob: 'unsafe-inline'" always;
               
-
-              gzip on;    outputs:
-
+              # Gzip compression
+              gzip on;
               gzip_vary on;
-
-              gzip_min_length 1024;      # Authenticate to GCP      site_url: ${{ steps.configure.outputs.site_url }}
-
+              gzip_min_length 1024;
               gzip_types text/plain text/css text/xml text/javascript application/x-javascript application/xml+rss application/javascript application/json;
-
-                    - name: 🔐 Authenticate to Google Cloud      admin_password: ${{ steps.configure.outputs.admin_password }}
-
+              
               location = /favicon.ico { log_not_found off; access_log off; }
-
-              location = /robots.txt { allow all; log_not_found off; access_log off; }        uses: google-github-actions/auth@v2    
-
+              location = /robots.txt { allow all; log_not_found off; access_log off; }
               location / { try_files \$uri \$uri/ /index.php?\$args; }
-
-              location ~ \.php$ {        with:    steps:
-
+              location ~ \.php$ {
                   include snippets/fastcgi-php.conf;
-
-                  fastcgi_pass unix:/var/run/php/php8.3-fpm.sock;          credentials_json: ${{ secrets.GCP_SA_KEY }}      # Checkout repository
-
+                  fastcgi_pass unix:/var/run/php/php8.3-fpm.sock;
                   fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
-
-                  include fastcgi_params;          project_id: ${{ env.GCP_PROJECT_ID }}      - name: 📥 Checkout Repository
-
+                  include fastcgi_params;
               }
-
-              location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {        uses: actions/checkout@v4
-
+              location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
                   expires 1y;
-
-                  add_header Cache-Control "public, immutable";      # Setup Google Cloud SDK
-
+                  add_header Cache-Control "public, immutable";
               }
-
-              location ~ /\. { deny all; }      - name: ☁️ Setup Google Cloud SDK      # Authenticate to GCP
-
+              location ~ /\. { deny all; }
               location ~ ^/(wp-config\.php|wp-config-sample\.php|readme\.html|license\.txt) { deny all; }
-
-          }        uses: google-github-actions/setup-gcloud@v2      - name: 🔐 Authenticate to Google Cloud
-
+          }
           NGINX_CONF
-
-                  uses: google-github-actions/auth@v2
-
+          
+          # Enable site
           ln -sf /etc/nginx/sites-available/wordpress /etc/nginx/sites-enabled/
-
-          nginx -t      # Create configuration script        with:
-
+          
+          # Test and reload Nginx
+          nginx -t
           systemctl reload nginx
-
-                - name: 📝 Create Configuration Script          credentials_json: ${{ secrets.GCP_SA_KEY }}
-
+          
           # Verify WP-CLI is available
-
-          echo "🔧 Verifying WP-CLI installation..."        run: |          project_id: ${{ env.GCP_PROJECT_ID }}
-
+          echo "🔧 Verifying WP-CLI installation..."
           if ! /usr/local/bin/wp --version >/dev/null 2>&1; then
-
-            echo "❌ WP-CLI not found at /usr/local/bin/wp!"          cat > configure-environment.sh << 'EOF'
-
+            echo "❌ WP-CLI not found at /usr/local/bin/wp!"
             echo "💡 Please run the 'Install Packages' workflow first."
-
-            exit 1          #!/bin/bash      # Setup Google Cloud SDK
-
+            exit 1
           else
-
-            echo "✅ WP-CLI is available: \$(/usr/local/bin/wp --version)"          # Environment configuration script      - name: ☁️ Setup Google Cloud SDK
-
+            echo "✅ WP-CLI is available: $(/usr/local/bin/wp --version)"
           fi
-
-                            uses: google-github-actions/setup-gcloud@v2
-
+          
           # Download and install WordPress
-
-          echo "📥 Installing WordPress..."          set -e
-
+          echo "📥 Installing WordPress..."
           cd /var/www/html
-
-          rm -rf *          exec > >(tee /var/log/environment-configuration.log)      # Create configuration script
-
           
-
-          /usr/local/bin/wp core download --allow-root          exec 2>&1      - name: 📝 Create Configuration Script
-
+          # Remove any existing files
+          rm -rf *
           
-
-          /usr/local/bin/wp config create \                  run: |
-
+          # Download WordPress
+          /usr/local/bin/wp core download --allow-root
+          
+          # Create wp-config.php
+          /usr/local/bin/wp config create \
               --dbname=$DB_NAME \
-
-              --dbuser=$DB_USER \          DOMAIN_NAME="$1"          cat > configure-environment.sh << 'EOF'
-
+              --dbuser=$DB_USER \
               --dbpass=$DB_PASS \
-
-              --dbhost=localhost \          SITE_TITLE="$2"          #!/bin/bash
-
+              --dbhost=localhost \
               --allow-root
-
-                    ADMIN_USER="$3"          # Environment configuration script
-
+          
+          # Install WordPress
           /usr/local/bin/wp core install \
-
-              --url="http://$DOMAIN_NAME" \          ADMIN_EMAIL="$4"          
-
+              --url="http://$DOMAIN_NAME" \
               --title="$SITE_TITLE" \
-
-              --admin_user=$ADMIN_USER \          LETSENCRYPT_EMAIL="$5"          set -e
-
+              --admin_user=$ADMIN_USER \
               --admin_password=$ADMIN_PASSWORD \
-
-              --admin_email=$ADMIN_EMAIL \                    exec > >(tee /var/log/environment-configuration.log)
-
+              --admin_email=$ADMIN_EMAIL \
               --allow-root
-
-                    echo "⚙️ Smart Gallery Environment Configuration - $(date)"          exec 2>&1
-
+          
           # Configure WordPress settings
-
-          echo "⚙️ Configuring WordPress..."          echo "Domain: $DOMAIN_NAME"          
-
+          echo "⚙️ Configuring WordPress..."
+          
+          # Set permalink structure
           /usr/local/bin/wp option update permalink_structure '/%postname%/' --allow-root
-
-          /usr/local/bin/wp option update timezone_string 'UTC' --allow-root          echo "Site Title: $SITE_TITLE"          DOMAIN_NAME="$1"
-
           
-
-          # Set proper file permissions          echo "Admin User: $ADMIN_USER"          SITE_TITLE="$2"
-
+          # Configure timezone
+          /usr/local/bin/wp option update timezone_string 'UTC' --allow-root
+          
+          # Set proper file permissions
           chown -R www-data:www-data /var/www/html
-
-          find /var/www/html -type d -exec chmod 755 {} \;          echo "Admin Email: $ADMIN_EMAIL"          ADMIN_USER="$3"
-
+          find /var/www/html -type d -exec chmod 755 {} \;
           find /var/www/html -type f -exec chmod 644 {} \;
-
-          chmod 600 /var/www/html/wp-config.php                    ADMIN_EMAIL="$4"
-
+          chmod 600 /var/www/html/wp-config.php
           
-
-          # Install essential plugins          # Load database credentials          LETSENCRYPT_EMAIL="$5"
-
+          # Install essential plugins
           echo "🔌 Installing essential plugins..."
-
-          /usr/local/bin/wp plugin install elementor --activate --allow-root          source /root/.wp-db-config          
-
+          
+          # Install Elementor
+          /usr/local/bin/wp plugin install elementor --activate --allow-root
+          
+          # Install Pods (required for Smart Gallery)
           /usr/local/bin/wp plugin install pods --activate --allow-root
-
-          /usr/local/bin/wp plugin install wordpress-seo --activate --allow-root                    echo "⚙️ Smart Gallery Environment Configuration - $(date)"
-
+          
+          # Install WordPress SEO
+          /usr/local/bin/wp plugin install wordpress-seo --activate --allow-root
+          
+          # Install security plugin
           /usr/local/bin/wp plugin install wordfence --activate --allow-root
-
-                    # Generate secure passwords          echo "Domain: $DOMAIN_NAME"
-
-          # Create demo content
-
-          echo "📝 Creating demo content..."          ADMIN_PASSWORD=$(openssl rand -base64 24)          echo "Site Title: $SITE_TITLE"
-
+          
+          # Create some demo content
+          echo "📝 Creating demo content..."
+          
+          # Create a sample page
           /usr/local/bin/wp post create \
-
-              --post_type=page \          DB_ROOT_PASSWORD=$(openssl rand -base64 32)          echo "Admin User: $ADMIN_USER"
-
+              --post_type=page \
               --post_title='Smart Gallery Demo' \
-
-              --post_content='<p>This page will showcase the Smart Gallery plugin functionality.</p>' \                    echo "Admin Email: $ADMIN_EMAIL"
-
+              --post_content='<p>This page will showcase the Smart Gallery plugin functionality.</p>' \
               --post_status=publish \
-
-              --allow-root          # Set MariaDB root password          
-
+              --allow-root
           
-
-          # Configure SSL with Let's Encrypt          echo "🔒 Setting MariaDB root password..."          # Load database credentials
-
+          # Configure SSL with Let's Encrypt
           echo "🔒 Setting up SSL certificate..."
-
-          certbot --nginx \          mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '$DB_ROOT_PASSWORD';"          source /root/.wp-db-config
-
+          
+          # Get SSL certificate
+          certbot --nginx \
               --non-interactive \
-
-              --agree-tos \                    
-
+              --agree-tos \
               --email $LETSENCRYPT_EMAIL \
-
-              --domains $DOMAIN_NAME \          # Store root password          # Generate secure passwords
-
+              --domains $DOMAIN_NAME \
               --redirect
-
-                    echo "[client]" > /root/.my.cnf          ADMIN_PASSWORD=$(openssl rand -base64 24)
-
+          
           # Update WordPress URL to HTTPS
-
-          /usr/local/bin/wp option update home "https://$DOMAIN_NAME" --allow-root          echo "user=root" >> /root/.my.cnf          DB_ROOT_PASSWORD=$(openssl rand -base64 32)
-
+          /usr/local/bin/wp option update home "https://$DOMAIN_NAME" --allow-root
           /usr/local/bin/wp option update siteurl "https://$DOMAIN_NAME" --allow-root
-
-                    echo "password=$DB_ROOT_PASSWORD" >> /root/.my.cnf          
-
+          
           # Setup auto-renewal
-
-          echo "🔄 Setting up certificate auto-renewal..."          chmod 600 /root/.my.cnf          # Set MariaDB root password
-
+          echo "🔄 Setting up certificate auto-renewal..."
           if ! crontab -l 2>/dev/null | grep -q 'certbot renew'; then
-
-              (crontab -l 2>/dev/null; echo "0 12 * * * /usr/bin/certbot renew --quiet") | crontab -                    echo "🔒 Setting MariaDB root password..."
-
+              (crontab -l 2>/dev/null; echo "0 12 * * * /usr/bin/certbot renew --quiet") | crontab -
           fi
-
-                    # Configure Nginx          mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '$DB_ROOT_PASSWORD';"
-
+          
           # Store credentials for later use
-
-          echo "ADMIN_USER=$ADMIN_USER" > /root/.wp-admin-config          echo "🌐 Configuring Nginx..."          
-
+          echo "ADMIN_USER=$ADMIN_USER" > /root/.wp-admin-config
           echo "ADMIN_PASSWORD=$ADMIN_PASSWORD" >> /root/.wp-admin-config
-
-          echo "ADMIN_EMAIL=$ADMIN_EMAIL" >> /root/.wp-admin-config                    # Store root password
-
+          echo "ADMIN_EMAIL=$ADMIN_EMAIL" >> /root/.wp-admin-config
           echo "SITE_URL=https://$DOMAIN_NAME" >> /root/.wp-admin-config
-
-          chmod 600 /root/.wp-admin-config          # Remove default site          echo "[client]" > /root/.my.cnf
-
+          chmod 600 /root/.wp-admin-config
           
-
-          systemctl reload nginx          rm -f /etc/nginx/sites-enabled/default          echo "user=root" >> /root/.my.cnf
-
+          # Final Nginx reload
+          systemctl reload nginx
           
-
-          echo "✅ Environment configuration completed successfully!"                    echo "password=$DB_ROOT_PASSWORD" >> /root/.my.cnf
-
+          echo "✅ Environment configuration completed successfully!"
           echo "🌐 Site URL: https://$DOMAIN_NAME"
-
-          echo "👤 Admin User: $ADMIN_USER"          # Create WordPress site configuration          chmod 600 /root/.my.cnf
-
+          echo "👤 Admin User: $ADMIN_USER"
           echo "🔑 Admin Password: $ADMIN_PASSWORD"
-
-          echo "📧 Admin Email: $ADMIN_EMAIL"          cat > /etc/nginx/sites-available/wordpress <<'NGINX_CONF'          
-
+          echo "📧 Admin Email: $ADMIN_EMAIL"
           
-
-          touch /var/log/environment-configured          server {          # Configure Nginx
-
+          touch /var/log/environment-configured
           EOF
-
-                        listen 80;          echo "🌐 Configuring Nginx..."
-
+          
           chmod +x configure-environment.sh
 
-              server_name $DOMAIN_NAME;          
-
+      # Execute configuration on VM
       - name: ⚙️ Configure Environment on VM
-
-        id: configure              root /var/www/html;          # Remove default site
-
+        id: configure
         run: |
-
-          echo "⚙️ Starting environment configuration..."              index index.php index.html index.htm;          rm -f /etc/nginx/sites-enabled/default
-
+          echo "⚙️ Starting environment configuration..."
           
-
-          gcloud compute scp configure-environment.sh \                        
-
+          # Copy configuration script to VM
+          gcloud compute scp configure-environment.sh \
             $VM_INSTANCE:~/configure-environment.sh \
-
-            --zone=$VM_ZONE \              # Security headers          # Create WordPress site configuration
-
-            --quiet
-
-                        add_header X-Frame-Options "SAMEORIGIN" always;          cat > /etc/nginx/sites-available/wordpress <<'NGINX_CONF'
-
-          gcloud compute ssh $VM_INSTANCE \
-
-            --zone=$VM_ZONE \              add_header X-XSS-Protection "1; mode=block" always;          server {
-
-            --quiet \
-
-            --command="              add_header X-Content-Type-Options "nosniff" always;              listen 80;
-
-              sudo chmod +x ~/configure-environment.sh
-
-              sudo ~/configure-environment.sh \              add_header Referrer-Policy "no-referrer-when-downgrade" always;              server_name $DOMAIN_NAME;
-
-                '$DOMAIN_NAME' \
-
-                '$SITE_TITLE' \              add_header Content-Security-Policy "default-src 'self' http: https: data: blob: 'unsafe-inline'" always;              root /var/www/html;
-
-                '$ADMIN_USER' \
-
-                '$ADMIN_EMAIL' \                            index index.php index.html index.htm;
-
-                '$LETSENCRYPT_EMAIL'
-
-            "              # Gzip compression              
-
-          
-
-          ADMIN_PASSWORD=$(gcloud compute ssh $VM_INSTANCE \              gzip on;              # Security headers
-
             --zone=$VM_ZONE \
-
-            --quiet \              gzip_vary on;              add_header X-Frame-Options "SAMEORIGIN" always;
-
+            --quiet
+          
+          # Execute configuration script
+          gcloud compute ssh $VM_INSTANCE \
+            --zone=$VM_ZONE \
+            --quiet \
+            --command="
+              sudo chmod +x ~/configure-environment.sh
+              sudo ~/configure-environment.sh \
+                '$DOMAIN_NAME' \
+                '$SITE_TITLE' \
+                '$ADMIN_USER' \
+                '$ADMIN_EMAIL' \
+                '$LETSENCRYPT_EMAIL'
+            "
+          
+          # Get admin password from VM
+          ADMIN_PASSWORD=$(gcloud compute ssh $VM_INSTANCE \
+            --zone=$VM_ZONE \
+            --quiet \
             --command="sudo grep 'ADMIN_PASSWORD=' /root/.wp-admin-config | cut -d'=' -f2")
-
-                        gzip_min_length 1024;              add_header X-XSS-Protection "1; mode=block" always;
-
+          
           echo "site_url=https://$DOMAIN_NAME" >> $GITHUB_OUTPUT
-
-          echo "admin_password=$ADMIN_PASSWORD" >> $GITHUB_OUTPUT              gzip_types text/plain text/css text/xml text/javascript application/x-javascript application/xml+rss application/javascript application/json;              add_header X-Content-Type-Options "nosniff" always;
-
+          echo "admin_password=$ADMIN_PASSWORD" >> $GITHUB_OUTPUT
           
+          echo "✅ Environment configuration completed!"
 
-          echo "✅ Environment configuration completed!"                            add_header Referrer-Policy "no-referrer-when-downgrade" always;
-
-
-
-      - name: 🏥 Health Check              location = /favicon.ico { log_not_found off; access_log off; }              add_header Content-Security-Policy "default-src 'self' http: https: data: blob: 'unsafe-inline'" always;
-
+      # Health check
+      - name: 🏥 Health Check
         env:
-
-          SITE_URL: https://${{ env.DOMAIN_NAME }}              location = /robots.txt { allow all; log_not_found off; access_log off; }              
-
+          SITE_URL: https://${{ env.DOMAIN_NAME }}
         run: |
-
-          echo "🏥 Running health check..."              location / { try_files \$uri \$uri/ /index.php?\$args; }              # Gzip compression
-
+          echo "🏥 Running health check..."
+          
+          # Wait for services to stabilize
           sleep 30
-
-                        location ~ \.php$ {              gzip on;
-
+          
+          # Check HTTP to HTTPS redirect
           echo "🔍 Testing HTTP to HTTPS redirect..."
-
-          if curl -sSL -w "%{http_code}" "http://$DOMAIN_NAME" -o /dev/null | grep -q "30[1-8]"; then                  include snippets/fastcgi-php.conf;              gzip_vary on;
-
+          if curl -sSL -w "%{http_code}" "http://$DOMAIN_NAME" -o /dev/null | grep -q "30[1-8]"; then
             echo "✅ HTTP redirects to HTTPS!"
-
-          else                  fastcgi_pass unix:/var/run/php/php8.3-fpm.sock;              gzip_min_length 1024;
-
+          else
             echo "⚠️ HTTP redirect may not be working"
-
-          fi                  fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;              gzip_types text/plain text/css text/xml text/javascript application/x-javascript application/xml+rss application/javascript application/json;
-
-          
-
-          echo "🔍 Testing HTTPS site..."                  include fastcgi_params;              
-
-          if curl -sSf "$SITE_URL" > /dev/null; then
-
-            echo "✅ HTTPS site is responding!"              }              location = /favicon.ico { log_not_found off; access_log off; }
-
-          else
-
-            echo "❌ HTTPS site health check failed!"              location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {              location = /robots.txt { allow all; log_not_found off; access_log off; }
-
-            exit 1
-
-          fi                  expires 1y;              location / { try_files \$uri \$uri/ /index.php?\$args; }
-
-          
-
-          echo "🔍 Testing WordPress admin..."                  add_header Cache-Control "public, immutable";              location ~ \.php$ {
-
-          if curl -sSf "$SITE_URL/wp-admin/" > /dev/null; then
-
-            echo "✅ WordPress admin is accessible!"              }                  include snippets/fastcgi-php.conf;
-
-          else
-
-            echo "⚠️ WordPress admin may need attention"              location ~ /\. { deny all; }                  fastcgi_pass unix:/var/run/php/php8.3-fpm.sock;
-
           fi
-
-                        location ~ ^/(wp-config\.php|wp-config-sample\.php|readme\.html|license\.txt) { deny all; }                  fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
-
+          
+          # Check HTTPS site
+          echo "🔍 Testing HTTPS site..."
+          if curl -sSf "$SITE_URL" > /dev/null; then
+            echo "✅ HTTPS site is responding!"
+          else
+            echo "❌ HTTPS site health check failed!"
+            exit 1
+          fi
+          
+          # Check WordPress admin
+          echo "🔍 Testing WordPress admin..."
+          if curl -sSf "$SITE_URL/wp-admin/" > /dev/null; then
+            echo "✅ WordPress admin is accessible!"
+          else
+            echo "⚠️ WordPress admin may need attention"
+          fi
+          
           echo "🎉 Health check completed!"
 
-          }                  include fastcgi_params;
-
+      # Display configuration summary
       - name: 📊 Configuration Summary
-
-        env:          NGINX_CONF              }
-
+        env:
           SITE_URL: ${{ steps.configure.outputs.site_url }}
-
-          ADMIN_PASSWORD: ${{ steps.configure.outputs.admin_password }}                        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
-
+          ADMIN_PASSWORD: ${{ steps.configure.outputs.admin_password }}
         run: |
-
-          echo "## ⚙️ Environment Configuration Summary" >> $GITHUB_STEP_SUMMARY          # Enable site                  expires 1y;
-
+          echo "## ⚙️ Environment Configuration Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-
-          echo "### ✅ WordPress Installation:" >> $GITHUB_STEP_SUMMARY          ln -sf /etc/nginx/sites-available/wordpress /etc/nginx/sites-enabled/                  add_header Cache-Control "public, immutable";
-
+          echo "### ✅ WordPress Installation:" >> $GITHUB_STEP_SUMMARY
           echo "- **Site URL**: $SITE_URL" >> $GITHUB_STEP_SUMMARY
-
-          echo "- **Admin User**: \`$ADMIN_USER\`" >> $GITHUB_STEP_SUMMARY                        }
-
+          echo "- **Admin User**: \`$ADMIN_USER\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Admin Password**: \`$ADMIN_PASSWORD\`" >> $GITHUB_STEP_SUMMARY
-
-          echo "- **Admin Email**: $ADMIN_EMAIL" >> $GITHUB_STEP_SUMMARY          # Test and reload Nginx              location ~ /\. { deny all; }
-
+          echo "- **Admin Email**: $ADMIN_EMAIL" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-
-          echo "### 🔒 Security Features:" >> $GITHUB_STEP_SUMMARY          nginx -t              location ~ ^/(wp-config\.php|wp-config-sample\.php|readme\.html|license\.txt) { deny all; }
-
+          echo "### 🔒 Security Features:" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ SSL Certificate (Let's Encrypt)" >> $GITHUB_STEP_SUMMARY
-
-          echo "- ✅ HTTPS Redirect" >> $GITHUB_STEP_SUMMARY          systemctl reload nginx          }
-
+          echo "- ✅ HTTPS Redirect" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Security Headers" >> $GITHUB_STEP_SUMMARY
-
-          echo "- ✅ Wordfence Security Plugin" >> $GITHUB_STEP_SUMMARY                    NGINX_CONF
-
+          echo "- ✅ Wordfence Security Plugin" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-
-          echo "### 🔌 Installed Plugins:" >> $GITHUB_STEP_SUMMARY          # Verify WP-CLI is available          
-
+          echo "### 🔌 Installed Plugins:" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Elementor" >> $GITHUB_STEP_SUMMARY
-
-          echo "- ✅ Pods Framework" >> $GITHUB_STEP_SUMMARY          echo "🔧 Verifying WP-CLI installation..."          # Enable site
-
-          echo "- ✅ WordPress SEO" >> $GITHUB_STEP_SUMMARY
-
-          echo "- ✅ Wordfence Security" >> $GITHUB_STEP_SUMMARY          if ! /usr/local/bin/wp --version >/dev/null 2>&1; then          ln -sf /etc/nginx/sites-available/wordpress /etc/nginx/sites-enabled/
-
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          echo "### 🎯 Next Steps:" >> $GITHUB_STEP_SUMMARY            echo "❌ WP-CLI not found at /usr/local/bin/wp!"          
-
-          echo "1. Run **Deploy Plugin** workflow" >> $GITHUB_STEP_SUMMARY
-
-          echo "2. Access admin at: $SITE_URL/wp-admin/" >> $GITHUB_STEP_SUMMARY            echo "💡 Please run the 'Install Packages' workflow first."          # Test and reload Nginx
-
-          echo "3. Configure Smart Gallery widget in Elementor" >> $GITHUB_STEP_SUMMARY
-
-            exit 1          nginx -t
-
-      - name: 🗑️ Cleanup
-
-        if: always()          else          systemctl reload nginx
-
-        run: |
-
-          rm -f configure-environment.sh            echo "✅ WP-CLI is available: \$(/usr/local/bin/wp --version)"          
-
-          echo "✅ Configuration workflow completed"
-          fi          # Verify WP-CLI is available
-
-                    echo "🔧 Verifying WP-CLI installation..."
-
-          # Download and install WordPress          if ! wp --version >/dev/null 2>&1; then
-
-          echo "📥 Installing WordPress..."            echo "❌ WP-CLI not found! Please run the 'Install Packages' workflow first."
-
-          cd /var/www/html            echo "� The Install Packages workflow should have installed WP-CLI."
-
-                      exit 1
-
-          # Remove any existing files          else
-
-          rm -rf *            echo "✅ WP-CLI is available: \$(wp --version)"
-
-                    fi
-
-          # Download WordPress          
-
-          /usr/local/bin/wp core download --allow-root          # Download and install WordPress
-
-                    echo "📥 Installing WordPress..."
-
-          # Create wp-config.php          cd /var/www/html
-
-          /usr/local/bin/wp config create \          
-
-              --dbname=$DB_NAME \          # Remove any existing files
-
-              --dbuser=$DB_USER \          rm -rf *
-
-              --dbpass=$DB_PASS \          
-
-              --dbhost=localhost \          # Download WordPress
-
-              --allow-root          /usr/local/bin/wp core download --allow-root
-
-                    
-
-          # Install WordPress          # Create wp-config.php
-
-          /usr/local/bin/wp core install \          /usr/local/bin/wp config create \
-
-              --url="http://$DOMAIN_NAME" \              --dbname=$DB_NAME \
-
-              --title="$SITE_TITLE" \              --dbuser=$DB_USER \
-
-              --admin_user=$ADMIN_USER \              --dbpass=$DB_PASS \
-
-              --admin_password=$ADMIN_PASSWORD \              --dbhost=localhost \
-
-              --admin_email=$ADMIN_EMAIL \              --allow-root
-
-              --allow-root          
-
-                    # Install WordPress
-
-          # Configure WordPress settings          /usr/local/bin/wp core install \
-
-          echo "⚙️ Configuring WordPress..."              --url="http://$DOMAIN_NAME" \
-
-                        --title="$SITE_TITLE" \
-
-          # Set permalink structure              --admin_user=$ADMIN_USER \
-
-          /usr/local/bin/wp option update permalink_structure '/%postname%/' --allow-root              --admin_password=$ADMIN_PASSWORD \
-
-                        --admin_email=$ADMIN_EMAIL \
-
-          # Configure timezone              --allow-root
-
-          /usr/local/bin/wp option update timezone_string 'UTC' --allow-root          
-
-                    # Configure WordPress settings
-
-          # Set proper file permissions          echo "⚙️ Configuring WordPress..."
-
-          chown -R www-data:www-data /var/www/html          
-
-          find /var/www/html -type d -exec chmod 755 {} \;          # Set permalink structure
-
-          find /var/www/html -type f -exec chmod 644 {} \;          /usr/local/bin/wp option update permalink_structure '/%postname%/' --allow-root
-
-          chmod 600 /var/www/html/wp-config.php          
-
-                    # Configure timezone
-
-          # Install essential plugins          /usr/local/bin/wp option update timezone_string 'UTC' --allow-root
-
-          echo "🔌 Installing essential plugins..."          
-
-                    # Set proper file permissions
-
-          # Install Elementor          chown -R www-data:www-data /var/www/html
-
-          /usr/local/bin/wp plugin install elementor --activate --allow-root          find /var/www/html -type d -exec chmod 755 {} \;
-
-                    find /var/www/html -type f -exec chmod 644 {} \;
-
-          # Install Pods (required for Smart Gallery)          chmod 600 /var/www/html/wp-config.php
-
-          /usr/local/bin/wp plugin install pods --activate --allow-root          
-
-                    # Install essential plugins
-
-          # Install WordPress SEO          echo "🔌 Installing essential plugins..."
-
-          /usr/local/bin/wp plugin install wordpress-seo --activate --allow-root          
-
-                    # Install Elementor
-
-          # Install security plugin          /usr/local/bin/wp plugin install elementor --activate --allow-root
-
-          /usr/local/bin/wp plugin install wordfence --activate --allow-root          
-
-                    # Install Pods (required for Smart Gallery)
-
-          # Create some demo content          /usr/local/bin/wp plugin install pods --activate --allow-root
-
-          echo "📝 Creating demo content..."          
-
-                    # Install WordPress SEO
-
-          # Create a sample page          /usr/local/bin/wp plugin install wordpress-seo --activate --allow-root
-
-          /usr/local/bin/wp post create \          
-
-              --post_type=page \          # Install security plugin
-
-              --post_title='Smart Gallery Demo' \          /usr/local/bin/wp plugin install wordfence --activate --allow-root
-
-              --post_content='<p>This page will showcase the Smart Gallery plugin functionality.</p>' \          
-
-              --post_status=publish \          # Create some demo content
-
-              --allow-root          echo "📝 Creating demo content..."
-
-                    
-
-          # Configure SSL with Let's Encrypt          # Create a sample page
-
-          echo "🔒 Setting up SSL certificate..."          /usr/local/bin/wp post create \
-
-                        --post_type=page \
-
-          # Get SSL certificate              --post_title='Smart Gallery Demo' \
-
-          certbot --nginx \              --post_content='<p>This page will showcase the Smart Gallery plugin functionality.</p>' \
-
-              --non-interactive \              --post_status=publish \
-
-              --agree-tos \              --allow-root
-
-              --email $LETSENCRYPT_EMAIL \          
-
-              --domains $DOMAIN_NAME \          # Configure SSL with Let's Encrypt
-
-              --redirect          echo "🔒 Setting up SSL certificate..."
-
-                    
-
-          # Update WordPress URL to HTTPS          # Get SSL certificate
-
-          /usr/local/bin/wp option update home "https://$DOMAIN_NAME" --allow-root          certbot --nginx \
-
-          /usr/local/bin/wp option update siteurl "https://$DOMAIN_NAME" --allow-root              --non-interactive \
-
-                        --agree-tos \
-
-          # Setup auto-renewal              --email $LETSENCRYPT_EMAIL \
-
-          echo "🔄 Setting up certificate auto-renewal..."              --domains $DOMAIN_NAME \
-
-          if ! crontab -l 2>/dev/null | grep -q 'certbot renew'; then              --redirect
-
-              (crontab -l 2>/dev/null; echo "0 12 * * * /usr/bin/certbot renew --quiet") | crontab -          
-
-          fi          # Update WordPress URL to HTTPS
-
-                    /usr/local/bin/wp option update home "https://$DOMAIN_NAME" --allow-root
-
-          # Store credentials for later use          /usr/local/bin/wp option update siteurl "https://$DOMAIN_NAME" --allow-root
-
-          echo "ADMIN_USER=$ADMIN_USER" > /root/.wp-admin-config          
-
-          echo "ADMIN_PASSWORD=$ADMIN_PASSWORD" >> /root/.wp-admin-config          # Setup auto-renewal
-
-          echo "ADMIN_EMAIL=$ADMIN_EMAIL" >> /root/.wp-admin-config          echo "🔄 Setting up certificate auto-renewal..."
-
-          echo "SITE_URL=https://$DOMAIN_NAME" >> /root/.wp-admin-config          if ! crontab -l 2>/dev/null | grep -q 'certbot renew'; then
-
-          chmod 600 /root/.wp-admin-config              (crontab -l 2>/dev/null; echo "0 12 * * * /usr/bin/certbot renew --quiet") | crontab -
-
-                    fi
-
-          # Final Nginx reload          
-
-          systemctl reload nginx          # Store credentials for later use
-
-                    echo "ADMIN_USER=$ADMIN_USER" > /root/.wp-admin-config
-
-          echo "✅ Environment configuration completed successfully!"          echo "ADMIN_PASSWORD=$ADMIN_PASSWORD" >> /root/.wp-admin-config
-
-          echo "🌐 Site URL: https://$DOMAIN_NAME"          echo "ADMIN_EMAIL=$ADMIN_EMAIL" >> /root/.wp-admin-config
-
-          echo "👤 Admin User: $ADMIN_USER"          echo "SITE_URL=https://$DOMAIN_NAME" >> /root/.wp-admin-config
-
-          echo "🔑 Admin Password: $ADMIN_PASSWORD"          chmod 600 /root/.wp-admin-config
-
-          echo "📧 Admin Email: $ADMIN_EMAIL"          
-
-                    # Final Nginx reload
-
-          touch /var/log/environment-configured          systemctl reload nginx
-
-          EOF          
-
-                    echo "✅ Environment configuration completed successfully!"
-
-          chmod +x configure-environment.sh          echo "🌐 Site URL: https://$DOMAIN_NAME"
-
-          echo "👤 Admin User: $ADMIN_USER"
-
-      # Execute configuration on VM          echo "🔑 Admin Password: $ADMIN_PASSWORD"
-
-      - name: ⚙️ Configure Environment on VM          echo "📧 Admin Email: $ADMIN_EMAIL"
-
-        id: configure          
-
-        run: |          touch /var/log/environment-configured
-
-          echo "⚙️ Starting environment configuration..."          EOF
-
-                    
-
-          # Copy configuration script to VM          chmod +x configure-environment.sh
-
-          gcloud compute scp configure-environment.sh \
-
-            $VM_INSTANCE:~/configure-environment.sh \      # Execute configuration on VM
-
-            --zone=$VM_ZONE \      - name: ⚙️ Configure Environment on VM
-
-            --quiet        id: configure
-
-                  run: |
-
-          # Execute configuration script          echo "⚙️ Starting environment configuration..."
-
-          gcloud compute ssh $VM_INSTANCE \          
-
-            --zone=$VM_ZONE \          # Copy configuration script to VM
-
-            --quiet \          gcloud compute scp configure-environment.sh \
-
-            --command="            $VM_INSTANCE:~/configure-environment.sh \
-
-              sudo chmod +x ~/configure-environment.sh            --zone=$VM_ZONE \
-
-              sudo ~/configure-environment.sh \            --quiet
-
-                '$DOMAIN_NAME' \          
-
-                '$SITE_TITLE' \          # Execute configuration script
-
-                '$ADMIN_USER' \          gcloud compute ssh $VM_INSTANCE \
-
-                '$ADMIN_EMAIL' \            --zone=$VM_ZONE \
-
-                '$LETSENCRYPT_EMAIL'            --quiet \
-
-            "            --command="
-
-                        sudo chmod +x ~/configure-environment.sh
-
-          # Get admin password from VM              sudo ~/configure-environment.sh \
-
-          ADMIN_PASSWORD=$(gcloud compute ssh $VM_INSTANCE \                '$DOMAIN_NAME' \
-
-            --zone=$VM_ZONE \                '$SITE_TITLE' \
-
-            --quiet \                '$ADMIN_USER' \
-
-            --command="sudo grep 'ADMIN_PASSWORD=' /root/.wp-admin-config | cut -d'=' -f2")                '$ADMIN_EMAIL' \
-
-                          '$LETSENCRYPT_EMAIL'
-
-          echo "site_url=https://$DOMAIN_NAME" >> $GITHUB_OUTPUT            "
-
-          echo "admin_password=$ADMIN_PASSWORD" >> $GITHUB_OUTPUT          
-
-                    # Get admin password from VM
-
-          echo "✅ Environment configuration completed!"          ADMIN_PASSWORD=$(gcloud compute ssh $VM_INSTANCE \
-
-            --zone=$VM_ZONE \
-
-      # Health check            --quiet \
-
-      - name: 🏥 Health Check            --command="sudo grep 'ADMIN_PASSWORD=' /root/.wp-admin-config | cut -d'=' -f2")
-
-        env:          
-
-          SITE_URL: https://${{ env.DOMAIN_NAME }}          echo "site_url=https://$DOMAIN_NAME" >> $GITHUB_OUTPUT
-
-        run: |          echo "admin_password=$ADMIN_PASSWORD" >> $GITHUB_OUTPUT
-
-          echo "🏥 Running health check..."          
-
-                    echo "✅ Environment configuration completed!"
-
-          # Wait for services to stabilize
-
-          sleep 30      # Health check
-
-                - name: 🏥 Health Check
-
-          # Check HTTP to HTTPS redirect        env:
-
-          echo "🔍 Testing HTTP to HTTPS redirect..."          SITE_URL: https://${{ env.DOMAIN_NAME }}
-
-          if curl -sSL -w "%{http_code}" "http://$DOMAIN_NAME" -o /dev/null | grep -q "30[1-8]"; then        run: |
-
-            echo "✅ HTTP redirects to HTTPS!"          echo "🏥 Running health check..."
-
-          else          
-
-            echo "⚠️ HTTP redirect may not be working"          # Wait for services to stabilize
-
-          fi          sleep 30
-
-                    
-
-          # Check HTTPS site          # Check HTTP to HTTPS redirect
-
-          echo "🔍 Testing HTTPS site..."          echo "🔍 Testing HTTP to HTTPS redirect..."
-
-          if curl -sSf "$SITE_URL" > /dev/null; then          if curl -sSL -w "%{http_code}" "http://$DOMAIN_NAME" -o /dev/null | grep -q "30[1-8]"; then
-
-            echo "✅ HTTPS site is responding!"            echo "✅ HTTP redirects to HTTPS!"
-
-          else          else
-
-            echo "❌ HTTPS site health check failed!"            echo "⚠️ HTTP redirect may not be working"
-
-            exit 1          fi
-
-          fi          
-
-                    # Check HTTPS site
-
-          # Check WordPress admin          echo "🔍 Testing HTTPS site..."
-
-          echo "🔍 Testing WordPress admin..."          if curl -sSf "$SITE_URL" > /dev/null; then
-
-          if curl -sSf "$SITE_URL/wp-admin/" > /dev/null; then            echo "✅ HTTPS site is responding!"
-
-            echo "✅ WordPress admin is accessible!"          else
-
-          else            echo "❌ HTTPS site health check failed!"
-
-            echo "⚠️ WordPress admin may need attention"            exit 1
-
-          fi          fi
-
-                    
-
-          echo "🎉 Health check completed!"          # Check WordPress admin
-
-          echo "🔍 Testing WordPress admin..."
-
-      # Display configuration summary          if curl -sSf "$SITE_URL/wp-admin/" > /dev/null; then
-
-      - name: 📊 Configuration Summary            echo "✅ WordPress admin is accessible!"
-
-        env:          else
-
-          SITE_URL: ${{ steps.configure.outputs.site_url }}            echo "⚠️ WordPress admin may need attention"
-
-          ADMIN_PASSWORD: ${{ steps.configure.outputs.admin_password }}          fi
-
-        run: |          
-
-          echo "## ⚙️ Environment Configuration Summary" >> $GITHUB_STEP_SUMMARY          echo "🎉 Health check completed!"
-
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          echo "### ✅ WordPress Installation:" >> $GITHUB_STEP_SUMMARY      # Display configuration summary
-
-          echo "- **Site URL**: $SITE_URL" >> $GITHUB_STEP_SUMMARY      - name: 📊 Configuration Summary
-
-          echo "- **Admin User**: \`$ADMIN_USER\`" >> $GITHUB_STEP_SUMMARY        env:
-
-          echo "- **Admin Password**: \`$ADMIN_PASSWORD\`" >> $GITHUB_STEP_SUMMARY          SITE_URL: ${{ steps.configure.outputs.site_url }}
-
-          echo "- **Admin Email**: $ADMIN_EMAIL" >> $GITHUB_STEP_SUMMARY          ADMIN_PASSWORD: ${{ steps.configure.outputs.admin_password }}
-
-          echo "" >> $GITHUB_STEP_SUMMARY        run: |
-
-          echo "### 🔒 Security Features:" >> $GITHUB_STEP_SUMMARY          echo "## ⚙️ Environment Configuration Summary" >> $GITHUB_STEP_SUMMARY
-
-          echo "- ✅ SSL Certificate (Let's Encrypt)" >> $GITHUB_STEP_SUMMARY          echo "" >> $GITHUB_STEP_SUMMARY
-
-          echo "- ✅ HTTPS Redirect" >> $GITHUB_STEP_SUMMARY          echo "### ✅ WordPress Installation:" >> $GITHUB_STEP_SUMMARY
-
-          echo "- ✅ Security Headers" >> $GITHUB_STEP_SUMMARY          echo "- **Site URL**: $SITE_URL" >> $GITHUB_STEP_SUMMARY
-
-          echo "- ✅ Wordfence Security Plugin" >> $GITHUB_STEP_SUMMARY          echo "- **Admin User**: \`$ADMIN_USER\`" >> $GITHUB_STEP_SUMMARY
-
-          echo "" >> $GITHUB_STEP_SUMMARY          echo "- **Admin Password**: \`$ADMIN_PASSWORD\`" >> $GITHUB_STEP_SUMMARY
-
-          echo "### 🔌 Installed Plugins:" >> $GITHUB_STEP_SUMMARY          echo "- **Admin Email**: $ADMIN_EMAIL" >> $GITHUB_STEP_SUMMARY
-
-          echo "- ✅ Elementor" >> $GITHUB_STEP_SUMMARY          echo "" >> $GITHUB_STEP_SUMMARY
-
-          echo "- ✅ Pods Framework" >> $GITHUB_STEP_SUMMARY          echo "### 🔒 Security Features:" >> $GITHUB_STEP_SUMMARY
-
-          echo "- ✅ WordPress SEO" >> $GITHUB_STEP_SUMMARY          echo "- ✅ SSL Certificate (Let's Encrypt)" >> $GITHUB_STEP_SUMMARY
-
-          echo "- ✅ Wordfence Security" >> $GITHUB_STEP_SUMMARY          echo "- ✅ HTTPS Redirect" >> $GITHUB_STEP_SUMMARY
-
-          echo "" >> $GITHUB_STEP_SUMMARY          echo "- ✅ Security Headers" >> $GITHUB_STEP_SUMMARY
-
-          echo "### 🎯 Next Steps:" >> $GITHUB_STEP_SUMMARY          echo "- ✅ Wordfence Security Plugin" >> $GITHUB_STEP_SUMMARY
-
-          echo "1. Run **Deploy Plugin** workflow" >> $GITHUB_STEP_SUMMARY          echo "" >> $GITHUB_STEP_SUMMARY
-
-          echo "2. Access admin at: $SITE_URL/wp-admin/" >> $GITHUB_STEP_SUMMARY          echo "### 🔌 Installed Plugins:" >> $GITHUB_STEP_SUMMARY
-
-          echo "3. Configure Smart Gallery widget in Elementor" >> $GITHUB_STEP_SUMMARY          echo "- ✅ Elementor" >> $GITHUB_STEP_SUMMARY
-
           echo "- ✅ Pods Framework" >> $GITHUB_STEP_SUMMARY
-
-      # Cleanup          echo "- ✅ WordPress SEO" >> $GITHUB_STEP_SUMMARY
-
-      - name: 🗑️ Cleanup          echo "- ✅ Wordfence Security" >> $GITHUB_STEP_SUMMARY
-
-        if: always()          echo "" >> $GITHUB_STEP_SUMMARY
-
-        run: |          echo "### 🎯 Next Steps:" >> $GITHUB_STEP_SUMMARY
-
-          rm -f configure-environment.sh          echo "1. Run **Deploy Plugin** workflow" >> $GITHUB_STEP_SUMMARY
-
-          echo "✅ Configuration workflow completed"          echo "2. Access admin at: $SITE_URL/wp-admin/" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ WordPress SEO" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Wordfence Security" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🎯 Next Steps:" >> $GITHUB_STEP_SUMMARY
+          echo "1. Run **Deploy Plugin** workflow" >> $GITHUB_STEP_SUMMARY
+          echo "2. Access admin at: $SITE_URL/wp-admin/" >> $GITHUB_STEP_SUMMARY
           echo "3. Configure Smart Gallery widget in Elementor" >> $GITHUB_STEP_SUMMARY
 
       # Cleanup

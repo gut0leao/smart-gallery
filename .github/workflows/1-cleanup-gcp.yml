@@ -1,5 +1,5 @@
 # Fixed authentication order: auth@v2 before setup-gcloud@v2  
-name: 1. Cleanup GCP Resources 🧹
+name: 1. Cleanup GCP Resources
 
 on:
   workflow_dispatch:

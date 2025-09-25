@@ -1,4 +1,4 @@
-name: 2. Provision Infrastructure 🏗️
+name: 2. Provision Infrastructure
 
 on:
   workflow_dispatch:

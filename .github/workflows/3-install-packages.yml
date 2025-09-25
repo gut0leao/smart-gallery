@@ -1,4 +1,4 @@
-name: 3. Install Packages 📦
+name: 3. Install Packages
 
 on:
   workflow_dispatch:

@@ -1,4 +1,4 @@
-name: 🚀 Deploy Plugin
+name: 5. Deploy Plugin 🚀
 
 on:
   workflow_dispatch:

@@ -1,4 +1,4 @@
-name: ⚙️ Configure Environment
+name: Configure Environment
 
 on:
   workflow_dispatch:
@@ -50,7 +50,7 @@ env:
 
 jobs:
   configure:
-    name: ⚙️ Configure Environment
+    name: Configure Environment
     runs-on: ubuntu-latest
     
     outputs:

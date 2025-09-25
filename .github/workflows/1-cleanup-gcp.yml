@@ -1,5 +1,5 @@
 # Fixed authentication order: auth@v2 before setup-gcloud@v2  
-name: 🧹 Cleanup GCP Resources
+name: 1. Cleanup GCP Resources 🧹
 
 on:
   workflow_dispatch:
@@ -26,6 +26,7 @@ jobs:
   cleanup:
     name: 🧹 Clean GCP Resources
     runs-on: ubuntu-latest
+    environment: production  # Adicione o nome do seu environment aqui
     
     steps:
       # Checkout for cleanup script

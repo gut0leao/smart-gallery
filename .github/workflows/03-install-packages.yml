@@ -276,28 +276,105 @@ jobs:
       - name: 🗄️ Create WordPress Database
         run: |
           echo "🗄️ Creating WordPress database..."
+          
+          # Generate database credentials and store them
+          DB_NAME="wordpress"
+          DB_USER="wordpress"
+          DB_PASS=$(openssl rand -base64 32)
+          
+          # Create database on VM
           gcloud compute ssh $VM_INSTANCE \
             --zone=$VM_ZONE \
             --quiet \
             --command="
-              DB_NAME='wordpress'
-              DB_USER='wordpress'
-              DB_PASS=\$(openssl rand -base64 32)
-              
-              sudo mysql -e \"CREATE DATABASE IF NOT EXISTS \${DB_NAME};\"
-              sudo mysql -e \"CREATE USER IF NOT EXISTS '\${DB_USER}'@'localhost' IDENTIFIED BY '\${DB_PASS}';\"
-              sudo mysql -e \"GRANT ALL PRIVILEGES ON \${DB_NAME}.* TO '\${DB_USER}'@'localhost';\"
+              sudo mysql -e \"CREATE DATABASE IF NOT EXISTS $DB_NAME;\"
+              sudo mysql -e \"CREATE USER IF NOT EXISTS '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASS';\"
+              sudo mysql -e \"GRANT ALL PRIVILEGES ON $DB_NAME.* TO '$DB_USER'@'localhost';\"
               sudo mysql -e \"FLUSH PRIVILEGES;\"
               
-              # Store database credentials securely
+              # Store database credentials securely on VM
               sudo tee /root/.wp-db-config << EOL
-          DB_NAME=\${DB_NAME}
-          DB_USER=\${DB_USER}
-          DB_PASS=\${DB_PASS}
+          DB_NAME=$DB_NAME
+          DB_USER=$DB_USER
+          DB_PASS=$DB_PASS
           EOL
               sudo chmod 600 /root/.wp-db-config
-              echo '✅ WordPress database created'
+              echo '✅ WordPress database created locally'
             "
+          
+          # Store database credentials as GitHub Variables for future use
+          echo "💾 Storing database credentials as GitHub Variables..."
+          
+          # Store database name
+          curl -L \
+            -X PATCH \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/${{ github.repository }}/actions/variables/WP_DB_NAME \
+            -d "{\"name\":\"WP_DB_NAME\",\"value\":\"$DB_NAME\"}" \
+            2>/dev/null || \
+          curl -L \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/${{ github.repository }}/actions/variables \
+            -d "{\"name\":\"WP_DB_NAME\",\"value\":\"$DB_NAME\"}"
+          
+          # Store database user
+          curl -L \
+            -X PATCH \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/${{ github.repository }}/actions/variables/WP_DB_USER \
+            -d "{\"name\":\"WP_DB_USER\",\"value\":\"$DB_USER\"}" \
+            2>/dev/null || \
+          curl -L \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/${{ github.repository }}/actions/variables \
+            -d "{\"name\":\"WP_DB_USER\",\"value\":\"$DB_USER\"}"
+          
+          echo "✅ Database credentials stored in GitHub Variables"
+          echo "📝 Database Name: $DB_NAME"
+          echo "📝 Database User: $DB_USER"
+          echo "🔐 Database Password: [STORED SECURELY ON VM]"
+
+      # Store database password as GitHub Secret
+      - name: 🔐 Store Database Password as Secret
+        run: |
+          echo "🔐 Storing database password as GitHub Secret..."
+          
+          # Get the database password from VM
+          DB_PASS=$(gcloud compute ssh $VM_INSTANCE \
+            --zone=$VM_ZONE \
+            --quiet \
+            --command="sudo grep 'DB_PASS=' /root/.wp-db-config | cut -d'=' -f2")
+          
+          # Get the repository's public key for encryption
+          PUBLIC_KEY_DATA=$(curl -s \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/${{ github.repository }}/actions/secrets/public-key)
+          
+          PUBLIC_KEY=$(echo "$PUBLIC_KEY_DATA" | jq -r .key)
+          KEY_ID=$(echo "$PUBLIC_KEY_DATA" | jq -r .key_id)
+          
+          # Encrypt the password using sodium (libsodium)
+          # For now, we'll store it as a variable since encryption requires additional tools
+          # In production, this would be properly encrypted
+          
+          # Store database password as a repository secret using GitHub CLI
+          echo "$DB_PASS" | gh secret set WP_DB_PASSWORD --repo ${{ github.repository }}
+          
+          echo "✅ Database password stored as GitHub Secret"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Configure log rotation
       - name: 📝 Configure Log Rotation
@@ -378,11 +455,22 @@ jobs:
               echo '' >> /tmp/status.md
               echo '### 🗄️ Database:' >> /tmp/status.md
               echo '- **MariaDB**: ' \$(systemctl is-active mariadb) >> /tmp/status.md
+              if [ -f /root/.wp-db-config ]; then
+                source /root/.wp-db-config
+                echo '- **WordPress Database**: \$DB_NAME' >> /tmp/status.md
+                echo '- **Database User**: \$DB_USER' >> /tmp/status.md
+                echo '- **Password**: Stored securely' >> /tmp/status.md
+              fi
               echo '' >> /tmp/status.md
               echo '### 🛠️ Tools:' >> /tmp/status.md
               echo '- **WP-CLI**: ' \$(wp --version) >> /tmp/status.md
               echo '- **Composer**: Available' >> /tmp/status.md
               echo '- **Certbot**: Available' >> /tmp/status.md
+              echo '' >> /tmp/status.md
+              echo '### 💾 Stored Variables:' >> /tmp/status.md
+              echo '- **WP_DB_NAME**: Available in GitHub Variables' >> /tmp/status.md
+              echo '- **WP_DB_USER**: Available in GitHub Variables' >> /tmp/status.md
+              echo '- **WP_DB_PASSWORD**: Available in GitHub Secrets' >> /tmp/status.md
               echo '' >> /tmp/status.md
               echo '### 🎯 Next Steps:' >> /tmp/status.md
               echo '1. Run **Configure Environment** workflow' >> /tmp/status.md

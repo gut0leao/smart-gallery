@@ -34,14 +34,16 @@ jobs:
 
       # Authenticate to GCP
       - name: 🔐 Authenticate to Google Cloud
+        id: auth
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
-          project_id: ${{ env.GCP_PROJECT_ID }}
 
-      # Setup Google Cloud SDK
+      # Setup Google Cloud SDK  
       - name: ☁️ Setup Google Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
 
       # Prepare credentials for cleanup script
       - name: 🔧 Prepare Cleanup Environment

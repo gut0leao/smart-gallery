@@ -260,14 +260,51 @@ cleanup_compute() {
         log "No disks found"
     fi
     
-    # List networks (keep default VPC unless forced)
+    # List static IPs first (before networks)
+    log "Checking for static IP addresses..."
+    local global_ips=$(timeout 30 gcloud compute addresses list --global --format="value(name)" 2>/dev/null || true)
+    if [ -n "$global_ips" ]; then
+        echo "$global_ips" | while read name; do
+            if [ -n "$name" ]; then
+                run_cmd "gcloud compute addresses delete '$name' --global --quiet" "Delete global IP: $name"
+            fi
+        done
+    else
+        log "No global static IPs found"
+    fi
+    
+    local regional_ips=$(timeout 30 gcloud compute addresses list --format="value(name,region)" --filter="region:*" 2>/dev/null || true)
+    if [ -n "$regional_ips" ]; then
+        echo "$regional_ips" | while read name region; do
+            if [ -n "$name" ] && [ -n "$region" ]; then
+                run_cmd "gcloud compute addresses delete '$name' --region='$region' --quiet" "Delete regional IP: $name"
+            fi
+        done
+    else
+        log "No regional static IPs found"
+    fi
+    
+    # List and delete subnets before networks
+    log "Checking for custom subnets..."
+    local subnets=$(timeout 30 gcloud compute networks subnets list --format="value(name,region)" --filter="network !~ '.*/default$'" 2>/dev/null || true)
+    if [ -n "$subnets" ]; then
+        echo "$subnets" | while read name region; do
+            if [ -n "$name" ] && [ -n "$region" ]; then
+                run_cmd "gcloud compute networks subnets delete '$name' --region='$region' --quiet" "Delete subnet: $name"
+            fi
+        done
+    else
+        log "No custom subnets found"
+    fi
+    
+    # List networks (keep default VPC unless forced) - delete after subnets and IPs
     log "Checking for custom networks..."
     local networks=$(timeout 30 gcloud compute networks list --format="value(name)" --filter="name != default" 2>/dev/null || true)
     if [ -n "$networks" ]; then
         echo "$networks" | while read name; do
             if [ -n "$name" ]; then
                 # Delete firewall rules first
-                local fw_rules=$(timeout 30 gcloud compute firewall-rules list --format="value(name)" --filter="network:$name" 2>/dev/null || true)
+                local fw_rules=$(timeout 30 gcloud compute firewall-rules list --format="value(name)" --filter="network ~ '.*/$name$'" 2>/dev/null || true)
                 if [ -n "$fw_rules" ]; then
                     echo "$fw_rules" | while read fw_name; do
                         if [ -n "$fw_name" ]; then
@@ -281,23 +318,6 @@ cleanup_compute() {
         done
     else
         log "No custom networks found"
-    fi
-    
-    # List static IPs
-    log "Checking for static IP addresses..."
-    local ips=$(timeout 30 gcloud compute addresses list --format="value(name,region)" 2>/dev/null || true)
-    if [ -n "$ips" ]; then
-        echo "$ips" | while read name region; do
-            if [ -n "$name" ]; then
-                if [ -n "$region" ]; then
-                    run_cmd "gcloud compute addresses delete '$name' --region='$region' --quiet" "Delete regional IP: $name"
-                else
-                    run_cmd "gcloud compute addresses delete '$name' --global --quiet" "Delete global IP: $name"
-                fi
-            fi
-        done
-    else
-        log "No static IPs found"
     fi
 }
 
@@ -476,6 +496,62 @@ cleanup_monitoring() {
     log "Monitoring dashboards and alerts are typically cleaned automatically"
 }
 
+cleanup_orphaned_resources() {
+    log "🔍 Cleaning up potentially orphaned resources..."
+    
+    # Check for any remaining static IPs that might have been missed
+    log "Double-checking for remaining static IP addresses..."
+    local remaining_global_ips=$(timeout 15 gcloud compute addresses list --global --format="value(name)" 2>/dev/null || true)
+    if [ -n "$remaining_global_ips" ]; then
+        echo "$remaining_global_ips" | while read name; do
+            if [ -n "$name" ]; then
+                run_cmd "gcloud compute addresses delete '$name' --global --quiet" "Delete remaining global IP: $name"
+            fi
+        done
+    fi
+    
+    local remaining_regional_ips=$(timeout 15 gcloud compute addresses list --format="value(name,region)" --filter="region:*" 2>/dev/null || true)
+    if [ -n "$remaining_regional_ips" ]; then
+        echo "$remaining_regional_ips" | while read name region; do
+            if [ -n "$name" ] && [ -n "$region" ]; then
+                run_cmd "gcloud compute addresses delete '$name' --region='$region' --quiet" "Delete remaining regional IP: $name"
+            fi
+        done
+    fi
+    
+    # Check for any remaining custom networks
+    log "Double-checking for remaining custom networks..."
+    local remaining_networks=$(timeout 15 gcloud compute networks list --format="value(name)" --filter="name != default" 2>/dev/null || true)
+    if [ -n "$remaining_networks" ]; then
+        echo "$remaining_networks" | while read name; do
+            if [ -n "$name" ]; then
+                # Try to delete any remaining firewall rules
+                local remaining_fw_rules=$(timeout 15 gcloud compute firewall-rules list --format="value(name)" --filter="network ~ '.*/$name$'" 2>/dev/null || true)
+                if [ -n "$remaining_fw_rules" ]; then
+                    echo "$remaining_fw_rules" | while read fw_name; do
+                        if [ -n "$fw_name" ]; then
+                            run_cmd "gcloud compute firewall-rules delete '$fw_name' --quiet" "Delete remaining firewall rule: $fw_name"
+                        fi
+                    done
+                fi
+                
+                run_cmd "gcloud compute networks delete '$name' --quiet" "Delete remaining network: $name"
+            fi
+        done
+    fi
+    
+    # Check for any remaining subnets
+    log "Double-checking for remaining custom subnets..."
+    local remaining_subnets=$(timeout 15 gcloud compute networks subnets list --format="value(name,region)" --filter="network !~ '.*/default$'" 2>/dev/null || true)
+    if [ -n "$remaining_subnets" ]; then
+        echo "$remaining_subnets" | while read name region; do
+            if [ -n "$name" ] && [ -n "$region" ]; then
+                run_cmd "gcloud compute networks subnets delete '$name' --region='$region' --quiet" "Delete remaining subnet: $name"
+            fi
+        done
+    fi
+}
+
 # Main cleanup function
 main_cleanup() {
     log "🧹 Starting comprehensive GCP cleanup for project: $PROJECT_ID"
@@ -495,6 +571,9 @@ main_cleanup() {
     cleanup_iam
     cleanup_apis
     cleanup_monitoring
+    
+    # Final pass to catch any orphaned resources
+    cleanup_orphaned_resources
     
     success "Cleanup process completed!"
     

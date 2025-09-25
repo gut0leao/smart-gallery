@@ -101,8 +101,81 @@ jobs:
       - name: 🏗️ Terraform Init
         working-directory: terraform
         run: |
-          terraform init
+          terraform init -upgrade
           echo "✅ Terraform initialized"
+
+      # Check for existing resources and import if needed
+      - name: 🔍 Check Existing Resources
+        working-directory: terraform
+        env:
+          TF_VAR_project_id: ${{ env.GCP_PROJECT_ID }}
+          TF_VAR_domain_name: ${{ env.DOMAIN_NAME }}
+          TF_VAR_environment: ${{ env.ENVIRONMENT }}
+          TF_VAR_region: ${{ github.event.inputs.region }}
+          TF_VAR_machine_type: ${{ github.event.inputs.machine_type }}
+        run: |
+          echo "🔍 Checking for existing resources..."
+          
+          # Set environment variables for resource names
+          NAME_PREFIX="smart-gallery-${{ env.ENVIRONMENT }}"
+          
+          # Function to safely import resources
+          safe_import() {
+            local resource_type="$1"
+            local resource_name="$2"
+            local gcp_resource_id="$3"
+            
+            echo "🔍 Checking $resource_type: $resource_name"
+            
+            # Check if resource exists in state
+            if terraform state show "$resource_type.$resource_name" >/dev/null 2>&1; then
+              echo "✅ $resource_name already in Terraform state"
+              return 0
+            fi
+            
+            # Check if resource exists in GCP and import if needed
+            if gcloud compute $4 describe "$gcp_resource_id" --quiet >/dev/null 2>&1; then
+              echo "📥 Importing existing $resource_name from GCP..."
+              terraform import "$resource_type.$resource_name" "$gcp_resource_id" || {
+                echo "⚠️ Import failed for $resource_name, will create new resource"
+              }
+            else
+              echo "➕ $resource_name will be created"
+            fi
+          }
+          
+          # Import existing resources if they exist
+          safe_import "google_compute_network" "smart_gallery_network" "$NAME_PREFIX-network" "networks"
+          safe_import "google_compute_subnetwork" "smart_gallery_subnet" "${{ github.event.inputs.region }}/$NAME_PREFIX-subnet" "networks subnets"
+          safe_import "google_compute_address" "smart_gallery_ip" "${{ github.event.inputs.region }}/$NAME_PREFIX-ip" "addresses"
+          
+          # For VM, check if it exists
+          if gcloud compute instances describe "$NAME_PREFIX-vm" --zone="${{ github.event.inputs.region }}-a" --quiet >/dev/null 2>&1; then
+            if ! terraform state show "google_compute_instance.smart_gallery_vm" >/dev/null 2>&1; then
+              echo "📥 Importing existing VM from GCP..."
+              terraform import "google_compute_instance.smart_gallery_vm" "${{ env.GCP_PROJECT_ID }}/${{ github.event.inputs.region }}-a/$NAME_PREFIX-vm" || {
+                echo "⚠️ VM import failed, will try to manage existing resource"
+              }
+            else
+              echo "✅ VM already in Terraform state"
+            fi
+          else
+            echo "➕ VM will be created"
+          fi
+          
+          # Import firewall rules
+          for fw_rule in "$NAME_PREFIX-allow-ssh" "$NAME_PREFIX-allow-http" "$NAME_PREFIX-allow-https" "$NAME_PREFIX-allow-icmp"; do
+            if gcloud compute firewall-rules describe "$fw_rule" --quiet >/dev/null 2>&1; then
+              if ! terraform state show "google_compute_firewall.${fw_rule//-/_}" >/dev/null 2>&1; then
+                echo "📥 Importing firewall rule: $fw_rule"
+                terraform import "google_compute_firewall.${fw_rule//-/_}" "${{ env.GCP_PROJECT_ID }}/$fw_rule" || {
+                  echo "⚠️ Firewall import failed for $fw_rule"
+                }
+              fi
+            fi
+          done
+          
+          echo "✅ Resource check completed"
 
       # Terraform Plan
       - name: 📋 Terraform Plan
@@ -114,7 +187,18 @@ jobs:
           TF_VAR_region: ${{ github.event.inputs.region }}
           TF_VAR_machine_type: ${{ github.event.inputs.machine_type }}
         run: |
-          terraform plan -out=tfplan
+          echo "📋 Creating Terraform plan..."
+          terraform plan -out=tfplan -detailed-exitcode || {
+            EXIT_CODE=$?
+            if [ $EXIT_CODE -eq 2 ]; then
+              echo "📝 Changes detected, plan created successfully"
+            elif [ $EXIT_CODE -eq 1 ]; then
+              echo "❌ Terraform plan failed"
+              exit 1
+            else
+              echo "✅ No changes needed"
+            fi
+          }
           echo "✅ Terraform plan completed"
 
       # Terraform Apply
@@ -128,13 +212,55 @@ jobs:
           TF_VAR_region: ${{ github.event.inputs.region }}
           TF_VAR_machine_type: ${{ github.event.inputs.machine_type }}
         run: |
-          terraform apply -auto-approve tfplan
+          echo "🚀 Applying Terraform configuration..."
           
-          # Export outputs
-          echo "vm_name=$(terraform output -raw vm_name)" >> $GITHUB_OUTPUT
-          echo "vm_zone=$(terraform output -raw vm_zone)" >> $GITHUB_OUTPUT
-          echo "vm_external_ip=$(terraform output -raw vm_external_ip)" >> $GITHUB_OUTPUT
-          echo "site_url=$(terraform output -raw site_url)" >> $GITHUB_OUTPUT
+          # Check if plan file exists and has changes
+          if [ -f tfplan ]; then
+            terraform apply -auto-approve tfplan
+          else
+            echo "⚠️ No plan file found, running direct apply..."
+            terraform apply -auto-approve
+          fi
+          
+          # Verify outputs exist before extracting them
+          echo "📤 Extracting Terraform outputs..."
+          
+          if terraform output vm_name >/dev/null 2>&1; then
+            echo "vm_name=$(terraform output -raw vm_name)" >> $GITHUB_OUTPUT
+          else
+            # Fallback: construct VM name from variables
+            VM_NAME="smart-gallery-${{ env.ENVIRONMENT }}-vm"
+            echo "vm_name=$VM_NAME" >> $GITHUB_OUTPUT
+            echo "⚠️ Using constructed VM name: $VM_NAME"
+          fi
+          
+          if terraform output vm_zone >/dev/null 2>&1; then
+            echo "vm_zone=$(terraform output -raw vm_zone)" >> $GITHUB_OUTPUT
+          else
+            # Fallback: use input zone
+            VM_ZONE="${{ github.event.inputs.region }}-a"
+            echo "vm_zone=$VM_ZONE" >> $GITHUB_OUTPUT
+            echo "⚠️ Using constructed VM zone: $VM_ZONE"
+          fi
+          
+          if terraform output vm_external_ip >/dev/null 2>&1; then
+            echo "vm_external_ip=$(terraform output -raw vm_external_ip)" >> $GITHUB_OUTPUT
+          else
+            # Fallback: query GCP directly
+            VM_IP=$(gcloud compute instances describe "smart-gallery-${{ env.ENVIRONMENT }}-vm" \
+              --zone="${{ github.event.inputs.region }}-a" \
+              --format="get(networkInterfaces[0].accessConfigs[0].natIP)" 2>/dev/null || echo "")
+            echo "vm_external_ip=$VM_IP" >> $GITHUB_OUTPUT
+            echo "⚠️ Retrieved VM IP directly from GCP: $VM_IP"
+          fi
+          
+          if terraform output site_url >/dev/null 2>&1; then
+            echo "site_url=$(terraform output -raw site_url)" >> $GITHUB_OUTPUT
+          else
+            # Fallback: construct from domain
+            echo "site_url=https://${{ env.DOMAIN_NAME }}" >> $GITHUB_OUTPUT
+            echo "⚠️ Using constructed site URL: https://${{ env.DOMAIN_NAME }}"
+          fi
           
           echo "✅ Infrastructure provisioned successfully!"
 

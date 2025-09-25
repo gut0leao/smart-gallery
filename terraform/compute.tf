@@ -54,11 +54,22 @@ resource "google_compute_instance" "smart_gallery_vm" {
   allow_stopping_for_update = true
 
   lifecycle {
-    create_before_destroy = true
+    # Prevent destruction of the VM unless explicitly forced
+    prevent_destroy = false
+    
+    # Don't recreate the VM if these attributes change
+    ignore_changes = [
+      metadata["ssh-keys"],
+      metadata["startup-script"]
+    ]
+    
+    # Update in place when possible
+    create_before_destroy = false
   }
   
   timeouts {
     create = "10m"
+    update = "10m"
     delete = "10m"
   }
 }

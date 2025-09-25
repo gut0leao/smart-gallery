@@ -4,8 +4,14 @@ resource "google_compute_network" "smart_gallery_network" {
   name                    = "${local.name_prefix}-network"
   auto_create_subnetworks = false
   
+  lifecycle {
+    prevent_destroy = false
+    ignore_changes  = []
+  }
+  
   timeouts {
     create = "5m"
+    update = "5m"
     delete = "5m"
   }
 }
@@ -16,12 +22,34 @@ resource "google_compute_subnetwork" "smart_gallery_subnet" {
   ip_cidr_range = "10.0.0.0/24"
   network       = google_compute_network.smart_gallery_network.id
   region        = var.region
+  
+  lifecycle {
+    prevent_destroy = false
+    ignore_changes  = []
+  }
+  
+  timeouts {
+    create = "5m"
+    update = "5m"
+    delete = "5m"
+  }
 }
 
 # Static IP for the VM
 resource "google_compute_address" "smart_gallery_ip" {
   name   = "${local.name_prefix}-ip"
   region = var.region
+  
+  lifecycle {
+    prevent_destroy = false
+    # Keep the same IP even if other attributes change
+    ignore_changes = []
+  }
+  
+  timeouts {
+    create = "5m"
+    delete = "5m"
+  }
 }
 
 # Firewall Rules

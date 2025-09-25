@@ -9,6 +9,11 @@ terraform {
       version = "~> 5.0"
     }
   }
+  
+  # Enable state management for resource updates
+  backend "local" {
+    path = "terraform.tfstate"
+  }
 }
 
 # Variables

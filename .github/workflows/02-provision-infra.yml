@@ -8,8 +8,17 @@ on:
         required: true
         type: string
       domain_name:
-        description: 'Domain name (e.g., smartgallery.exemplo.com)'
+        description: 'Domain name (e.g., smartgallery.exemplo.com or mysite.duckdns.org)'
         required: true
+        type: string
+      use_duckdns:
+        description: 'Use Duck DNS for automatic DNS management'
+        required: false
+        default: false
+        type: boolean
+      duckdns_subdomain:
+        description: 'Duck DNS subdomain (only the part before .duckdns.org)'
+        required: false
         type: string
       environment:
         description: 'Environment'
@@ -39,6 +48,8 @@ env:
   GCP_PROJECT_ID: ${{ github.event.inputs.project_id }}
   DOMAIN_NAME: ${{ github.event.inputs.domain_name }}
   ENVIRONMENT: ${{ github.event.inputs.environment }}
+  USE_DUCKDNS: ${{ github.event.inputs.use_duckdns }}
+  DUCKDNS_SUBDOMAIN: ${{ github.event.inputs.duckdns_subdomain }}
 
 jobs:
   provision:
@@ -157,6 +168,43 @@ jobs:
             sleep 10
           done
 
+      # Configure Duck DNS automatically (if enabled)
+      - name: 🦆 Configure Duck DNS
+        if: env.USE_DUCKDNS == 'true'
+        env:
+          VM_IP: ${{ steps.terraform.outputs.vm_external_ip }}
+          DUCKDNS_TOKEN: ${{ secrets.DUCKDNS_TOKEN }}
+        run: |
+          if [ -z "$DUCKDNS_TOKEN" ]; then
+            echo "❌ DUCKDNS_TOKEN secret not found!"
+            echo "Please add your Duck DNS token as a repository secret named DUCKDNS_TOKEN"
+            echo "Get your token from: https://www.duckdns.org/"
+            exit 1
+          fi
+          
+          if [ -z "$DUCKDNS_SUBDOMAIN" ]; then
+            echo "❌ Duck DNS subdomain not provided!"
+            exit 1
+          fi
+          
+          echo "🦆 Configuring Duck DNS for $DUCKDNS_SUBDOMAIN.duckdns.org..."
+          echo "📍 Setting IP to: $VM_IP"
+          
+          # Update Duck DNS
+          RESPONSE=$(curl -s "https://www.duckdns.org/update?domains=$DUCKDNS_SUBDOMAIN&token=$DUCKDNS_TOKEN&ip=$VM_IP")
+          
+          if [ "$RESPONSE" = "OK" ]; then
+            echo "✅ Duck DNS updated successfully!"
+            echo "🌐 Your domain $DUCKDNS_SUBDOMAIN.duckdns.org now points to $VM_IP"
+            echo ""
+            echo "🕒 DNS propagation typically takes 1-5 minutes"
+            echo "🔍 You can check with: nslookup $DUCKDNS_SUBDOMAIN.duckdns.org"
+          else
+            echo "❌ Failed to update Duck DNS. Response: $RESPONSE"
+            echo "Please check your token and subdomain name"
+            exit 1
+          fi
+
       # Store infrastructure details as GitHub Variables
       - name: 💾 Store Infrastructure Details
         env:
@@ -175,6 +223,14 @@ jobs:
           gh variable set SITE_URL --body "$SITE_URL" --repo ${{ github.repository }}
           gh variable set ENVIRONMENT --body "${{ env.ENVIRONMENT }}" --repo ${{ github.repository }}
           
+          # Store Duck DNS info if used
+          if [ "${{ env.USE_DUCKDNS }}" = "true" ]; then
+            gh variable set USE_DUCKDNS --body "true" --repo ${{ github.repository }}
+            gh variable set DUCKDNS_SUBDOMAIN --body "${{ env.DUCKDNS_SUBDOMAIN }}" --repo ${{ github.repository }}
+          else
+            gh variable set USE_DUCKDNS --body "false" --repo ${{ github.repository }}
+          fi
+          
           echo "✅ Infrastructure details stored successfully!"
           echo ""
           echo "📋 Stored Variables:"
@@ -190,6 +246,38 @@ jobs:
           echo "- Name: ${{ env.DOMAIN_NAME }}"
           echo "- Value: $VM_IP"
           echo "- TTL: 300 (5 minutes)"
+
+      # Verify DNS propagation (if Duck DNS is used)
+      - name: 🔍 Verify DNS Propagation
+        if: env.USE_DUCKDNS == 'true'
+        env:
+          VM_IP: ${{ steps.terraform.outputs.vm_external_ip }}
+        run: |
+          echo "🔍 Checking DNS propagation for $DUCKDNS_SUBDOMAIN.duckdns.org..."
+          
+          # Wait a bit for initial propagation
+          sleep 10
+          
+          # Try to resolve the domain
+          for i in {1..6}; do
+            RESOLVED_IP=$(nslookup $DUCKDNS_SUBDOMAIN.duckdns.org 2>/dev/null | grep "Address:" | tail -1 | awk '{print $2}')
+            
+            if [ "$RESOLVED_IP" = "$VM_IP" ]; then
+              echo "✅ DNS propagation successful!"
+              echo "🌐 $DUCKDNS_SUBDOMAIN.duckdns.org resolves to $VM_IP"
+              break
+            else
+              echo "⏳ DNS still propagating... (attempt $i/6)"
+              if [ $i -lt 6 ]; then
+                sleep 30
+              else
+                echo "⚠️ DNS propagation taking longer than expected"
+                echo "📋 Expected: $VM_IP"
+                echo "📋 Got: $RESOLVED_IP"
+                echo "🕒 This is normal and should resolve within 5-10 minutes"
+              fi
+            fi
+          done
 
       # Store SSH private key as secret for next workflows
       - name: 🔐 Store SSH Key
@@ -216,12 +304,24 @@ jobs:
           echo "- **Environment**: \`${{ env.ENVIRONMENT }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🌐 DNS Configuration Required:" >> $GITHUB_STEP_SUMMARY
-          echo "Configure your DNS provider with an **A Record**:" >> $GITHUB_STEP_SUMMARY
-          echo "- **Type**: A Record" >> $GITHUB_STEP_SUMMARY
-          echo "- **Name**: \`${{ env.DOMAIN_NAME }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Value**: \`$VM_IP\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **TTL**: 300 (5 minutes)" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ env.USE_DUCKDNS }}" = "true" ]; then
+            echo "### 🦆 Duck DNS Configuration:" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **Duck DNS automatically configured!**" >> $GITHUB_STEP_SUMMARY
+            echo "- **Domain**: \`${{ env.DUCKDNS_SUBDOMAIN }}.duckdns.org\`" >> $GITHUB_STEP_SUMMARY
+            echo "- **Points to**: \`$VM_IP\`" >> $GITHUB_STEP_SUMMARY
+            echo "- **Status**: Active (propagation takes 1-5 minutes)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "🔍 **Verify DNS**: \`nslookup ${{ env.DUCKDNS_SUBDOMAIN }}.duckdns.org\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### 🌐 DNS Configuration Required:" >> $GITHUB_STEP_SUMMARY
+            echo "Configure your DNS provider with an **A Record**:" >> $GITHUB_STEP_SUMMARY
+            echo "- **Type**: A Record" >> $GITHUB_STEP_SUMMARY
+            echo "- **Name**: \`${{ env.DOMAIN_NAME }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "- **Value**: \`$VM_IP\`" >> $GITHUB_STEP_SUMMARY
+            echo "- **TTL**: 300 (5 minutes)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "💡 **Tip**: Consider using Duck DNS for easier setup!" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📋 Stored GitHub Variables:" >> $GITHUB_STEP_SUMMARY
           echo "- \`GCP_VM_INSTANCE\`: $VM_NAME" >> $GITHUB_STEP_SUMMARY

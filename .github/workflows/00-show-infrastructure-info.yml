@@ -24,12 +24,21 @@ jobs:
             echo "- **Site URL**: ${{ vars.SITE_URL }}" >> $GITHUB_STEP_SUMMARY
             echo "- **Environment**: \`${{ vars.ENVIRONMENT }}\`" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "### 🌐 DNS Configuration:" >> $GITHUB_STEP_SUMMARY
-            echo "Make sure your DNS has an **A Record**:" >> $GITHUB_STEP_SUMMARY
-            echo "- **Type**: A Record" >> $GITHUB_STEP_SUMMARY
-            echo "- **Name**: Your domain" >> $GITHUB_STEP_SUMMARY
-            echo "- **Value**: \`${{ vars.GCP_VM_EXTERNAL_IP }}\`" >> $GITHUB_STEP_SUMMARY
-            echo "- **TTL**: 300 (5 minutes)" >> $GITHUB_STEP_SUMMARY
+            
+            if [ "${{ vars.USE_DUCKDNS }}" = "true" ]; then
+              echo "### 🦆 Duck DNS Status:" >> $GITHUB_STEP_SUMMARY
+              echo "✅ **Duck DNS configured automatically**" >> $GITHUB_STEP_SUMMARY
+              echo "- **Domain**: \`${{ vars.DUCKDNS_SUBDOMAIN }}.duckdns.org\`" >> $GITHUB_STEP_SUMMARY
+              echo "- **Points to**: \`${{ vars.GCP_VM_EXTERNAL_IP }}\`" >> $GITHUB_STEP_SUMMARY
+              echo "- **Status**: Active" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "### 🌐 DNS Configuration:" >> $GITHUB_STEP_SUMMARY
+              echo "Make sure your DNS has an **A Record**:" >> $GITHUB_STEP_SUMMARY
+              echo "- **Type**: A Record" >> $GITHUB_STEP_SUMMARY
+              echo "- **Name**: Your domain" >> $GITHUB_STEP_SUMMARY
+              echo "- **Value**: \`${{ vars.GCP_VM_EXTERNAL_IP }}\`" >> $GITHUB_STEP_SUMMARY
+              echo "- **TTL**: 300 (5 minutes)" >> $GITHUB_STEP_SUMMARY
+            fi
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "### 🔧 Available Actions:" >> $GITHUB_STEP_SUMMARY
             echo "- **Configure Environment**: Use stored VM details" >> $GITHUB_STEP_SUMMARY

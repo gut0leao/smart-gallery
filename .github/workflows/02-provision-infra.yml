@@ -1,4 +1,4 @@
-name: 2. Provision infrastructure 🏗️
+name: "2. Provision infrastructure 🏗️"
 
 on:
   workflow_dispatch:

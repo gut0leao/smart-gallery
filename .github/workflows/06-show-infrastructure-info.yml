@@ -1,4 +1,4 @@
-name: "📋 Show Infrastructure Info"
+name: "6. Show Infrastructure Info 📋"
 
 on:
   workflow_dispatch:

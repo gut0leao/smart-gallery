@@ -270,9 +270,11 @@ jobs:
         run: |
           echo "📋 Creating Terraform plan with detailed analysis..."
           
-          # Create plan with detailed output
+          # Create plan with detailed output (don't exit on code 2)
+          set +e  # Disable exit on error temporarily
           PLAN_OUTPUT=$(terraform plan -out=tfplan -detailed-exitcode 2>&1)
           PLAN_EXIT_CODE=$?
+          set -e  # Re-enable exit on error
           
           # Save plan output for analysis
           echo "$PLAN_OUTPUT" > plan_output.txt
@@ -332,8 +334,17 @@ jobs:
               ;;
             1)
               echo "❌ Terraform plan failed!"
-              echo "Plan output:"
+              echo ""
+              echo "📋 Plan output:"
+              echo "----------------------------------------"
               cat plan_output.txt
+              echo "----------------------------------------"
+              echo ""
+              echo "🔍 This usually indicates:"
+              echo "• Syntax errors in Terraform configuration"
+              echo "• Missing required variables"
+              echo "• Authentication or permission issues"
+              echo "• Invalid resource configurations"
               exit 1
               ;;
             2)

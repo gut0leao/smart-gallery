@@ -351,11 +351,23 @@ jobs:
               echo "📝 Changes detected - plan created successfully"
               echo "PLAN_HAS_CHANGES=true" >> $GITHUB_ENV
               
-              # Count operations
-              CREATE_COUNT=$(echo "$PLAN_OUTPUT" | grep -c "will be created" || echo "0")
-              UPDATE_COUNT=$(echo "$PLAN_OUTPUT" | grep -c "will be updated in-place" || echo "0")
-              REPLACE_COUNT=$(echo "$PLAN_OUTPUT" | grep -c "must be replaced" || echo "0")
-              DESTROY_COUNT=$(echo "$PLAN_OUTPUT" | grep -c "will be destroyed" || echo "0")
+              # Count operations with safer parsing
+              CREATE_COUNT=$(echo "$PLAN_OUTPUT" | grep -c "will be created" 2>/dev/null || echo "0")
+              UPDATE_COUNT=$(echo "$PLAN_OUTPUT" | grep -c "will be updated in-place" 2>/dev/null || echo "0")
+              REPLACE_COUNT=$(echo "$PLAN_OUTPUT" | grep -c "must be replaced" 2>/dev/null || echo "0")
+              DESTROY_COUNT=$(echo "$PLAN_OUTPUT" | grep -c "will be destroyed" 2>/dev/null || echo "0")
+              
+              # Validate counts are numbers
+              CREATE_COUNT=${CREATE_COUNT//[^0-9]/}
+              UPDATE_COUNT=${UPDATE_COUNT//[^0-9]/}
+              REPLACE_COUNT=${REPLACE_COUNT//[^0-9]/}
+              DESTROY_COUNT=${DESTROY_COUNT//[^0-9]/}
+              
+              # Set defaults if empty
+              CREATE_COUNT=${CREATE_COUNT:-0}
+              UPDATE_COUNT=${UPDATE_COUNT:-0}
+              REPLACE_COUNT=${REPLACE_COUNT:-0}
+              DESTROY_COUNT=${DESTROY_COUNT:-0}
               
               echo ""
               echo "📊 PLAN SUMMARY:"
@@ -364,11 +376,13 @@ jobs:
               echo "  • Resources to replace: $REPLACE_COUNT"
               echo "  • Resources to destroy: $DESTROY_COUNT"
               
-              # Store counts for later use
-              echo "CREATE_COUNT=$CREATE_COUNT" >> $GITHUB_ENV
-              echo "UPDATE_COUNT=$UPDATE_COUNT" >> $GITHUB_ENV
-              echo "REPLACE_COUNT=$REPLACE_COUNT" >> $GITHUB_ENV
-              echo "DESTROY_COUNT=$DESTROY_COUNT" >> $GITHUB_ENV
+              # Store counts for later use with safe values
+              {
+                echo "CREATE_COUNT=$CREATE_COUNT"
+                echo "UPDATE_COUNT=$UPDATE_COUNT"
+                echo "REPLACE_COUNT=$REPLACE_COUNT"
+                echo "DESTROY_COUNT=$DESTROY_COUNT"
+              } >> $GITHUB_ENV
               ;;
           esac
           
@@ -390,10 +404,14 @@ jobs:
         run: |
           echo "🚀 Applying Terraform configuration..."
           
-          # Show what will be applied
+          # Show what will be applied with safe variable handling
+          REPLACE_COUNT=${REPLACE_COUNT:-0}
+          DESTROY_COUNT=${DESTROY_COUNT:-0}
+          
           if [ "$REPLACE_COUNT" -gt 0 ] || [ "$DESTROY_COUNT" -gt 0 ]; then
+            TOTAL_DESTRUCTIVE=$((REPLACE_COUNT + DESTROY_COUNT))
             echo "⚠️  DESTRUCTIVE OPERATIONS WARNING!"
-            echo "This will destroy/replace $((REPLACE_COUNT + DESTROY_COUNT)) resources"
+            echo "This will destroy/replace $TOTAL_DESTRUCTIVE resources"
             echo ""
             echo "💾 Before proceeding, consider backing up important data:"
             echo "  • Database content"  

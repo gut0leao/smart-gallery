@@ -128,51 +128,171 @@ jobs:
             --quiet \
             --command="echo '✅ VM is accessible'"
           
-          # Verify WP-CLI installation
-          WP_CLI_STATUS=$(gcloud compute ssh $VM_INSTANCE \
+          echo ""
+          echo "🔍 Checking system components..."
+          
+          # Get detailed system status
+          SYSTEM_STATUS=$(gcloud compute ssh $VM_INSTANCE \
             --zone=$VM_ZONE \
             --quiet \
             --command="
+              echo '=== System Status Check ==='
+              
+              # Check WP-CLI
+              echo -n 'WP-CLI: '
               if [ -f /usr/local/bin/wp ] && /usr/local/bin/wp --version >/dev/null 2>&1; then
-                echo 'ready'
+                echo 'INSTALLED (/usr/local/bin/wp --version: '$(/usr/local/bin/wp --version)')'
+                WP_CLI_OK=true
               else
-                echo 'missing'
+                echo 'NOT FOUND or NOT WORKING'
+                WP_CLI_OK=false
               fi
-            ")
-          
-          if [ "$WP_CLI_STATUS" = "ready" ]; then
-            echo "✅ WP-CLI is installed and ready"
-            echo "wp_cli_ready=true" >> $GITHUB_OUTPUT
-          else
-            echo "❌ WP-CLI is not installed or not working"
-            echo "💡 Please run the 'Install Packages' workflow first"
-            echo "wp_cli_ready=false" >> $GITHUB_OUTPUT
-            exit 1
-          fi
-          
-          # Verify database configuration
-          DB_CONFIG_STATUS=$(gcloud compute ssh $VM_INSTANCE \
-            --zone=$VM_ZONE \
-            --quiet \
-            --command="
+              
+              # Check database config
+              echo -n 'Database Config: '
               if [ -f /root/.wp-db-config ]; then
-                echo 'ready'
+                echo 'FOUND (/root/.wp-db-config exists)'
+                echo 'Contents:'
+                cat /root/.wp-db-config | sed 's/DB_PASS=.*/DB_PASS=***hidden***/' | sed 's/^/  /'
+                DB_CONFIG_OK=true
               else
-                echo 'missing'
+                echo 'NOT FOUND (/root/.wp-db-config missing)'
+                DB_CONFIG_OK=false
+              fi
+              
+              # Check MariaDB service
+              echo -n 'MariaDB Service: '
+              if systemctl is-active mariadb >/dev/null 2>&1; then
+                echo 'RUNNING'
+              else
+                echo 'NOT RUNNING or NOT INSTALLED'
+              fi
+              
+              # Check Nginx service
+              echo -n 'Nginx Service: '
+              if systemctl is-active nginx >/dev/null 2>&1; then
+                echo 'RUNNING'
+              else
+                echo 'NOT RUNNING or NOT INSTALLED'
+              fi
+              
+              # Check PHP-FPM service
+              echo -n 'PHP-FPM Service: '
+              if systemctl is-active php8.3-fpm >/dev/null 2>&1; then
+                echo 'RUNNING'
+              else
+                echo 'NOT RUNNING or NOT INSTALLED'
+              fi
+              
+              # Check if install packages workflow was completed
+              echo -n 'Install Packages Marker: '
+              if [ -f /var/log/packages-installed ]; then
+                echo 'FOUND (packages installation completed)'
+              else
+                echo 'NOT FOUND (packages installation may not have completed)'
+              fi
+              
+              echo '========================='
+              
+              # Return status
+              if [ \"\$WP_CLI_OK\" = true ] && [ \"\$DB_CONFIG_OK\" = true ]; then
+                echo 'STATUS:ALL_READY'
+              elif [ \"\$WP_CLI_OK\" = false ]; then
+                echo 'STATUS:WP_CLI_MISSING'
+              elif [ \"\$DB_CONFIG_OK\" = false ]; then
+                echo 'STATUS:DB_CONFIG_MISSING'
+              else
+                echo 'STATUS:UNKNOWN_ERROR'
               fi
             ")
           
-          if [ "$DB_CONFIG_STATUS" = "ready" ]; then
-            echo "✅ Database configuration found"
-            echo "database_ready=true" >> $GITHUB_OUTPUT
-          else
-            echo "❌ Database configuration missing"
-            echo "💡 Please run the 'Install Packages' workflow first"
-            echo "database_ready=false" >> $GITHUB_OUTPUT
-            exit 1
-          fi
+          echo "$SYSTEM_STATUS"
           
-          echo "🎉 All prerequisites verified successfully!"
+          # Extract final status
+          STATUS_LINE=$(echo "$SYSTEM_STATUS" | grep "STATUS:" | tail -1)
+          STATUS=${STATUS_LINE#STATUS:}
+          
+          case "$STATUS" in
+            "ALL_READY")
+              echo ""
+              echo "✅ All prerequisites are ready!"
+              echo "wp_cli_ready=true" >> $GITHUB_OUTPUT
+              echo "database_ready=true" >> $GITHUB_OUTPUT
+              ;;
+            "WP_CLI_MISSING")
+              echo ""
+              echo "❌ WP-CLI is not installed or not working properly"
+              echo "💡 Please run the 'Install Packages' workflow first"
+              echo "wp_cli_ready=false" >> $GITHUB_OUTPUT
+              echo "database_ready=false" >> $GITHUB_OUTPUT
+              exit 1
+              ;;
+            "DB_CONFIG_MISSING")
+              echo ""
+              echo "❌ Database configuration is missing"
+              echo "💡 The 'Install Packages' workflow needs to be run to create database configuration"
+              echo "🔍 This could mean:"
+              echo "   - The workflow wasn't executed completely"
+              echo "   - Database setup failed during installation"
+              echo "   - Configuration file was deleted or corrupted"
+              echo "wp_cli_ready=true" >> $GITHUB_OUTPUT
+              echo "database_ready=false" >> $GITHUB_OUTPUT
+              exit 1
+              ;;
+            *)
+              echo ""
+              echo "❌ Unknown system status or unexpected error"
+              echo "💡 Please check the system status above and run 'Install Packages' workflow if needed"
+              echo "wp_cli_ready=false" >> $GITHUB_OUTPUT
+              echo "database_ready=false" >> $GITHUB_OUTPUT
+              exit 1
+              ;;
+          esac
+
+      # Optional: Try to load database info from deployment files as fallback
+      - name: 🔍 Check Deployment Files for Database Info
+        if: steps.verify.outputs.database_ready == 'false'
+        run: |
+          echo "🔍 Checking if database info exists in deployment files..."
+          
+          if [ -f ".deployment-info/database.json" ]; then
+            echo "✅ Found database.json in deployment files"
+            echo "📋 Database configuration may be available from previous run"
+            
+            # Show database info (without password)
+            echo "Database info from deployment files:"
+            jq -r 'to_entries[] | select(.key != "db_password") | "\(.key): \(.value)"' .deployment-info/database.json
+            
+            echo ""
+            echo "💡 You may be able to proceed, but it's recommended to verify database connectivity"
+            echo "   on the VM by running the 'Install Packages' workflow to ensure everything is set up correctly."
+          else
+            echo "❌ No database configuration found in deployment files either"
+            echo "💡 You must run the 'Install Packages' workflow first to set up the system properly"
+          fi
+
+      # Show helpful next steps
+      - name: 📋 Prerequisites Summary & Next Steps
+        if: failure()
+        run: |
+          echo "## 🚫 Prerequisites Check Failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The Configure Environment workflow cannot proceed because required system components are missing." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔧 Required Actions:" >> $GITHUB_STEP_SUMMARY
+          echo "1. **Run the 'Install Packages' workflow first**" >> $GITHUB_STEP_SUMMARY
+          echo "2. Ensure it completes successfully without errors" >> $GITHUB_STEP_SUMMARY
+          echo "3. Then retry this 'Configure Environment' workflow" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📊 System Status:" >> $GITHUB_STEP_SUMMARY
+          echo "- **WP-CLI**: ${{ steps.verify.outputs.wp_cli_ready == 'true' && '✅ Ready' || '❌ Missing' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Database Config**: ${{ steps.verify.outputs.database_ready == 'true' && '✅ Ready' || '❌ Missing' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔗 Workflow Order:" >> $GITHUB_STEP_SUMMARY
+          echo "1. **Provision Infrastructure** → Create VM and networking" >> $GITHUB_STEP_SUMMARY
+          echo "2. **Install Packages** → Install software and configure services" >> $GITHUB_STEP_SUMMARY
+          echo "3. **Configure Environment** → Set up WordPress and SSL (this workflow)" >> $GITHUB_STEP_SUMMARY
+          echo "4. **Deploy Plugin** → Install Smart Gallery plugin" >> $GITHUB_STEP_SUMMARY
 
   configure-nginx:
     name: "🌐 Configure Nginx & SSL"

@@ -62,6 +62,49 @@ jobs:
       - name: 📥 Checkout Repository
         uses: actions/checkout@v4
 
+      # Load infrastructure information from deployment files
+      - name: 🔍 Load Infrastructure Information
+        id: load_info
+        run: |
+          echo "🔍 Loading infrastructure information..."
+          
+          # Check if deployment info files exist
+          if [ -f ".deployment-info/infrastructure.json" ]; then
+            echo "✅ Found deployment information file"
+            
+            # Extract information from JSON file
+            VM_NAME=$(jq -r '.vm_name // ""' .deployment-info/infrastructure.json)
+            VM_ZONE=$(jq -r '.vm_zone // ""' .deployment-info/infrastructure.json)
+            PROJECT_ID=$(jq -r '.project_id // ""' .deployment-info/infrastructure.json)
+            
+            # Override environment variables if found in deployment files
+            if [ -n "$VM_NAME" ]; then
+              echo "VM_INSTANCE=$VM_NAME" >> $GITHUB_ENV
+            fi
+            if [ -n "$VM_ZONE" ]; then
+              echo "VM_ZONE=$VM_ZONE" >> $GITHUB_ENV
+            fi
+            if [ -n "$PROJECT_ID" ]; then
+              echo "GCP_PROJECT_ID=$PROJECT_ID" >> $GITHUB_ENV
+            fi
+            
+            echo "📋 Using deployment files for infrastructure info"
+            echo "DEPLOYMENT_FILES_EXIST=true" >> $GITHUB_ENV
+          else
+            echo "📋 Using GitHub Variables/inputs for infrastructure info"
+            echo "DEPLOYMENT_FILES_EXIST=false" >> $GITHUB_ENV
+            
+            # Use original environment variables
+            echo "VM_INSTANCE=${{ env.VM_INSTANCE }}" >> $GITHUB_ENV
+            echo "VM_ZONE=${{ env.VM_ZONE }}" >> $GITHUB_ENV
+            echo "GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }}" >> $GITHUB_ENV
+          fi
+          
+          echo "📊 Infrastructure Information:"
+          echo "- VM Instance: ${VM_INSTANCE:-Not set}"
+          echo "- VM Zone: ${VM_ZONE:-Not set}"
+          echo "- Project ID: ${GCP_PROJECT_ID:-Not set}"
+
       # Authenticate to GCP
       - name: 🔐 Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -389,6 +432,25 @@ jobs:
           echo "1. Run **Deploy Plugin** workflow" >> $GITHUB_STEP_SUMMARY
           echo "2. Access admin at: $SITE_URL/wp-admin/" >> $GITHUB_STEP_SUMMARY
           echo "3. Configure Smart Gallery widget in Elementor" >> $GITHUB_STEP_SUMMARY
+
+      # Store environment configuration
+      - name: 📊 Store Environment Configuration
+        run: |
+          echo "📊 Storing environment configuration..."
+          
+          # Create deployment info directory if it doesn't exist
+          mkdir -p .deployment-info
+          
+          # Store environment configuration in deployment files
+          cat > .deployment-info/environment.env << EOF
+          SITE_URL=${{ steps.configure.outputs.site_url }}
+          ADMIN_USER=$ADMIN_USER
+          ADMIN_PASSWORD=${{ steps.configure.outputs.admin_password }}
+          ADMIN_EMAIL=$ADMIN_EMAIL
+          WORDPRESS_VERSION=$(wp core version --allow-root)
+          EOF
+          
+          echo "✅ Environment configuration stored in deployment files"
 
       # Cleanup
       - name: 🗑️ Cleanup

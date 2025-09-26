@@ -54,6 +54,49 @@ jobs:
         with:
           fetch-depth: 0
 
+      # Load infrastructure information from deployment files
+      - name: 🔍 Load Infrastructure Information
+        id: load_info
+        run: |
+          echo "🔍 Loading infrastructure information..."
+          
+          # Check if deployment info files exist
+          if [ -f ".deployment-info/infrastructure.json" ]; then
+            echo "✅ Found deployment information file"
+            
+            # Extract information from JSON file
+            VM_NAME=$(jq -r '.vm_name // ""' .deployment-info/infrastructure.json)
+            VM_ZONE=$(jq -r '.vm_zone // ""' .deployment-info/infrastructure.json)
+            PROJECT_ID=$(jq -r '.project_id // ""' .deployment-info/infrastructure.json)
+            
+            # Override environment variables if found in deployment files
+            if [ -n "$VM_NAME" ]; then
+              echo "VM_INSTANCE=$VM_NAME" >> $GITHUB_ENV
+            fi
+            if [ -n "$VM_ZONE" ]; then
+              echo "VM_ZONE=$VM_ZONE" >> $GITHUB_ENV
+            fi
+            if [ -n "$PROJECT_ID" ]; then
+              echo "GCP_PROJECT_ID=$PROJECT_ID" >> $GITHUB_ENV
+            fi
+            
+            echo "📋 Using deployment files for infrastructure info"
+            echo "DEPLOYMENT_FILES_EXIST=true" >> $GITHUB_ENV
+          else
+            echo "📋 Using GitHub Variables/inputs for infrastructure info"
+            echo "DEPLOYMENT_FILES_EXIST=false" >> $GITHUB_ENV
+            
+            # Use original environment variables
+            echo "VM_INSTANCE=${{ env.VM_INSTANCE }}" >> $GITHUB_ENV
+            echo "VM_ZONE=${{ env.VM_ZONE }}" >> $GITHUB_ENV
+            echo "GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }}" >> $GITHUB_ENV
+          fi
+          
+          echo "📊 Infrastructure Information:"
+          echo "- VM Instance: ${VM_INSTANCE:-Not set}"
+          echo "- VM Zone: ${VM_ZONE:-Not set}"
+          echo "- Project ID: ${GCP_PROJECT_ID:-Not set}"
+
       - name: "🔐 Authenticate to Google Cloud"
         uses: google-github-actions/auth@v2
         with:
@@ -300,6 +343,34 @@ jobs:
           echo "1. Access WordPress admin to verify plugin" >> $GITHUB_STEP_SUMMARY
           echo "2. Configure Smart Gallery widget in Elementor" >> $GITHUB_STEP_SUMMARY
           echo "3. Test plugin functionality with demo content" >> $GITHUB_STEP_SUMMARY
+
+      # Store deployment information
+      - name: 📊 Store Deployment Information
+        env:
+          DEPLOYED_VERSION: ${{ steps.deploy.outputs.deployed_version }}
+          SITE_URL: ${{ steps.deploy.outputs.site_url }}
+          DEPLOYMENT_SOURCE: ${{ steps.version.outputs.source }}
+        run: |
+          echo "📊 Storing deployment information..."
+          
+          # Create deployment info directory if it doesn't exist
+          mkdir -p .deployment-info
+          
+          # Store deployment configuration in deployment files
+          cat > .deployment-info/deployment.json << EOF
+          {
+            "plugin_version": "$DEPLOYED_VERSION",
+            "deployment_source": "$DEPLOYMENT_SOURCE",
+            "deployed_at": "$(date -u -Iseconds)",
+            "site_url": "$SITE_URL",
+            "admin_url": "$SITE_URL/wp-admin/",
+            "vm_instance": "$VM_INSTANCE",
+            "vm_zone": "$VM_ZONE",
+            "project_id": "$GCP_PROJECT_ID"
+          }
+          EOF
+          
+          echo "✅ Deployment information stored in deployment files"
 
       - name: "🗑️ Cleanup"
         if: always()

@@ -41,6 +41,49 @@ jobs:
       - name: 📥 Checkout Repository
         uses: actions/checkout@v4
 
+      # Load infrastructure information from deployment files
+      - name: 🔍 Load Infrastructure Information
+        id: load_info
+        run: |
+          echo "🔍 Loading infrastructure information..."
+          
+          # Check if deployment info files exist
+          if [ -f ".deployment-info/infrastructure.json" ]; then
+            echo "✅ Found deployment information file"
+            
+            # Extract information from JSON file
+            VM_NAME=$(jq -r '.vm_name // ""' .deployment-info/infrastructure.json)
+            VM_ZONE=$(jq -r '.vm_zone // ""' .deployment-info/infrastructure.json)
+            PROJECT_ID=$(jq -r '.project_id // ""' .deployment-info/infrastructure.json)
+            
+            # Override environment variables if found in deployment files
+            if [ -n "$VM_NAME" ]; then
+              echo "VM_INSTANCE=$VM_NAME" >> $GITHUB_ENV
+            fi
+            if [ -n "$VM_ZONE" ]; then
+              echo "VM_ZONE=$VM_ZONE" >> $GITHUB_ENV
+            fi
+            if [ -n "$PROJECT_ID" ]; then
+              echo "GCP_PROJECT_ID=$PROJECT_ID" >> $GITHUB_ENV
+            fi
+            
+            echo "📋 Using deployment files for infrastructure info"
+            echo "DEPLOYMENT_FILES_EXIST=true" >> $GITHUB_ENV
+          else
+            echo "📋 Using GitHub Variables/inputs for infrastructure info"
+            echo "DEPLOYMENT_FILES_EXIST=false" >> $GITHUB_ENV
+            
+            # Use original environment variables
+            echo "VM_INSTANCE=${{ env.VM_INSTANCE }}" >> $GITHUB_ENV
+            echo "VM_ZONE=${{ env.VM_ZONE }}" >> $GITHUB_ENV
+            echo "GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }}" >> $GITHUB_ENV
+          fi
+          
+          echo "📊 Infrastructure Information:"
+          echo "- VM Instance: ${VM_INSTANCE:-Not set}"
+          echo "- VM Zone: ${VM_ZONE:-Not set}"
+          echo "- Project ID: ${GCP_PROJECT_ID:-Not set}"
+
       # Authenticate to GCP
       - name: 🔐 Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -302,47 +345,57 @@ jobs:
               echo '✅ WordPress database created locally'
             "
           
-          # Store database credentials as GitHub Variables for future use
-          echo "💾 Storing database credentials as GitHub Variables..."
+          # Store database credentials in deployment files
+          echo "💾 Storing database credentials in deployment files..."
+          mkdir -p .deployment-info
+          cat > .deployment-info/database.json << EOF
+          {
+            "database_name": "$DB_NAME",
+            "database_user": "$DB_USER",
+            "created_at": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+            "workflow_run_id": "${{ github.run_id }}"
+          }
+          EOF
           
-          # Store database name
-          curl -L \
-            -X PATCH \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            https://api.github.com/repos/${{ github.repository }}/actions/variables/WP_DB_NAME \
-            -d "{\"name\":\"WP_DB_NAME\",\"value\":\"$DB_NAME\"}" \
-            2>/dev/null || \
-          curl -L \
-            -X POST \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            https://api.github.com/repos/${{ github.repository }}/actions/variables \
-            -d "{\"name\":\"WP_DB_NAME\",\"value\":\"$DB_NAME\"}"
+          # Try to store as GitHub Variables (with error handling)
+          echo "🔐 Attempting to store as GitHub Variables..."
+          set +e  # Don't exit on error
           
-          # Store database user
-          curl -L \
-            -X PATCH \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            https://api.github.com/repos/${{ github.repository }}/actions/variables/WP_DB_USER \
-            -d "{\"name\":\"WP_DB_USER\",\"value\":\"$DB_USER\"}" \
-            2>/dev/null || \
-          curl -L \
-            -X POST \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            https://api.github.com/repos/${{ github.repository }}/actions/variables \
-            -d "{\"name\":\"WP_DB_USER\",\"value\":\"$DB_USER\"}"
+          # Try to set GitHub Variables
+          for var_data in "WP_DB_NAME:$DB_NAME" "WP_DB_USER:$DB_USER"; do
+            var_name="${var_data%%:*}"
+            var_value="${var_data#*:}"
+            
+            if curl -s -L \
+              -X PATCH \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              https://api.github.com/repos/${{ github.repository }}/actions/variables/$var_name \
+              -d "{\"name\":\"$var_name\",\"value\":\"$var_value\"}" \
+              >/dev/null 2>&1; then
+              echo "✅ Updated variable: $var_name"
+            elif curl -s -L \
+              -X POST \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              https://api.github.com/repos/${{ github.repository }}/actions/variables \
+              -d "{\"name\":\"$var_name\",\"value\":\"$var_value\"}" \
+              >/dev/null 2>&1; then
+              echo "✅ Created variable: $var_name"
+            else
+              echo "⚠️ Could not set variable: $var_name (permissions issue)"
+            fi
+          done
           
-          echo "✅ Database credentials stored in GitHub Variables"
+          set -e  # Re-enable exit on error
+          
+          echo "✅ Database credentials stored in deployment files"
           echo "📝 Database Name: $DB_NAME"
-          echo "📝 Database User: $DB_USER"
+          echo "📝 Database User: $DB_USER" 
           echo "🔐 Database Password: [STORED SECURELY ON VM]"
+          echo "📁 Database info also stored in .deployment-info/database.json"
 
       # Store database password as GitHub Secret (simplified approach)
       - name: 🔐 Store Database Password as Secret

@@ -82,3 +82,6 @@ wp-config.php
 *.json
 !package*.json
 !composer*.json
+
+# Deployment information (may contain sensitive data)
+.deployment-info/

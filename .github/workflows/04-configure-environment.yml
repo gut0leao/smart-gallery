@@ -49,13 +49,13 @@ env:
   LETSENCRYPT_EMAIL: ${{ github.event.inputs.letsencrypt_email }}
 
 jobs:
-  configure:
-    name: Configure Environment
+  verify-prerequisites:
+    name: "🔍 Verify Prerequisites"
     runs-on: ubuntu-latest
     
     outputs:
-      site_url: ${{ steps.configure.outputs.site_url }}
-      admin_password: ${{ steps.configure.outputs.admin_password }}
+      wp_cli_ready: ${{ steps.verify.outputs.wp_cli_ready }}
+      database_ready: ${{ steps.verify.outputs.database_ready }}
     
     steps:
       # Checkout repository
@@ -116,54 +116,147 @@ jobs:
       - name: ☁️ Setup Google Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      # Create configuration script
-      - name: 📝 Create Configuration Script
+      # Verify prerequisites
+      - name: 🔍 Verify System Prerequisites
+        id: verify
         run: |
-          cat > configure-environment.sh << 'EOF'
-          #!/bin/bash
-          # Environment configuration script
+          echo "🔍 Verifying system prerequisites..."
           
+          # Check if VM is accessible
+          gcloud compute ssh $VM_INSTANCE \
+            --zone=$VM_ZONE \
+            --quiet \
+            --command="echo '✅ VM is accessible'"
+          
+          # Verify WP-CLI installation
+          WP_CLI_STATUS=$(gcloud compute ssh $VM_INSTANCE \
+            --zone=$VM_ZONE \
+            --quiet \
+            --command="
+              if [ -f /usr/local/bin/wp ] && /usr/local/bin/wp --version >/dev/null 2>&1; then
+                echo 'ready'
+              else
+                echo 'missing'
+              fi
+            ")
+          
+          if [ "$WP_CLI_STATUS" = "ready" ]; then
+            echo "✅ WP-CLI is installed and ready"
+            echo "wp_cli_ready=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ WP-CLI is not installed or not working"
+            echo "💡 Please run the 'Install Packages' workflow first"
+            echo "wp_cli_ready=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          # Verify database configuration
+          DB_CONFIG_STATUS=$(gcloud compute ssh $VM_INSTANCE \
+            --zone=$VM_ZONE \
+            --quiet \
+            --command="
+              if [ -f /root/.wp-db-config ]; then
+                echo 'ready'
+              else
+                echo 'missing'
+              fi
+            ")
+          
+          if [ "$DB_CONFIG_STATUS" = "ready" ]; then
+            echo "✅ Database configuration found"
+            echo "database_ready=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Database configuration missing"
+            echo "💡 Please run the 'Install Packages' workflow first"
+            echo "database_ready=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          echo "🎉 All prerequisites verified successfully!"
+
+  configure-nginx:
+    name: "🌐 Configure Nginx & SSL"
+    runs-on: ubuntu-latest
+    needs: verify-prerequisites
+    if: needs.verify-prerequisites.outputs.wp_cli_ready == 'true'
+    
+    steps:
+      # Checkout repository
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      # Load infrastructure information from deployment files
+      - name: 🔍 Load Infrastructure Information
+        id: load_info
+        run: |
+          echo "🔍 Loading infrastructure information..."
+          
+          # Check if deployment info files exist
+          if [ -f ".deployment-info/infrastructure.json" ]; then
+            echo "✅ Found deployment information file"
+            
+            # Extract information from JSON file
+            VM_NAME=$(jq -r '.vm_name // ""' .deployment-info/infrastructure.json)
+            VM_ZONE=$(jq -r '.vm_zone // ""' .deployment-info/infrastructure.json)
+            PROJECT_ID=$(jq -r '.project_id // ""' .deployment-info/infrastructure.json)
+            
+            # Override environment variables if found in deployment files
+            if [ -n "$VM_NAME" ]; then
+              echo "VM_INSTANCE=$VM_NAME" >> $GITHUB_ENV
+            fi
+            if [ -n "$VM_ZONE" ]; then
+              echo "VM_ZONE=$VM_ZONE" >> $GITHUB_ENV
+            fi
+            if [ -n "$PROJECT_ID" ]; then
+              echo "GCP_PROJECT_ID=$PROJECT_ID" >> $GITHUB_ENV
+            fi
+            
+            echo "📋 Using deployment files for infrastructure info"
+            echo "DEPLOYMENT_FILES_EXIST=true" >> $GITHUB_ENV
+          else
+            echo "📋 Using GitHub Variables/inputs for infrastructure info"
+            echo "DEPLOYMENT_FILES_EXIST=false" >> $GITHUB_ENV
+            
+            # Use original environment variables
+            echo "VM_INSTANCE=${{ env.VM_INSTANCE }}" >> $GITHUB_ENV
+            echo "VM_ZONE=${{ env.VM_ZONE }}" >> $GITHUB_ENV
+            echo "GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }}" >> $GITHUB_ENV
+          fi
+          
+          echo "📊 Infrastructure Information:"
+          echo "- VM Instance: ${VM_INSTANCE:-Not set}"
+          echo "- VM Zone: ${VM_ZONE:-Not set}"
+          echo "- Project ID: ${GCP_PROJECT_ID:-Not set}"
+
+      # Authenticate to GCP
+      - name: 🔐 Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      # Setup Google Cloud SDK
+      - name: ☁️ Setup Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      # Create Nginx configuration script
+      - name: 📝 Create Nginx Configuration Script
+        run: |
+          cat > configure-nginx.sh << 'EOF'
+          #!/bin/bash
           set -e
-          exec > >(tee /var/log/environment-configuration.log)
+          exec > >(tee /var/log/nginx-configuration.log)
           exec 2>&1
           
           DOMAIN_NAME="$1"
-          SITE_TITLE="$2"
-          ADMIN_USER="$3"
-          ADMIN_EMAIL="$4"
-          LETSENCRYPT_EMAIL="$5"
           
-          echo "⚙️ Smart Gallery Environment Configuration - $(date)"
-          echo "Domain: $DOMAIN_NAME"
-          echo "Site Title: $SITE_TITLE"
-          echo "Admin User: $ADMIN_USER"
-          echo "Admin Email: $ADMIN_EMAIL"
-          
-          # Load database credentials
-          source /root/.wp-db-config
-          
-          # Generate secure passwords
-          ADMIN_PASSWORD=$(openssl rand -base64 24)
-          DB_ROOT_PASSWORD=$(openssl rand -base64 32)
-          
-          # Set MariaDB root password
-          echo "🔒 Setting MariaDB root password..."
-          mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '$DB_ROOT_PASSWORD';"
-          
-          # Store root password
-          echo "[client]" > /root/.my.cnf
-          echo "user=root" >> /root/.my.cnf
-          echo "password=$DB_ROOT_PASSWORD" >> /root/.my.cnf
-          chmod 600 /root/.my.cnf
-          
-          # Configure Nginx
-          echo "🌐 Configuring Nginx..."
+          echo "🌐 Configuring Nginx for domain: $DOMAIN_NAME - $(date)"
           
           # Remove default site
           rm -f /etc/nginx/sites-enabled/default
           
           # Create WordPress site configuration
-          cat > /etc/nginx/sites-available/wordpress <<'NGINX_CONF'
+          cat > /etc/nginx/sites-available/wordpress <<NGINX_CONF
           server {
               listen 80;
               server_name $DOMAIN_NAME;
@@ -208,167 +301,544 @@ jobs:
           nginx -t
           systemctl reload nginx
           
-          # Verify WP-CLI is available
-          echo "🔧 Verifying WP-CLI installation..."
-          if ! /usr/local/bin/wp --version >/dev/null 2>&1; then
-            echo "❌ WP-CLI not found at /usr/local/bin/wp!"
-            echo "💡 Please run the 'Install Packages' workflow first."
-            exit 1
-          else
-            echo "✅ WP-CLI is available: $(/usr/local/bin/wp --version)"
-          fi
-          
-          # Download and install WordPress
-          echo "📥 Installing WordPress..."
-          cd /var/www/html
-          
-          # Remove any existing files
-          rm -rf *
-          
-          # Download WordPress
-          /usr/local/bin/wp core download --allow-root
-          
-          # Create wp-config.php
-          /usr/local/bin/wp config create \
-              --dbname=$DB_NAME \
-              --dbuser=$DB_USER \
-              --dbpass=$DB_PASS \
-              --dbhost=localhost \
-              --allow-root
-          
-          # Install WordPress
-          /usr/local/bin/wp core install \
-              --url="http://$DOMAIN_NAME" \
-              --title="$SITE_TITLE" \
-              --admin_user=$ADMIN_USER \
-              --admin_password=$ADMIN_PASSWORD \
-              --admin_email=$ADMIN_EMAIL \
-              --allow-root
-          
-          # Configure WordPress settings
-          echo "⚙️ Configuring WordPress..."
-          
-          # Set permalink structure
-          /usr/local/bin/wp option update permalink_structure '/%postname%/' --allow-root
-          
-          # Configure timezone
-          /usr/local/bin/wp option update timezone_string 'UTC' --allow-root
-          
-          # Set proper file permissions
-          chown -R www-data:www-data /var/www/html
-          find /var/www/html -type d -exec chmod 755 {} \;
-          find /var/www/html -type f -exec chmod 644 {} \;
-          chmod 600 /var/www/html/wp-config.php
-          
-          # Install essential plugins
-          echo "🔌 Installing essential plugins..."
-          
-          # Install Elementor
-          /usr/local/bin/wp plugin install elementor --activate --allow-root
-          
-          # Install Pods (required for Smart Gallery)
-          /usr/local/bin/wp plugin install pods --activate --allow-root
-          
-          # Install WordPress SEO
-          /usr/local/bin/wp plugin install wordpress-seo --activate --allow-root
-          
-          # Install security plugin
-          /usr/local/bin/wp plugin install wordfence --activate --allow-root
-          
-          # Create some demo content
-          echo "📝 Creating demo content..."
-          
-          # Create a sample page
-          /usr/local/bin/wp post create \
-              --post_type=page \
-              --post_title='Smart Gallery Demo' \
-              --post_content='<p>This page will showcase the Smart Gallery plugin functionality.</p>' \
-              --post_status=publish \
-              --allow-root
-          
-          # Configure SSL with Let's Encrypt
-          echo "🔒 Setting up SSL certificate..."
-          
-          # Get SSL certificate
-          certbot --nginx \
-              --non-interactive \
-              --agree-tos \
-              --email $LETSENCRYPT_EMAIL \
-              --domains $DOMAIN_NAME \
-              --redirect
-          
-          # Update WordPress URL to HTTPS
-          /usr/local/bin/wp option update home "https://$DOMAIN_NAME" --allow-root
-          /usr/local/bin/wp option update siteurl "https://$DOMAIN_NAME" --allow-root
-          
-          # Setup auto-renewal
-          echo "🔄 Setting up certificate auto-renewal..."
-          if ! crontab -l 2>/dev/null | grep -q 'certbot renew'; then
-              (crontab -l 2>/dev/null; echo "0 12 * * * /usr/bin/certbot renew --quiet") | crontab -
-          fi
-          
-          # Store credentials for later use
-          echo "ADMIN_USER=$ADMIN_USER" > /root/.wp-admin-config
-          echo "ADMIN_PASSWORD=$ADMIN_PASSWORD" >> /root/.wp-admin-config
-          echo "ADMIN_EMAIL=$ADMIN_EMAIL" >> /root/.wp-admin-config
-          echo "SITE_URL=https://$DOMAIN_NAME" >> /root/.wp-admin-config
-          chmod 600 /root/.wp-admin-config
-          
-          # Final Nginx reload
-          systemctl reload nginx
-          
-          echo "✅ Environment configuration completed successfully!"
-          echo "🌐 Site URL: https://$DOMAIN_NAME"
-          echo "👤 Admin User: $ADMIN_USER"
-          echo "🔑 Admin Password: $ADMIN_PASSWORD"
-          echo "📧 Admin Email: $ADMIN_EMAIL"
-          
-          touch /var/log/environment-configured
+          echo "✅ Nginx configuration completed!"
           EOF
           
-          chmod +x configure-environment.sh
+          chmod +x configure-nginx.sh
 
-      # Execute configuration on VM
-      - name: ⚙️ Configure Environment on VM
-        id: configure
+      # Execute Nginx configuration
+      - name: 🌐 Configure Nginx
         run: |
-          echo "⚙️ Starting environment configuration..."
+          echo "🌐 Configuring Nginx..."
           
-          # Copy configuration script to VM
-          gcloud compute scp configure-environment.sh \
-            $VM_INSTANCE:~/configure-environment.sh \
+          # Copy script to VM
+          gcloud compute scp configure-nginx.sh \
+            $VM_INSTANCE:~/configure-nginx.sh \
             --zone=$VM_ZONE \
             --quiet
           
-          # Execute configuration script
+          # Execute script
           gcloud compute ssh $VM_INSTANCE \
             --zone=$VM_ZONE \
             --quiet \
             --command="
-              sudo chmod +x ~/configure-environment.sh
-              sudo ~/configure-environment.sh \
-                '$DOMAIN_NAME' \
-                '$SITE_TITLE' \
-                '$ADMIN_USER' \
-                '$ADMIN_EMAIL' \
-                '$LETSENCRYPT_EMAIL'
+              sudo chmod +x ~/configure-nginx.sh
+              sudo ~/configure-nginx.sh '$DOMAIN_NAME'
             "
           
-          # Get admin password from VM
-          ADMIN_PASSWORD=$(gcloud compute ssh $VM_INSTANCE \
+          echo "✅ Nginx configuration completed!"
+
+  setup-database:
+    name: "🗃️ Setup Database & Security"
+    runs-on: ubuntu-latest
+    needs: configure-nginx
+    
+    steps:
+      # Checkout repository
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      # Load infrastructure information from deployment files
+      - name: 🔍 Load Infrastructure Information
+        id: load_info
+        run: |
+          echo "🔍 Loading infrastructure information..."
+          
+          # Check if deployment info files exist
+          if [ -f ".deployment-info/infrastructure.json" ]; then
+            echo "✅ Found deployment information file"
+            
+            # Extract information from JSON file
+            VM_NAME=$(jq -r '.vm_name // ""' .deployment-info/infrastructure.json)
+            VM_ZONE=$(jq -r '.vm_zone // ""' .deployment-info/infrastructure.json)
+            PROJECT_ID=$(jq -r '.project_id // ""' .deployment-info/infrastructure.json)
+            
+            # Override environment variables if found in deployment files
+            if [ -n "$VM_NAME" ]; then
+              echo "VM_INSTANCE=$VM_NAME" >> $GITHUB_ENV
+            fi
+            if [ -n "$VM_ZONE" ]; then
+              echo "VM_ZONE=$VM_ZONE" >> $GITHUB_ENV
+            fi
+            if [ -n "$PROJECT_ID" ]; then
+              echo "GCP_PROJECT_ID=$PROJECT_ID" >> $GITHUB_ENV
+            fi
+            
+            echo "📋 Using deployment files for infrastructure info"
+            echo "DEPLOYMENT_FILES_EXIST=true" >> $GITHUB_ENV
+          else
+            echo "📋 Using GitHub Variables/inputs for infrastructure info"
+            echo "DEPLOYMENT_FILES_EXIST=false" >> $GITHUB_ENV
+            
+            # Use original environment variables
+            echo "VM_INSTANCE=${{ env.VM_INSTANCE }}" >> $GITHUB_ENV
+            echo "VM_ZONE=${{ env.VM_ZONE }}" >> $GITHUB_ENV
+            echo "GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }}" >> $GITHUB_ENV
+          fi
+          
+          echo "📊 Infrastructure Information:"
+          echo "- VM Instance: ${VM_INSTANCE:-Not set}"
+          echo "- VM Zone: ${VM_ZONE:-Not set}"
+          echo "- Project ID: ${GCP_PROJECT_ID:-Not set}"
+
+      # Authenticate to GCP
+      - name: 🔐 Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      # Setup Google Cloud SDK
+      - name: ☁️ Setup Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      # Setup database security
+      - name: 🗃️ Setup Database Security
+        run: |
+          echo "🗃️ Setting up database security..."
+          
+          gcloud compute ssh $VM_INSTANCE \
             --zone=$VM_ZONE \
             --quiet \
-            --command="sudo grep 'ADMIN_PASSWORD=' /root/.wp-admin-config | cut -d'=' -f2")
+            --command="
+              # Load database credentials
+              source /root/.wp-db-config
+              
+              # Generate secure root password
+              DB_ROOT_PASSWORD=\$(openssl rand -base64 32)
+              
+              # Set MariaDB root password
+              echo '🔒 Setting MariaDB root password...'
+              mysql -e \"ALTER USER 'root'@'localhost' IDENTIFIED BY '\$DB_ROOT_PASSWORD';\"
+              
+              # Store root password
+              echo '[client]' > /root/.my.cnf
+              echo 'user=root' >> /root/.my.cnf
+              echo \"password=\$DB_ROOT_PASSWORD\" >> /root/.my.cnf
+              chmod 600 /root/.my.cnf
+              
+              echo '✅ Database security configured!'
+            "
+
+  install-wordpress:
+    name: "📥 Install WordPress"
+    runs-on: ubuntu-latest
+    needs: setup-database
+    
+    outputs:
+      admin_password: ${{ steps.install.outputs.admin_password }}
+    
+    steps:
+      # Checkout repository
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      # Load infrastructure information from deployment files
+      - name: 🔍 Load Infrastructure Information
+        id: load_info
+        run: |
+          echo "🔍 Loading infrastructure information..."
+          
+          # Check if deployment info files exist
+          if [ -f ".deployment-info/infrastructure.json" ]; then
+            echo "✅ Found deployment information file"
+            
+            # Extract information from JSON file
+            VM_NAME=$(jq -r '.vm_name // ""' .deployment-info/infrastructure.json)
+            VM_ZONE=$(jq -r '.vm_zone // ""' .deployment-info/infrastructure.json)
+            PROJECT_ID=$(jq -r '.project_id // ""' .deployment-info/infrastructure.json)
+            
+            # Override environment variables if found in deployment files
+            if [ -n "$VM_NAME" ]; then
+              echo "VM_INSTANCE=$VM_NAME" >> $GITHUB_ENV
+            fi
+            if [ -n "$VM_ZONE" ]; then
+              echo "VM_ZONE=$VM_ZONE" >> $GITHUB_ENV
+            fi
+            if [ -n "$PROJECT_ID" ]; then
+              echo "GCP_PROJECT_ID=$PROJECT_ID" >> $GITHUB_ENV
+            fi
+            
+            echo "📋 Using deployment files for infrastructure info"
+            echo "DEPLOYMENT_FILES_EXIST=true" >> $GITHUB_ENV
+          else
+            echo "📋 Using GitHub Variables/inputs for infrastructure info"
+            echo "DEPLOYMENT_FILES_EXIST=false" >> $GITHUB_ENV
+            
+            # Use original environment variables
+            echo "VM_INSTANCE=${{ env.VM_INSTANCE }}" >> $GITHUB_ENV
+            echo "VM_ZONE=${{ env.VM_ZONE }}" >> $GITHUB_ENV
+            echo "GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }}" >> $GITHUB_ENV
+          fi
+          
+          echo "📊 Infrastructure Information:"
+          echo "- VM Instance: ${VM_INSTANCE:-Not set}"
+          echo "- VM Zone: ${VM_ZONE:-Not set}"
+          echo "- Project ID: ${GCP_PROJECT_ID:-Not set}"
+
+      # Authenticate to GCP
+      - name: 🔐 Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      # Setup Google Cloud SDK
+      - name: ☁️ Setup Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      # Install WordPress
+      - name: 📥 Install WordPress
+        id: install
+        run: |
+          echo "📥 Installing WordPress..."
+          
+          # Generate admin password
+          ADMIN_PASSWORD=$(openssl rand -base64 24)
+          
+          gcloud compute ssh $VM_INSTANCE \
+            --zone=$VM_ZONE \
+            --quiet \
+            --command="
+              # Load database credentials
+              source /root/.wp-db-config
+              
+              cd /var/www/html
+              
+              # Remove any existing files
+              rm -rf *
+              
+              # Download WordPress
+              /usr/local/bin/wp core download --allow-root
+              
+              # Create wp-config.php
+              /usr/local/bin/wp config create \
+                  --dbname=\$DB_NAME \
+                  --dbuser=\$DB_USER \
+                  --dbpass=\$DB_PASS \
+                  --dbhost=localhost \
+                  --allow-root
+              
+              # Install WordPress
+              /usr/local/bin/wp core install \
+                  --url=\"http://$DOMAIN_NAME\" \
+                  --title=\"$SITE_TITLE\" \
+                  --admin_user=$ADMIN_USER \
+                  --admin_password='$ADMIN_PASSWORD' \
+                  --admin_email=$ADMIN_EMAIL \
+                  --allow-root
+              
+              # Configure WordPress settings
+              echo '⚙️ Configuring WordPress...'
+              
+              # Set permalink structure
+              /usr/local/bin/wp option update permalink_structure '/%postname%/' --allow-root
+              
+              # Configure timezone
+              /usr/local/bin/wp option update timezone_string 'UTC' --allow-root
+              
+              # Set proper file permissions
+              chown -R www-data:www-data /var/www/html
+              find /var/www/html -type d -exec chmod 755 {} \;
+              find /var/www/html -type f -exec chmod 644 {} \;
+              chmod 600 /var/www/html/wp-config.php
+              
+              echo '✅ WordPress installation completed!'
+            "
+          
+          echo "admin_password=$ADMIN_PASSWORD" >> $GITHUB_OUTPUT
+          echo "✅ WordPress installation completed!"
+
+  install-plugins:
+    name: "🔌 Install Essential Plugins"
+    runs-on: ubuntu-latest
+    needs: install-wordpress
+    
+    steps:
+      # Checkout repository
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      # Load infrastructure information from deployment files
+      - name: 🔍 Load Infrastructure Information
+        id: load_info
+        run: |
+          echo "🔍 Loading infrastructure information..."
+          
+          # Check if deployment info files exist
+          if [ -f ".deployment-info/infrastructure.json" ]; then
+            echo "✅ Found deployment information file"
+            
+            # Extract information from JSON file
+            VM_NAME=$(jq -r '.vm_name // ""' .deployment-info/infrastructure.json)
+            VM_ZONE=$(jq -r '.vm_zone // ""' .deployment-info/infrastructure.json)
+            PROJECT_ID=$(jq -r '.project_id // ""' .deployment-info/infrastructure.json)
+            
+            # Override environment variables if found in deployment files
+            if [ -n "$VM_NAME" ]; then
+              echo "VM_INSTANCE=$VM_NAME" >> $GITHUB_ENV
+            fi
+            if [ -n "$VM_ZONE" ]; then
+              echo "VM_ZONE=$VM_ZONE" >> $GITHUB_ENV
+            fi
+            if [ -n "$PROJECT_ID" ]; then
+              echo "GCP_PROJECT_ID=$PROJECT_ID" >> $GITHUB_ENV
+            fi
+            
+            echo "📋 Using deployment files for infrastructure info"
+            echo "DEPLOYMENT_FILES_EXIST=true" >> $GITHUB_ENV
+          else
+            echo "📋 Using GitHub Variables/inputs for infrastructure info"
+            echo "DEPLOYMENT_FILES_EXIST=false" >> $GITHUB_ENV
+            
+            # Use original environment variables
+            echo "VM_INSTANCE=${{ env.VM_INSTANCE }}" >> $GITHUB_ENV
+            echo "VM_ZONE=${{ env.VM_ZONE }}" >> $GITHUB_ENV
+            echo "GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }}" >> $GITHUB_ENV
+          fi
+          
+          echo "📊 Infrastructure Information:"
+          echo "- VM Instance: ${VM_INSTANCE:-Not set}"
+          echo "- VM Zone: ${VM_ZONE:-Not set}"
+          echo "- Project ID: ${GCP_PROJECT_ID:-Not set}"
+
+      # Authenticate to GCP
+      - name: 🔐 Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      # Setup Google Cloud SDK
+      - name: ☁️ Setup Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      # Install essential plugins
+      - name: 🔌 Install Essential Plugins
+        run: |
+          echo "🔌 Installing essential plugins..."
+          
+          gcloud compute ssh $VM_INSTANCE \
+            --zone=$VM_ZONE \
+            --quiet \
+            --command="
+              cd /var/www/html
+              
+              # Install Elementor
+              echo '📦 Installing Elementor...'
+              /usr/local/bin/wp plugin install elementor --activate --allow-root
+              
+              # Install Pods (required for Smart Gallery)
+              echo '📦 Installing Pods Framework...'
+              /usr/local/bin/wp plugin install pods --activate --allow-root
+              
+              # Install WordPress SEO
+              echo '📦 Installing WordPress SEO...'
+              /usr/local/bin/wp plugin install wordpress-seo --activate --allow-root
+              
+              # Install security plugin
+              echo '📦 Installing Wordfence Security...'
+              /usr/local/bin/wp plugin install wordfence --activate --allow-root
+              
+              # Create demo content
+              echo '📝 Creating demo content...'
+              /usr/local/bin/wp post create \
+                  --post_type=page \
+                  --post_title='Smart Gallery Demo' \
+                  --post_content='<p>This page will showcase the Smart Gallery plugin functionality.</p>' \
+                  --post_status=publish \
+                  --allow-root
+              
+              echo '✅ Essential plugins installed!'
+            "
+
+  setup-ssl:
+    name: "🔒 Setup SSL Certificate"
+    runs-on: ubuntu-latest
+    needs: install-plugins
+    
+    outputs:
+      site_url: ${{ steps.ssl.outputs.site_url }}
+    
+    steps:
+      # Checkout repository
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      # Load infrastructure information from deployment files
+      - name: 🔍 Load Infrastructure Information
+        id: load_info
+        run: |
+          echo "🔍 Loading infrastructure information..."
+          
+          # Check if deployment info files exist
+          if [ -f ".deployment-info/infrastructure.json" ]; then
+            echo "✅ Found deployment information file"
+            
+            # Extract information from JSON file
+            VM_NAME=$(jq -r '.vm_name // ""' .deployment-info/infrastructure.json)
+            VM_ZONE=$(jq -r '.vm_zone // ""' .deployment-info/infrastructure.json)
+            PROJECT_ID=$(jq -r '.project_id // ""' .deployment-info/infrastructure.json)
+            
+            # Override environment variables if found in deployment files
+            if [ -n "$VM_NAME" ]; then
+              echo "VM_INSTANCE=$VM_NAME" >> $GITHUB_ENV
+            fi
+            if [ -n "$VM_ZONE" ]; then
+              echo "VM_ZONE=$VM_ZONE" >> $GITHUB_ENV
+            fi
+            if [ -n "$PROJECT_ID" ]; then
+              echo "GCP_PROJECT_ID=$PROJECT_ID" >> $GITHUB_ENV
+            fi
+            
+            echo "📋 Using deployment files for infrastructure info"
+            echo "DEPLOYMENT_FILES_EXIST=true" >> $GITHUB_ENV
+          else
+            echo "📋 Using GitHub Variables/inputs for infrastructure info"
+            echo "DEPLOYMENT_FILES_EXIST=false" >> $GITHUB_ENV
+            
+            # Use original environment variables
+            echo "VM_INSTANCE=${{ env.VM_INSTANCE }}" >> $GITHUB_ENV
+            echo "VM_ZONE=${{ env.VM_ZONE }}" >> $GITHUB_ENV
+            echo "GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }}" >> $GITHUB_ENV
+          fi
+          
+          echo "📊 Infrastructure Information:"
+          echo "- VM Instance: ${VM_INSTANCE:-Not set}"
+          echo "- VM Zone: ${VM_ZONE:-Not set}"
+          echo "- Project ID: ${GCP_PROJECT_ID:-Not set}"
+
+      # Authenticate to GCP
+      - name: 🔐 Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      # Setup Google Cloud SDK
+      - name: ☁️ Setup Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      # Setup SSL certificate
+      - name: 🔒 Setup SSL Certificate
+        id: ssl
+        run: |
+          echo "🔒 Setting up SSL certificate..."
+          
+          gcloud compute ssh $VM_INSTANCE \
+            --zone=$VM_ZONE \
+            --quiet \
+            --command="
+              # Configure SSL with Let's Encrypt
+              echo '🔒 Getting SSL certificate...'
+              
+              # Get SSL certificate
+              certbot --nginx \
+                  --non-interactive \
+                  --agree-tos \
+                  --email $LETSENCRYPT_EMAIL \
+                  --domains $DOMAIN_NAME \
+                  --redirect
+              
+              # Update WordPress URL to HTTPS
+              cd /var/www/html
+              /usr/local/bin/wp option update home \"https://$DOMAIN_NAME\" --allow-root
+              /usr/local/bin/wp option update siteurl \"https://$DOMAIN_NAME\" --allow-root
+              
+              # Setup auto-renewal
+              echo '🔄 Setting up certificate auto-renewal...'
+              if ! crontab -l 2>/dev/null | grep -q 'certbot renew'; then
+                  (crontab -l 2>/dev/null; echo '0 12 * * * /usr/bin/certbot renew --quiet') | crontab -
+              fi
+              
+              # Store credentials for later use
+              echo \"ADMIN_USER=$ADMIN_USER\" > /root/.wp-admin-config
+              echo \"ADMIN_PASSWORD=${{ needs.install-wordpress.outputs.admin_password }}\" >> /root/.wp-admin-config
+              echo \"ADMIN_EMAIL=$ADMIN_EMAIL\" >> /root/.wp-admin-config
+              echo \"SITE_URL=https://$DOMAIN_NAME\" >> /root/.wp-admin-config
+              chmod 600 /root/.wp-admin-config
+              
+              # Final Nginx reload
+              systemctl reload nginx
+              
+              echo '✅ SSL certificate configured!'
+            "
           
           echo "site_url=https://$DOMAIN_NAME" >> $GITHUB_OUTPUT
-          echo "admin_password=$ADMIN_PASSWORD" >> $GITHUB_OUTPUT
+          echo "✅ SSL setup completed!"
+
+  health-check:
+    name: "🏥 Health Check & Summary"
+    runs-on: ubuntu-latest
+    needs: [setup-ssl, install-wordpress]
+    
+    outputs:
+      site_url: ${{ needs.setup-ssl.outputs.site_url }}
+      admin_password: ${{ needs.install-wordpress.outputs.admin_password }}
+    
+    steps:
+      # Checkout repository
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      # Load infrastructure information from deployment files
+      - name: 🔍 Load Infrastructure Information
+        id: load_info
+        run: |
+          echo "🔍 Loading infrastructure information..."
           
-          echo "✅ Environment configuration completed!"
+          # Check if deployment info files exist
+          if [ -f ".deployment-info/infrastructure.json" ]; then
+            echo "✅ Found deployment information file"
+            
+            # Extract information from JSON file
+            VM_NAME=$(jq -r '.vm_name // ""' .deployment-info/infrastructure.json)
+            VM_ZONE=$(jq -r '.vm_zone // ""' .deployment-info/infrastructure.json)
+            PROJECT_ID=$(jq -r '.project_id // ""' .deployment-info/infrastructure.json)
+            
+            # Override environment variables if found in deployment files
+            if [ -n "$VM_NAME" ]; then
+              echo "VM_INSTANCE=$VM_NAME" >> $GITHUB_ENV
+            fi
+            if [ -n "$VM_ZONE" ]; then
+              echo "VM_ZONE=$VM_ZONE" >> $GITHUB_ENV
+            fi
+            if [ -n "$PROJECT_ID" ]; then
+              echo "GCP_PROJECT_ID=$PROJECT_ID" >> $GITHUB_ENV
+            fi
+            
+            echo "📋 Using deployment files for infrastructure info"
+            echo "DEPLOYMENT_FILES_EXIST=true" >> $GITHUB_ENV
+          else
+            echo "📋 Using GitHub Variables/inputs for infrastructure info"
+            echo "DEPLOYMENT_FILES_EXIST=false" >> $GITHUB_ENV
+            
+            # Use original environment variables
+            echo "VM_INSTANCE=${{ env.VM_INSTANCE }}" >> $GITHUB_ENV
+            echo "VM_ZONE=${{ env.VM_ZONE }}" >> $GITHUB_ENV
+            echo "GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }}" >> $GITHUB_ENV
+          fi
+          
+          echo "📊 Infrastructure Information:"
+          echo "- VM Instance: ${VM_INSTANCE:-Not set}"
+          echo "- VM Zone: ${VM_ZONE:-Not set}"
+          echo "- Project ID: ${GCP_PROJECT_ID:-Not set}"
+
+      # Authenticate to GCP
+      - name: 🔐 Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      # Setup Google Cloud SDK
+      - name: ☁️ Setup Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
 
       # Health check
       - name: 🏥 Health Check
         env:
-          SITE_URL: https://${{ env.DOMAIN_NAME }}
+          SITE_URL: ${{ needs.setup-ssl.outputs.site_url }}
         run: |
           echo "🏥 Running health check..."
           
@@ -405,8 +875,8 @@ jobs:
       # Display configuration summary
       - name: 📊 Configuration Summary
         env:
-          SITE_URL: ${{ steps.configure.outputs.site_url }}
-          ADMIN_PASSWORD: ${{ steps.configure.outputs.admin_password }}
+          SITE_URL: ${{ needs.setup-ssl.outputs.site_url }}
+          ADMIN_PASSWORD: ${{ needs.install-wordpress.outputs.admin_password }}
         run: |
           echo "## ⚙️ Environment Configuration Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -435,6 +905,9 @@ jobs:
 
       # Store environment configuration
       - name: 📊 Store Environment Configuration
+        env:
+          SITE_URL: ${{ needs.setup-ssl.outputs.site_url }}
+          ADMIN_PASSWORD: ${{ needs.install-wordpress.outputs.admin_password }}
         run: |
           echo "📊 Storing environment configuration..."
           
@@ -443,11 +916,13 @@ jobs:
           
           # Store environment configuration in deployment files
           cat > .deployment-info/environment.env << EOF
-          SITE_URL=${{ steps.configure.outputs.site_url }}
+          SITE_URL=$SITE_URL
           ADMIN_USER=$ADMIN_USER
-          ADMIN_PASSWORD=${{ steps.configure.outputs.admin_password }}
+          ADMIN_PASSWORD=$ADMIN_PASSWORD
           ADMIN_EMAIL=$ADMIN_EMAIL
-          WORDPRESS_VERSION=$(wp core version --allow-root)
+          DOMAIN_NAME=$DOMAIN_NAME
+          SITE_TITLE=$SITE_TITLE
+          LETSENCRYPT_EMAIL=$LETSENCRYPT_EMAIL
           EOF
           
           echo "✅ Environment configuration stored in deployment files"
@@ -456,5 +931,5 @@ jobs:
       - name: 🗑️ Cleanup
         if: always()
         run: |
-          rm -f configure-environment.sh
+          rm -f configure-nginx.sh
           echo "✅ Configuration workflow completed"

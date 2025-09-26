@@ -303,10 +303,21 @@ jobs:
             DB_HOST=$(jq -r '.db_host // "localhost"' .deployment-info/database.json)
             DB_NAME=$(jq -r '.db_name // ""' .deployment-info/database.json)
             DB_USER=$(jq -r '.db_user // ""' .deployment-info/database.json)
-            DB_PASSWORD=$(jq -r '.db_password // ""' .deployment-info/database.json)
+            
+            # Try to get password from GitHub Secret first, then fallback to deployment file
+            if [ -n "${{ secrets.WP_DB_PASSWORD }}" ]; then
+              echo "✅ Using database password from GitHub Secret"
+              DB_PASSWORD="${{ secrets.WP_DB_PASSWORD }}"
+              PASSWORD_SOURCE="GitHub Secret"
+            else
+              echo "⚠️ GitHub Secret not available, trying deployment file..."
+              DB_PASSWORD=$(jq -r '.db_password // ""' .deployment-info/database.json)
+              PASSWORD_SOURCE="Deployment File"
+            fi
             
             if [ -n "$DB_NAME" ] && [ -n "$DB_USER" ] && [ -n "$DB_PASSWORD" ]; then
-              echo "📋 Database credentials found in deployment files, restoring to VM..."
+              echo "📋 Database credentials found, restoring to VM..."
+              echo "🔐 Password source: $PASSWORD_SOURCE"
               
               # Create database recovery script with proper variable handling
               cat > db_recovery.sh << 'EOF'

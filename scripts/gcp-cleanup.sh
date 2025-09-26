@@ -16,7 +16,6 @@ NC='\033[0m' # No Color
 
 # Configuration
 DRY_RUN=${DRY_RUN:-true}
-FORCE=${FORCE:-false}
 PROJECT_ID=""
 CURRENT_PROJECT=""
 
@@ -54,12 +53,10 @@ run_with_timeout() {
 
 confirm() {
     local message="$1"
-    if [ "$FORCE" = "true" ]; then
-        return 0
-    fi
     
     echo -e "${YELLOW}$message${NC}"
     read -p "Continue? (y/N): " -r
+    echo ""
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
         echo "Operation cancelled."
         return 1
@@ -201,11 +198,6 @@ select_project() {
     gcloud config set project "$PROJECT_ID"
     
     warn "Selected project: $PROJECT_ID"
-    warn "This will potentially DELETE ALL RESOURCES in this project!"
-    
-    if ! confirm "Are you absolutely sure you want to proceed with cleanup?"; then
-        exit 0
-    fi
 }
 
 # Function to run command with dry-run support
@@ -556,11 +548,6 @@ cleanup_orphaned_resources() {
 main_cleanup() {
     log "🧹 Starting comprehensive GCP cleanup for project: $PROJECT_ID"
     
-    if [ "$DRY_RUN" = "true" ]; then
-        warn "DRY RUN MODE: No resources will actually be deleted"
-        warn "Set DRY_RUN=false to actually delete resources"
-    fi
-    
     # Order matters - some resources depend on others
     cleanup_gke
     cleanup_run  
@@ -574,13 +561,13 @@ main_cleanup() {
     
     # Final pass to catch any orphaned resources
     cleanup_orphaned_resources
-    
-    success "Cleanup process completed!"
-    
+
     if [ "$DRY_RUN" = "false" ]; then
-        log "Resources have been deleted. Some cleanup may take a few minutes to complete."
-        log "Check the GCP Console to verify all resources are removed."
+        warn "Resources have been deleted. Some cleanup may take a few minutes to complete."
+        warn "Check the GCP Console to verify all resources are removed."
     fi
+
+    success "Cleanup process completed!"
 }
 
 # Usage information
@@ -591,18 +578,15 @@ show_usage() {
     echo ""
     echo "OPTIONS:"
     echo "  -d, --dry-run      Show what would be deleted without actually deleting (default: true)"
-    echo "  -f, --force        Skip confirmation prompts"
     echo "  -r, --real-run     Actually delete resources (sets DRY_RUN=false)"
     echo "  -h, --help         Show this help message"
     echo ""
     echo "EXAMPLES:"
     echo "  $0                 # Dry run - show what would be deleted"
     echo "  $0 --real-run      # Actually delete resources"
-    echo "  $0 --force --real-run  # Delete without prompts (DANGEROUS!)"
     echo ""
     echo "ENVIRONMENT VARIABLES:"
     echo "  DRY_RUN=false      Actually execute deletions"
-    echo "  FORCE=true         Skip confirmation prompts"
 }
 
 # Parse command line arguments
@@ -614,10 +598,6 @@ while [[ $# -gt 0 ]]; do
             ;;
         -r|--real-run)
             DRY_RUN=false
-            shift
-            ;;
-        -f|--force)
-            FORCE=true
             shift
             ;;
         -h|--help)
@@ -641,11 +621,14 @@ main() {
     select_project
     
     if [ "$DRY_RUN" = "false" ]; then
-        warn "⚠️  REAL DELETION MODE ACTIVATED!"
+        warn "⚠️  REAL DELETION MODE ACTIVATED! (DRY_RUN=false)"
         warn "This will PERMANENTLY DELETE resources in project: $PROJECT_ID"
-        if ! confirm "Last chance - are you absolutely sure?"; then
-            exit 0
-        fi
+        if ! confirm "Are you absolutely sure you want to proceed with cleanup?"; then
+        exit 0
+    fi
+    else 
+        warn "☔  RUNNING IN DRY RUN MODE (DRY_RUN=true - by default)"
+        warn "No resources will be deleted. Set DRY_RUN=false to actually delete."
     fi
     
     main_cleanup

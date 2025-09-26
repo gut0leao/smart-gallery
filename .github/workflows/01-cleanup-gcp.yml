@@ -8,11 +8,6 @@ on:
         description: 'GCP Project ID to clean'
         required: true
         type: string
-      force_cleanup:
-        description: 'Force cleanup without confirmation'
-        required: false
-        default: false
-        type: boolean
       dry_run:
         description: 'Dry run mode (show what would be deleted)'
         required: false
@@ -96,25 +91,18 @@ jobs:
       - name: 🧹 Execute GCP Cleanup
         env:
           DRY_RUN: ${{ github.event.inputs.dry_run }}
-          FORCE: ${{ github.event.inputs.force_cleanup }}
         run: |
           echo "🧹 Starting GCP resource cleanup..."
           echo "Project: ${{ env.GCP_PROJECT_ID }}"
           echo "Dry Run: ${{ github.event.inputs.dry_run }}"
-          echo "Force: ${{ github.event.inputs.force_cleanup }}"
           
           # Execute cleanup script
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
             echo "🔍 DRY RUN MODE - No resources will be deleted"
-            (echo "${{ env.GCP_PROJECT_ID }}"; echo "y") | DRY_RUN=true ./scripts/gcp-cleanup.sh
+            (echo "${{ env.GCP_PROJECT_ID }}") | DRY_RUN=true ./scripts/gcp-cleanup.sh
           else
             echo "⚠️ REAL CLEANUP MODE - Resources will be DELETED!"
-            if [ "${{ github.event.inputs.force_cleanup }}" = "true" ]; then
-              (echo "${{ env.GCP_PROJECT_ID }}"; echo "y"; echo "y") | DRY_RUN=false FORCE=true ./scripts/gcp-cleanup.sh
-            else
-              echo "❌ Real cleanup requires force_cleanup=true for safety"
-              exit 1
-            fi
+            (echo "${{ env.GCP_PROJECT_ID }}"; echo "y") | DRY_RUN=false ./scripts/gcp-cleanup.sh
           fi
 
       # Cleanup sensitive files

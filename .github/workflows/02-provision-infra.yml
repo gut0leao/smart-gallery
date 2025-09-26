@@ -717,41 +717,132 @@ jobs:
           export DUCKDNS_SUBDOMAIN="${{ env.DUCKDNS_SUBDOMAIN }}"
           EOF
           
-          # Try to set GitHub Variables (with error handling)
+          # Try to set GitHub Variables using REST API (with error handling)
           echo "🔐 Attempting to store as GitHub Variables..."
+          
+          # Test GitHub API permissions first
+          echo "🧪 Testing GitHub API permissions..."
+          api_test=$(curl -s -w "%{http_code}" -o /tmp/api_test.json \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/variables")
+          
+          api_code="${api_test: -3}"
+          echo "📡 API Test Response: HTTP $api_code"
+          
+          if [ "$api_code" = "200" ]; then
+            echo "✅ GitHub API access confirmed"
+          elif [ "$api_code" = "403" ]; then
+            echo "❌ GitHub API access denied (HTTP 403)"
+            echo "🔍 This indicates insufficient permissions"
+            echo "📋 Possible solutions:"
+            echo "  1. Check Repository Settings → Actions → General → Workflow permissions"
+            echo "  2. Ensure 'Read and write permissions' is selected"
+            echo "  3. Try using a Personal Access Token with 'actions:write' scope"
+          elif [ "$api_code" = "404" ]; then
+            echo "❌ Repository variables endpoint not found (HTTP 404)"
+            echo "📋 This repository may not have Variables feature enabled"
+          else
+            echo "⚠️ Unexpected API response: HTTP $api_code"
+            if [ -f /tmp/api_test.json ]; then
+              echo "📋 Response: $(cat /tmp/api_test.json)"
+            fi
+          fi
+          
           set +e  # Don't exit on error
           
-          # Try individual variable setting with better error handling
-          for var_name in "GCP_VM_INSTANCE:$VM_NAME" "GCP_VM_ZONE:$VM_ZONE" "GCP_VM_EXTERNAL_IP:$VM_IP" "SITE_URL:$SITE_URL" "ENVIRONMENT:${{ env.ENVIRONMENT }}"; do
-            name="${var_name%%:*}"
-            value="${var_name#*:}"
+          # Function to create or update GitHub Variable via REST API
+          set_github_variable() {
+            local var_name="$1"
+            local var_value="$2"
             
-            if gh variable set "$name" --body "$value" --repo ${{ github.repository }} 2>/dev/null; then
-              echo "✅ Set variable: $name"
+            echo "🔄 Setting variable: $var_name"
+            
+            # Try to update existing variable first
+            response=$(curl -s -w "%{http_code}" -o /tmp/gh_response.json \
+              -X PATCH \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/${{ github.repository }}/actions/variables/$var_name" \
+              -d "{\"name\":\"$var_name\",\"value\":\"$var_value\"}")
+            
+            http_code="${response: -3}"
+            
+            if [ "$http_code" = "204" ] || [ "$http_code" = "200" ]; then
+              echo "✅ Updated variable: $var_name"
+              return 0
+            elif [ "$http_code" = "404" ]; then
+              # Variable doesn't exist, try to create it
+              echo "📝 Variable doesn't exist, creating new one..."
+              response=$(curl -s -w "%{http_code}" -o /tmp/gh_response.json \
+                -X POST \
+                -H "Accept: application/vnd.github+json" \
+                -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+                -H "X-GitHub-Api-Version: 2022-11-28" \
+                "https://api.github.com/repos/${{ github.repository }}/actions/variables" \
+                -d "{\"name\":\"$var_name\",\"value\":\"$var_value\"}")
+              
+              http_code="${response: -3}"
+              
+              if [ "$http_code" = "201" ] || [ "$http_code" = "200" ]; then
+                echo "✅ Created variable: $var_name"
+                return 0
+              else
+                echo "⚠️ Failed to create variable: $var_name (HTTP $http_code)"
+                if [ -f /tmp/gh_response.json ]; then
+                  echo "📋 Response: $(cat /tmp/gh_response.json)"
+                fi
+                return 1
+              fi
             else
-              echo "⚠️ Could not set variable: $name (permissions issue)"
+              echo "⚠️ Failed to update variable: $var_name (HTTP $http_code)"
+              if [ -f /tmp/gh_response.json ]; then
+                echo "📋 Response: $(cat /tmp/gh_response.json)"
+              fi
+              return 1
             fi
-          done
+          }
+          
+          # Set infrastructure variables
+          echo "📊 Setting infrastructure variables..."
+          set_github_variable "GCP_VM_INSTANCE" "$VM_NAME"
+          set_github_variable "GCP_VM_ZONE" "$VM_ZONE"
+          set_github_variable "GCP_VM_EXTERNAL_IP" "$VM_IP"
+          set_github_variable "SITE_URL" "$SITE_URL"
+          set_github_variable "ENVIRONMENT" "${{ env.ENVIRONMENT }}"
+          
+          # Set project variables
+          set_github_variable "GCP_PROJECT_ID" "${{ env.GCP_PROJECT_ID }}"
+          set_github_variable "DOMAIN_NAME" "${{ env.DOMAIN_NAME }}"
           
           # Duck DNS variables
           if [ "${{ env.USE_DUCKDNS }}" = "true" ]; then
-            if gh variable set "USE_DUCKDNS" --body "true" --repo ${{ github.repository }} 2>/dev/null; then
-              echo "✅ Set variable: USE_DUCKDNS"
-            else
-              echo "⚠️ Could not set variable: USE_DUCKDNS"
-            fi
-            
-            if gh variable set "DUCKDNS_SUBDOMAIN" --body "${{ env.DUCKDNS_SUBDOMAIN }}" --repo ${{ github.repository }} 2>/dev/null; then
-              echo "✅ Set variable: DUCKDNS_SUBDOMAIN"  
-            else
-              echo "⚠️ Could not set variable: DUCKDNS_SUBDOMAIN"
-            fi
+            echo "🦆 Setting Duck DNS variables..."
+            set_github_variable "USE_DUCKDNS" "true"
+            set_github_variable "DUCKDNS_SUBDOMAIN" "${{ env.DUCKDNS_SUBDOMAIN }}"
+          else
+            set_github_variable "USE_DUCKDNS" "false"
           fi
           
           set -e  # Re-enable exit on error
           
+          # Clean up temporary files
+          rm -f /tmp/gh_response.json /tmp/api_test.json
+          
           echo ""
           echo "✅ Infrastructure details stored in deployment files!"
+          echo ""
+          echo "📊 Storage Summary:"
+          echo "✅ Local deployment files: Always created successfully"
+          echo "🔐 GitHub Variables: Attempted (check logs above for status)"
+          echo ""
+          echo "💡 Important Notes:"
+          echo "- Deployment files (.deployment-info/) are the PRIMARY data source"
+          echo "- GitHub Variables are a SECONDARY fallback for convenience"
+          echo "- Other workflows will use deployment files first, then Variables"
+          echo "- If Variable creation failed, workflows will still function correctly"
           echo ""
           echo "📋 Stored Information:"
           echo "- VM Instance: $VM_NAME"

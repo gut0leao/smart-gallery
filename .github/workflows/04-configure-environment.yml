@@ -308,33 +308,95 @@ jobs:
             if [ -n "$DB_NAME" ] && [ -n "$DB_USER" ] && [ -n "$DB_PASSWORD" ]; then
               echo "📋 Database credentials found in deployment files, restoring to VM..."
               
-              # Restore database config file on VM
+              # Create database recovery script with proper variable handling
+              cat > db_recovery.sh << 'EOF'
+              #!/bin/bash
+              set -e
+              
+              DB_HOST="$1"
+              DB_NAME="$2" 
+              DB_USER="$3"
+              DB_PASSWORD="$4"
+              
+              echo "🔧 Restoring database configuration from deployment files..."
+              echo "- Host: $DB_HOST"
+              echo "- Database: $DB_NAME"
+              echo "- User: $DB_USER"
+              echo "- Password length: ${#DB_PASSWORD} characters"
+              
+              # Test database connectivity first
+              echo "🔍 Testing database connectivity..."
+              if mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASSWORD" -e "USE \`$DB_NAME\`; SELECT 1;" >/dev/null 2>&1; then
+                echo "✅ Database connectivity successful!"
+              else
+                echo "⚠️ Database connectivity failed, attempting to fix..."
+                
+                # Check if database exists
+                if mysql -e "USE \`$DB_NAME\`;" >/dev/null 2>&1; then
+                  echo "📋 Database exists, recreating user..."
+                  mysql -e "DROP USER IF EXISTS '$DB_USER'@'localhost';" 2>/dev/null || true
+                  mysql -e "CREATE USER '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASSWORD';" || exit 1
+                  mysql -e "GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'localhost';" || exit 1
+                  mysql -e "FLUSH PRIVILEGES;" || exit 1
+                else
+                  echo "🔧 Database missing, recreating everything..."
+                  mysql -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\`;" || exit 1
+                  mysql -e "DROP USER IF EXISTS '$DB_USER'@'localhost';" 2>/dev/null || true
+                  mysql -e "CREATE USER '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASSWORD';" || exit 1
+                  mysql -e "GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'localhost';" || exit 1
+                  mysql -e "FLUSH PRIVILEGES;" || exit 1
+                fi
+                
+                # Test again
+                if ! mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASSWORD" -e "USE \`$DB_NAME\`; SELECT 1;" >/dev/null 2>&1; then
+                  echo "❌ Database repair failed"
+                  echo "REPAIR_FAILED" > /tmp/db-recovery-status
+                  exit 1
+                fi
+                echo "✅ Database repaired successfully!"
+              fi
+              
+              # Create the database config file
+              echo "💾 Creating database configuration file..."
+              sudo tee /root/.wp-db-config > /dev/null << EOL
+              DB_HOST=$DB_HOST
+              DB_NAME=$DB_NAME
+              DB_USER=$DB_USER
+              DB_PASS=$DB_PASSWORD
+              EOL
+              
+              # Set proper permissions
+              sudo chmod 600 /root/.wp-db-config
+              sudo chown root:root /root/.wp-db-config
+              
+              # Verify file was created correctly
+              if [ -f "/root/.wp-db-config" ] && [ -s "/root/.wp-db-config" ]; then
+                echo "✅ Database config file created successfully!"
+                echo "📋 Config file size: $(sudo wc -c < /root/.wp-db-config) bytes"
+                echo "SUCCESS" > /tmp/db-recovery-status
+              else
+                echo "❌ Failed to create database config file"
+                echo "CONFIG_FILE_FAILED" > /tmp/db-recovery-status
+                exit 1
+              fi
+              EOF
+              
+              # Copy and execute recovery script on VM
+              gcloud compute scp db_recovery.sh \
+                $VM_INSTANCE:~/db_recovery.sh \
+                --zone=$VM_ZONE \
+                --quiet
+              
               gcloud compute ssh $VM_INSTANCE \
                 --zone=$VM_ZONE \
                 --quiet \
-                --command="
-                  echo 'Restoring database configuration from deployment files...'
-                  
-                  # Create the database config file
-                  cat > /root/.wp-db-config << EOF
-          DB_HOST=$DB_HOST
-          DB_NAME=$DB_NAME
-          DB_USER=$DB_USER
-          DB_PASS=$DB_PASSWORD
-          EOF
-                  
-                  # Set proper permissions
-                  chmod 600 /root/.wp-db-config
-                  
-                  # Verify database connectivity
-                  if mysql -h\$DB_HOST -u$DB_USER -p$DB_PASSWORD -e 'SELECT 1' >/dev/null 2>&1; then
-                    echo '✅ Database connectivity verified!'
-                    echo 'SUCCESS' > /tmp/db-recovery-status
-                  else
-                    echo '⚠️ Database exists but connectivity failed'
-                    echo 'CONNECTIVITY_FAILED' > /tmp/db-recovery-status
-                  fi
-                "
+                --command="chmod +x ~/db_recovery.sh && ~/db_recovery.sh '$DB_HOST' '$DB_NAME' '$DB_USER' '$DB_PASSWORD'"
+              
+              # Clean up script
+              gcloud compute ssh $VM_INSTANCE \
+                --zone=$VM_ZONE \
+                --quiet \
+                --command="rm -f ~/db_recovery.sh" || true
               
               # Check recovery status
               RECOVERY_STATUS=$(gcloud compute ssh $VM_INSTANCE \

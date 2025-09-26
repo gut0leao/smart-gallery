@@ -720,11 +720,23 @@ jobs:
           # Try to set GitHub Variables using REST API (with error handling)
           echo "🔐 Attempting to store as GitHub Variables..."
           
+          # Determine which token to use for GitHub API
+          echo "🔐 Determining authentication method..."
+          if [ -n "${{ secrets.GH_PAT }}" ]; then
+            echo "✅ Using Personal Access Token (GH_PAT)"
+            GITHUB_AUTH_TOKEN="${{ secrets.GH_PAT }}"
+            TOKEN_TYPE="Personal Access Token"
+          else
+            echo "📋 Using default GITHUB_TOKEN (may have limited permissions)"
+            GITHUB_AUTH_TOKEN="${{ secrets.GITHUB_TOKEN }}"
+            TOKEN_TYPE="Default GITHUB_TOKEN"
+          fi
+          
           # Test GitHub API permissions first
-          echo "🧪 Testing GitHub API permissions..."
+          echo "🧪 Testing GitHub API permissions with $TOKEN_TYPE..."
           api_test=$(curl -s -w "%{http_code}" -o /tmp/api_test.json \
             -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Authorization: Bearer $GITHUB_AUTH_TOKEN" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             "https://api.github.com/repos/${{ github.repository }}/actions/variables")
           
@@ -732,14 +744,31 @@ jobs:
           echo "📡 API Test Response: HTTP $api_code"
           
           if [ "$api_code" = "200" ]; then
-            echo "✅ GitHub API access confirmed"
+            echo "✅ GitHub API access confirmed with $TOKEN_TYPE"
           elif [ "$api_code" = "403" ]; then
-            echo "❌ GitHub API access denied (HTTP 403)"
+            echo "❌ GitHub API access denied (HTTP 403) with $TOKEN_TYPE"
             echo "🔍 This indicates insufficient permissions"
-            echo "📋 Possible solutions:"
-            echo "  1. Check Repository Settings → Actions → General → Workflow permissions"
-            echo "  2. Ensure 'Read and write permissions' is selected"
-            echo "  3. Try using a Personal Access Token with 'actions:write' scope"
+            
+            if [ "$TOKEN_TYPE" = "Default GITHUB_TOKEN" ]; then
+              echo ""
+              echo "� SOLUTION: Create and use a Personal Access Token"
+              echo "📋 Steps to resolve:"
+              echo "  1. Go to GitHub → Settings → Developer settings → Personal access tokens"
+              echo "  2. Create new token (classic) with these permissions:"
+              echo "     • repo (Full control of private repositories)" 
+              echo "     • workflow (Update GitHub Action workflows)"
+              echo "  3. Add token as repository secret named 'GH_PAT'"
+              echo "  4. Re-run this workflow"
+              echo ""
+              echo "🔗 Direct link: https://github.com/settings/tokens/new"
+            else
+              echo ""
+              echo "❌ Even Personal Access Token was rejected"
+              echo "📋 Possible issues:"
+              echo "  1. Token may have expired"
+              echo "  2. Token may not have required permissions"
+              echo "  3. Repository may have additional restrictions"
+            fi
           elif [ "$api_code" = "404" ]; then
             echo "❌ Repository variables endpoint not found (HTTP 404)"
             echo "📋 This repository may not have Variables feature enabled"
@@ -763,7 +792,7 @@ jobs:
             response=$(curl -s -w "%{http_code}" -o /tmp/gh_response.json \
               -X PATCH \
               -H "Accept: application/vnd.github+json" \
-              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Authorization: Bearer $GITHUB_AUTH_TOKEN" \
               -H "X-GitHub-Api-Version: 2022-11-28" \
               "https://api.github.com/repos/${{ github.repository }}/actions/variables/$var_name" \
               -d "{\"name\":\"$var_name\",\"value\":\"$var_value\"}")
@@ -779,7 +808,7 @@ jobs:
               response=$(curl -s -w "%{http_code}" -o /tmp/gh_response.json \
                 -X POST \
                 -H "Accept: application/vnd.github+json" \
-                -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+                -H "Authorization: Bearer $GITHUB_AUTH_TOKEN" \
                 -H "X-GitHub-Api-Version: 2022-11-28" \
                 "https://api.github.com/repos/${{ github.repository }}/actions/variables" \
                 -d "{\"name\":\"$var_name\",\"value\":\"$var_value\"}")

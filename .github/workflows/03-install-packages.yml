@@ -350,8 +350,10 @@ jobs:
           mkdir -p .deployment-info
           cat > .deployment-info/database.json << EOF
           {
-            "database_name": "$DB_NAME",
-            "database_user": "$DB_USER",
+            "db_host": "localhost",
+            "db_name": "$DB_NAME",
+            "db_user": "$DB_USER",
+            "db_password": "$DB_PASS",
             "created_at": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
             "workflow_run_id": "${{ github.run_id }}"
           }
@@ -535,6 +537,43 @@ jobs:
               
               cat /tmp/status.md
             " >> $GITHUB_STEP_SUMMARY
+
+      # Mark installation as completed
+      - name: ✅ Mark Installation Complete
+        run: |
+          echo "✅ Marking installation as complete..."
+          gcloud compute ssh $VM_INSTANCE \
+            --zone=$VM_ZONE \
+            --quiet \
+            --command="
+              # Create installation complete marker
+              sudo tee /var/log/packages-installed << EOL
+          Smart Gallery Packages Installation Complete
+          Date: \$(date)
+          Workflow Run: ${{ github.run_id }}
+          Workflow Run Number: ${{ github.run_number }}
+          
+          Installed Components:
+          - Nginx: \$(nginx -v 2>&1 | head -1)
+          - PHP: \$(php -v | head -1)
+          - MariaDB: \$(mysql --version | head -1)
+          - WP-CLI: \$(wp --version)
+          - Composer: \$(composer --version | head -1)
+          - Certbot: \$(certbot --version | head -1)
+          
+          Database Configuration:
+          - Database Name: wordpress
+          - Database User: wordpress
+          - Config File: /root/.wp-db-config (created)
+          
+          Installation Status: COMPLETED SUCCESSFULLY
+          EOL
+              
+              # Set proper permissions
+              sudo chmod 644 /var/log/packages-installed
+              
+              echo '🎉 Installation marker created at /var/log/packages-installed'
+            "
 
       # Cleanup
       - name: 🗑️ Cleanup

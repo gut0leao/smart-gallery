@@ -141,11 +141,32 @@ jobs:
               
               # Check WP-CLI
               echo -n 'WP-CLI: '
-              if [ -f /usr/local/bin/wp ] && /usr/local/bin/wp --version >/dev/null 2>&1; then
-                echo 'INSTALLED (/usr/local/bin/wp --version: '$(/usr/local/bin/wp --version)')'
-                WP_CLI_OK=true
+              if [ -f /usr/local/bin/wp ]; then
+                echo -n 'FILE EXISTS - '
+                # Check if it's executable
+                if [ -x /usr/local/bin/wp ]; then
+                  echo -n 'EXECUTABLE - '
+                  # Try to get version with explicit path and error handling
+                  WP_VERSION=\$(sudo /usr/local/bin/wp --version --allow-root 2>/dev/null || echo 'VERSION_FAILED')
+                  if [ \"\$WP_VERSION\" != 'VERSION_FAILED' ] && [ -n \"\$WP_VERSION\" ]; then
+                    echo \"WORKING (\$WP_VERSION)\"
+                    WP_CLI_OK=true
+                  else
+                    echo \"INSTALLED but VERSION CHECK FAILED\"
+                    # Try alternative check
+                    if sudo /usr/local/bin/wp --help --allow-root >/dev/null 2>&1; then
+                      echo 'WP-CLI responds to --help, considering OK'
+                      WP_CLI_OK=true
+                    else
+                      WP_CLI_OK=false
+                    fi
+                  fi
+                else
+                  echo 'NOT EXECUTABLE'
+                  WP_CLI_OK=false
+                fi
               else
-                echo 'NOT FOUND or NOT WORKING'
+                echo 'FILE NOT FOUND'
                 WP_CLI_OK=false
               fi
               
@@ -189,9 +210,25 @@ jobs:
               echo -n 'Install Packages Marker: '
               if [ -f /var/log/packages-installed ]; then
                 echo 'FOUND (packages installation completed)'
+                echo 'Marker content:'
+                head -5 /var/log/packages-installed 2>/dev/null | sed 's/^/    /' || echo '    (could not read marker file)'
               else
                 echo 'NOT FOUND (packages installation may not have completed)'
               fi
+              
+              # Additional diagnostic info
+              echo
+              echo '=== Additional Diagnostics ==='
+              echo -n 'Current user: '
+              whoami
+              echo -n 'Working directory: '
+              pwd
+              echo -n 'PATH: '
+              echo \$PATH
+              echo -n 'WP-CLI file permissions: '
+              ls -la /usr/local/bin/wp 2>/dev/null || echo 'FILE NOT FOUND'
+              echo -n 'Root .wp-db-config permissions: '
+              ls -la /root/.wp-db-config 2>/dev/null || echo 'FILE NOT FOUND'
               
               echo '========================='
               

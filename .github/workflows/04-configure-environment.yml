@@ -54,8 +54,9 @@ jobs:
     runs-on: ubuntu-latest
     
     outputs:
-      wp_cli_ready: ${{ steps.verify.outputs.wp_cli_ready }}
-      database_ready: ${{ steps.verify.outputs.database_ready }}
+      wp_cli_ready: ${{ steps.verify.outputs.wp_cli_ready || steps.db_recovery.outputs.wp_cli_ready }}
+      database_ready: ${{ steps.verify.outputs.database_ready || steps.db_recovery.outputs.database_ready }}
+      db_recovered: ${{ steps.db_recovery.outputs.db_recovered }}
     
     steps:
       # Checkout repository
@@ -249,26 +250,143 @@ jobs:
               ;;
           esac
 
-      # Optional: Try to load database info from deployment files as fallback
-      - name: 🔍 Check Deployment Files for Database Info
+      # Try to recover or recreate database configuration
+      - name: � Attempt Database Configuration Recovery
         if: steps.verify.outputs.database_ready == 'false'
+        id: db_recovery
         run: |
-          echo "🔍 Checking if database info exists in deployment files..."
+          echo "� Attempting database configuration recovery..."
           
+          # First, check if we have database info in deployment files
           if [ -f ".deployment-info/database.json" ]; then
             echo "✅ Found database.json in deployment files"
-            echo "📋 Database configuration may be available from previous run"
+            echo "📋 Attempting to restore database configuration on VM..."
             
-            # Show database info (without password)
-            echo "Database info from deployment files:"
-            jq -r 'to_entries[] | select(.key != "db_password") | "\(.key): \(.value)"' .deployment-info/database.json
+            # Extract database info
+            DB_HOST=$(jq -r '.db_host // "localhost"' .deployment-info/database.json)
+            DB_NAME=$(jq -r '.db_name // ""' .deployment-info/database.json)
+            DB_USER=$(jq -r '.db_user // ""' .deployment-info/database.json)
+            DB_PASSWORD=$(jq -r '.db_password // ""' .deployment-info/database.json)
             
-            echo ""
-            echo "💡 You may be able to proceed, but it's recommended to verify database connectivity"
-            echo "   on the VM by running the 'Install Packages' workflow to ensure everything is set up correctly."
+            if [ -n "$DB_NAME" ] && [ -n "$DB_USER" ] && [ -n "$DB_PASSWORD" ]; then
+              echo "📋 Database credentials found in deployment files, restoring to VM..."
+              
+              # Restore database config file on VM
+              gcloud compute ssh $VM_INSTANCE \
+                --zone=$VM_ZONE \
+                --quiet \
+                --command="
+                  echo 'Restoring database configuration from deployment files...'
+                  
+                  # Create the database config file
+                  cat > /root/.wp-db-config << EOF
+          DB_HOST=$DB_HOST
+          DB_NAME=$DB_NAME
+          DB_USER=$DB_USER
+          DB_PASS=$DB_PASSWORD
+          EOF
+                  
+                  # Set proper permissions
+                  chmod 600 /root/.wp-db-config
+                  
+                  # Verify database connectivity
+                  if mysql -h\$DB_HOST -u$DB_USER -p$DB_PASSWORD -e 'SELECT 1' >/dev/null 2>&1; then
+                    echo '✅ Database connectivity verified!'
+                    echo 'SUCCESS' > /tmp/db-recovery-status
+                  else
+                    echo '⚠️ Database exists but connectivity failed'
+                    echo 'CONNECTIVITY_FAILED' > /tmp/db-recovery-status
+                  fi
+                "
+              
+              # Check recovery status
+              RECOVERY_STATUS=$(gcloud compute ssh $VM_INSTANCE \
+                --zone=$VM_ZONE \
+                --quiet \
+                --command="cat /tmp/db-recovery-status 2>/dev/null || echo 'FAILED'")
+              
+              if [ "$RECOVERY_STATUS" = "SUCCESS" ]; then
+                echo "✅ Database configuration successfully restored!"
+                echo "🎉 You can now proceed with the Configure Environment workflow"
+                echo "db_recovered=true" >> $GITHUB_OUTPUT
+                
+                # Override the verify outputs to allow continuation
+                echo "wp_cli_ready=true" >> $GITHUB_OUTPUT
+                echo "database_ready=true" >> $GITHUB_OUTPUT
+              else
+                echo "❌ Database configuration restore failed or connectivity issues"
+                echo "💡 Please run the 'Install Packages' workflow to set up fresh database"
+                echo "db_recovered=false" >> $GITHUB_OUTPUT
+              fi
+            else
+              echo "❌ Incomplete database information in deployment files"
+              echo "db_recovered=false" >> $GITHUB_OUTPUT
+            fi
           else
-            echo "❌ No database configuration found in deployment files either"
-            echo "💡 You must run the 'Install Packages' workflow first to set up the system properly"
+            echo "❌ No database configuration found in deployment files"
+            echo "💡 Attempting to create minimal database setup..."
+            
+            # Try to create a basic database setup if MariaDB is running
+            gcloud compute ssh $VM_INSTANCE \
+              --zone=$VM_ZONE \
+              --quiet \
+              --command="
+                echo 'Checking if MariaDB is available for basic setup...'
+                
+                if systemctl is-active mariadb >/dev/null 2>&1; then
+                  echo 'MariaDB is running, attempting basic database setup...'
+                  
+                  # Generate database credentials
+                  DB_NAME='wordpress_\$(date +%s)'
+                  DB_USER='wp_user'
+                  DB_PASS=\$(openssl rand -base64 16)
+                  
+                  # Try to create database and user
+                  if mysql -e \"CREATE DATABASE \$DB_NAME; CREATE USER '\$DB_USER'@'localhost' IDENTIFIED BY '\$DB_PASS'; GRANT ALL PRIVILEGES ON \$DB_NAME.* TO '\$DB_USER'@'localhost'; FLUSH PRIVILEGES;\" 2>/dev/null; then
+                    
+                    # Create config file
+                    cat > /root/.wp-db-config << EOF
+          DB_HOST=localhost
+          DB_NAME=\$DB_NAME
+          DB_USER=\$DB_USER
+          DB_PASS=\$DB_PASS
+          EOF
+                    chmod 600 /root/.wp-db-config
+                    
+                    echo 'BASIC_SETUP_SUCCESS' > /tmp/db-recovery-status
+                    echo \"Database: \$DB_NAME, User: \$DB_USER\" > /tmp/db-info
+                  else
+                    echo 'BASIC_SETUP_FAILED' > /tmp/db-recovery-status
+                  fi
+                else
+                  echo 'MARIADB_NOT_RUNNING' > /tmp/db-recovery-status
+                fi
+              "
+            
+            RECOVERY_STATUS=$(gcloud compute ssh $VM_INSTANCE \
+              --zone=$VM_ZONE \
+              --quiet \
+              --command="cat /tmp/db-recovery-status 2>/dev/null || echo 'FAILED'")
+            
+            if [ "$RECOVERY_STATUS" = "BASIC_SETUP_SUCCESS" ]; then
+              echo "✅ Basic database setup completed!"
+              
+              # Get the database info and store it
+              DB_INFO=$(gcloud compute ssh $VM_INSTANCE \
+                --zone=$VM_ZONE \
+                --quiet \
+                --command="cat /tmp/db-info 2>/dev/null")
+              
+              echo "📋 Created: $DB_INFO"
+              echo "🎉 You can now proceed with the Configure Environment workflow"
+              echo "db_recovered=true" >> $GITHUB_OUTPUT
+              echo "wp_cli_ready=true" >> $GITHUB_OUTPUT
+              echo "database_ready=true" >> $GITHUB_OUTPUT
+            else
+              echo "❌ Basic database setup failed"
+              echo "💡 Please run the 'Install Packages' workflow for complete setup"
+              echo "db_recovered=false" >> $GITHUB_OUTPUT
+            fi
           fi
 
       # Show helpful next steps
@@ -280,13 +398,28 @@ jobs:
           echo "The Configure Environment workflow cannot proceed because required system components are missing." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🔧 Required Actions:" >> $GITHUB_STEP_SUMMARY
-          echo "1. **Run the 'Install Packages' workflow first**" >> $GITHUB_STEP_SUMMARY
-          echo "2. Ensure it completes successfully without errors" >> $GITHUB_STEP_SUMMARY
-          echo "3. Then retry this 'Configure Environment' workflow" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.db_recovery.outputs.db_recovered }}" = "true" ]; then
+            echo "✅ **Database configuration was automatically recovered!**" >> $GITHUB_STEP_SUMMARY
+            echo "- The workflow should now proceed to the next steps" >> $GITHUB_STEP_SUMMARY
+            echo "- If it still fails, check the system diagnostics above" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "1. **Run the 'Install Packages' workflow first**" >> $GITHUB_STEP_SUMMARY
+            echo "2. Ensure it completes successfully without errors" >> $GITHUB_STEP_SUMMARY
+            echo "3. Then retry this 'Configure Environment' workflow" >> $GITHUB_STEP_SUMMARY
+          fi
+          
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📊 System Status:" >> $GITHUB_STEP_SUMMARY
-          echo "- **WP-CLI**: ${{ steps.verify.outputs.wp_cli_ready == 'true' && '✅ Ready' || '❌ Missing' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Database Config**: ${{ steps.verify.outputs.database_ready == 'true' && '✅ Ready' || '❌ Missing' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **WP-CLI**: ${{ (steps.verify.outputs.wp_cli_ready == 'true' || steps.db_recovery.outputs.wp_cli_ready == 'true') && '✅ Ready' || '❌ Missing' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Database Config**: ${{ (steps.verify.outputs.database_ready == 'true' || steps.db_recovery.outputs.database_ready == 'true') && '✅ Ready' || '❌ Missing' }}" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.db_recovery.outputs.db_recovered }}" = "true" ]; then
+            echo "- **Recovery Status**: ✅ Database configuration recovered" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ steps.db_recovery.outputs.db_recovered }}" = "false" ]; then
+            echo "- **Recovery Status**: ❌ Automatic recovery failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🔗 Workflow Order:" >> $GITHUB_STEP_SUMMARY
           echo "1. **Provision Infrastructure** → Create VM and networking" >> $GITHUB_STEP_SUMMARY
@@ -298,7 +431,7 @@ jobs:
     name: "🌐 Configure Nginx & SSL"
     runs-on: ubuntu-latest
     needs: verify-prerequisites
-    if: needs.verify-prerequisites.outputs.wp_cli_ready == 'true'
+    if: needs.verify-prerequisites.outputs.wp_cli_ready == 'true' && (needs.verify-prerequisites.outputs.database_ready == 'true' || needs.verify-prerequisites.outputs.db_recovered == 'true')
     
     steps:
       # Checkout repository

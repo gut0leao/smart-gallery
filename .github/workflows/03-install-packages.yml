@@ -95,8 +95,95 @@ jobs:
       - name: ☁️ Setup Google Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
+      # Setup SSH access to VM
+      - name: 🔑 Setup SSH Access
+        run: |
+          echo "🔑 Setting up SSH access to VM..."
+          
+          # Generate SSH key if not exists
+          if [ ! -f ~/.ssh/id_rsa ]; then
+            echo "🔐 Generating SSH key..."
+            ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N "" -C "github-actions-$(date +%Y%m%d)"
+          fi
+          
+          # Add SSH key to VM metadata
+          echo "📤 Adding SSH key to VM..."
+          
+          # Create temporary file with SSH key
+          echo "github-actions:$(cat ~/.ssh/id_rsa.pub)" > /tmp/ssh-keys
+          
+          gcloud compute instances add-metadata $VM_INSTANCE \
+            --zone=$VM_ZONE \
+            --metadata-from-file ssh-keys=/tmp/ssh-keys
+          
+          # Clean up temporary file
+          rm -f /tmp/ssh-keys
+          
+          # Wait a moment for key propagation
+          sleep 10
+          
+          # Test SSH connection with retries
+          echo "🧪 Testing SSH connection..."
+          for i in {1..5}; do
+            if gcloud compute ssh $VM_INSTANCE \
+              --zone=$VM_ZONE \
+              --quiet \
+              --command="echo 'SSH connection successful'" 2>/dev/null; then
+              echo "✅ SSH connection established successfully"
+              break
+            else
+              echo "⏳ SSH attempt $i/5 failed, retrying in 10 seconds..."
+              if [ $i -eq 5 ]; then
+                echo "❌ SSH connection failed after 5 attempts"
+                echo ""
+                echo "🔍 Troubleshooting information:"
+                echo "Run this command locally to diagnose:"
+                echo "gcloud compute ssh $VM_INSTANCE --project=$GCP_PROJECT_ID --zone=$VM_ZONE --troubleshoot"
+                exit 1
+              fi
+              sleep 10
+            fi
+          done
+
+      # Verify VM is ready and accessible
+      - name: ⚡ Verify VM Prerequisites
+        run: |
+          echo "⚡ Verifying VM prerequisites..."
+          
+          # Check VM status
+          VM_STATUS=$(gcloud compute instances describe $VM_INSTANCE \
+            --zone=$VM_ZONE \
+            --format="value(status)")
+          
+          echo "📊 VM Status: $VM_STATUS"
+          
+          if [ "$VM_STATUS" != "RUNNING" ]; then
+            echo "❌ VM is not running (Status: $VM_STATUS)"
+            echo "🚀 Starting VM..."
+            gcloud compute instances start $VM_INSTANCE --zone=$VM_ZONE
+            
+            echo "⏳ Waiting for VM to be ready..."
+            for i in {1..12}; do
+              sleep 10
+              VM_STATUS=$(gcloud compute instances describe $VM_INSTANCE \
+                --zone=$VM_ZONE \
+                --format="value(status)")
+              echo "Status check $i/12: $VM_STATUS"
+              if [ "$VM_STATUS" = "RUNNING" ]; then
+                break
+              fi
+            done
+            
+            if [ "$VM_STATUS" != "RUNNING" ]; then
+              echo "❌ VM failed to start within 2 minutes"
+              exit 1
+            fi
+          fi
+          
+          echo "✅ VM is running and ready"
+
       # Update system packages
-      - name: � Update System Packages
+      - name: 🔄 Update System Packages
         run: |
           echo "🔄 Updating system packages..."
           gcloud compute ssh $VM_INSTANCE \

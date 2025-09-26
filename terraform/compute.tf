@@ -60,11 +60,18 @@ resource "google_compute_instance" "smart_gallery_vm" {
     # Don't recreate the VM if these attributes change
     ignore_changes = [
       metadata["ssh-keys"],
-      metadata["startup-script"]
+      metadata["startup-script"],
+      metadata["user-data"],
+      boot_disk[0].initialize_params[0].labels,
+      labels,
+      tags
     ]
     
-    # Update in place when possible
+    # Update in place when possible - avoid recreation
     create_before_destroy = false
+    
+    # Additional safeguards
+    replace_triggered_by = []
   }
   
   timeouts {

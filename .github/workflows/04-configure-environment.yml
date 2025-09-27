@@ -1,6 +1,6 @@
 name: "4. Configure environment ⚙️"
 
-"on":
+on:
   workflow_dispatch:
     inputs:
       project_id:
@@ -434,41 +434,74 @@ jobs:
             fi
           else
             echo "❌ No database configuration found in deployment files"
-            echo "💡 Attempting to create minimal database setup..."
+            echo "💡 Attempting to create standard WordPress database setup..."
             
-            # Try to create a basic database setup if MariaDB is running
+            # Try to create standard WordPress database if MariaDB is running
             gcloud compute ssh $VM_INSTANCE \
               --zone=$VM_ZONE \
               --quiet \
               --command="
-                echo 'Checking if MariaDB is available for basic setup...'
+                echo 'Checking if MariaDB is available for database setup...'
                 
                 if systemctl is-active mariadb >/dev/null 2>&1; then
-                  echo 'MariaDB is running, attempting basic database setup...'
+                  echo 'MariaDB is running, creating standard WordPress database...'
                   
-                  # Generate database credentials
-                  DB_NAME='wordpress_\$(date +%s)'
-                  DB_USER='wp_user'
-                  DB_PASS=\$(openssl rand -base64 16)
+                  # Use standard WordPress database credentials
+                  DB_NAME='wordpress'
+                  DB_USER='wordpress'  
+                  DB_PASS=\$(openssl rand -base64 32)
                   
-                  # Try to create database and user
-                  if mysql -e \"CREATE DATABASE \$DB_NAME; CREATE USER '\$DB_USER'@'localhost' IDENTIFIED BY '\$DB_PASS'; GRANT ALL PRIVILEGES ON \$DB_NAME.* TO '\$DB_USER'@'localhost'; FLUSH PRIVILEGES;\" 2>/dev/null; then
+                  echo \"Creating database: \$DB_NAME with user: \$DB_USER\"
+                  
+                  # Check if database already exists
+                  if mysql -e \"USE \$DB_NAME\" 2>/dev/null; then
+                    echo 'Database exists, checking/recreating user...'
+                    mysql -e \"DROP USER IF EXISTS '\$DB_USER'@'localhost';\" 2>/dev/null || true
+                  else
+                    echo 'Creating new database...'
+                    mysql -e \"CREATE DATABASE IF NOT EXISTS \\\`\$DB_NAME\\\`;\" || { echo 'Failed to create database'; exit 1; }
+                  fi
+                  
+                  # Create user and grant permissions
+                  mysql -e \"CREATE USER '\$DB_USER'@'localhost' IDENTIFIED BY '\$DB_PASS';\" || { echo 'Failed to create user'; exit 1; }
+                  mysql -e \"GRANT ALL PRIVILEGES ON \\\`\$DB_NAME\\\`.* TO '\$DB_USER'@'localhost';\" || { echo 'Failed to grant privileges'; exit 1; }
+                  mysql -e \"FLUSH PRIVILEGES;\" || { echo 'Failed to flush privileges'; exit 1; }
+                  
+                  # Test database connection
+                  if mysql -u\"\$DB_USER\" -p\"\$DB_PASS\" -e \"USE \\\`\$DB_NAME\\\`; SELECT 1;\" >/dev/null 2>&1; then
+                    echo 'Database connection test successful'
                     
                     # Create config file
-                    cat > /root/.wp-db-config << EOF
+                    sudo tee /root/.wp-db-config > /dev/null << EOF
           DB_HOST=localhost
           DB_NAME=\$DB_NAME
           DB_USER=\$DB_USER
           DB_PASS=\$DB_PASS
           EOF
-                    chmod 600 /root/.wp-db-config
+                    sudo chmod 600 /root/.wp-db-config
+                    sudo chown root:root /root/.wp-db-config
                     
                     echo 'BASIC_SETUP_SUCCESS' > /tmp/db-recovery-status
-                    echo \"Database: \$DB_NAME, User: \$DB_USER\" > /tmp/db-info
+                    echo \"Database: \$DB_NAME, User: \$DB_USER, Password: \${#DB_PASS} chars\" > /tmp/db-info
+                    
+                    # Also store in a basic deployment file for future use
+                    mkdir -p ~/.deployment-info
+                    cat > ~/.deployment-info/database.json << DBEOF
+          {
+            \"db_host\": \"localhost\",
+            \"db_name\": \"\$DB_NAME\",
+            \"db_user\": \"\$DB_USER\", 
+            \"db_password\": \"\$DB_PASS\",
+            \"created_at\": \"\$(date -u +%Y-%m-%dT%H:%M:%SZ)\",
+            \"created_by\": \"configure-environment-recovery\"
+          }
+          DBEOF
                   else
+                    echo 'Database connection test failed'
                     echo 'BASIC_SETUP_FAILED' > /tmp/db-recovery-status
                   fi
                 else
+                  echo 'MariaDB is not running'
                   echo 'MARIADB_NOT_RUNNING' > /tmp/db-recovery-status
                 fi
               "

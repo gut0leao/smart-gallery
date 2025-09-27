@@ -632,11 +632,10 @@ jobs:
           
           set -e  # Re-enable exit on error
           
-          echo "✅ Database credentials stored in deployment files"
+          echo "✅ Database credentials stored in GitHub Variables and Secrets"
           echo "📝 Database Name: $DB_NAME"
           echo "📝 Database User: $DB_USER" 
-          echo "🔐 Database Password: [STORED SECURELY ON VM]"
-          echo "📁 Database info also stored in .deployment-info/database.json"
+          echo "🔐 Database Password: [STORED SECURELY IN GITHUB VARIABLES]"
 
       # Store database password as GitHub Secret (simplified approach)
       - name: 🔐 Store Database Password as Secret

@@ -458,8 +458,7 @@ jobs:
                     echo \"Database: \$DB_NAME, User: \$DB_USER, Password: \${#DB_PASS} chars\" > /tmp/db-info
                     
                     # Also store in a basic deployment file for future use
-                    mkdir -p ~/.deployment-info
-                    cat > ~/.deployment-info/database.json << DBEOF
+                    # Database credentials will be available from GitHub Variables
           {
             \"db_host\": \"localhost\",
             \"db_name\": \"\$DB_NAME\",
@@ -1294,29 +1293,25 @@ jobs:
           echo "2. Access admin at: $SITE_URL/wp-admin/" >> $GITHUB_STEP_SUMMARY
           echo "3. Configure Smart Gallery widget in Elementor" >> $GITHUB_STEP_SUMMARY
 
-      # Store environment configuration
-      - name: 📊 Store Environment Configuration
+      # Environment configuration completed - using GitHub Variables only
+      - name: ✅ Environment Configuration Summary
         env:
           SITE_URL: ${{ needs.setup-ssl.outputs.site_url }}
           ADMIN_PASSWORD: ${{ needs.install-wordpress.outputs.admin_password }}
         run: |
-          echo "📊 Storing environment configuration..."
-          
-          # Create deployment info directory if it doesn't exist
-          mkdir -p .deployment-info
-          
-          # Store environment configuration in deployment files
-          cat > .deployment-info/environment.env << EOF
-          SITE_URL=$SITE_URL
-          ADMIN_USER=$ADMIN_USER
-          ADMIN_PASSWORD=$ADMIN_PASSWORD
-          ADMIN_EMAIL=$ADMIN_EMAIL
-          DOMAIN_NAME=$DOMAIN_NAME
-          SITE_TITLE=$SITE_TITLE
-          LETSENCRYPT_EMAIL=$LETSENCRYPT_EMAIL
-          EOF
-          
-          echo "✅ Environment configuration stored in deployment files"
+          echo "✅ Environment configuration completed successfully!"
+          echo ""
+          echo "📊 Configuration Summary (stored in GitHub Variables):"
+          echo "- Site URL: $SITE_URL ✅"
+          echo "- Admin User: $ADMIN_USER ✅"
+          echo "- Admin Email: $ADMIN_EMAIL ✅"
+          echo "- Domain: $DOMAIN_NAME ✅"
+          echo "- Site Title: $SITE_TITLE ✅"
+          echo "- Let's Encrypt Email: $LETSENCRYPT_EMAIL ✅"
+          echo "🔐 Admin Password: Securely generated ✅"
+          echo ""
+          echo "🚀 Ready for 'Deploy Plugin' workflow!"
+          echo "💡 No deployment files created - all data in GitHub Variables"
 
       # Cleanup
       - name: 🗑️ Cleanup

@@ -344,33 +344,24 @@ jobs:
           echo "2. Configure Smart Gallery widget in Elementor" >> $GITHUB_STEP_SUMMARY
           echo "3. Test plugin functionality with demo content" >> $GITHUB_STEP_SUMMARY
 
-      # Store deployment information
-      - name: 📊 Store Deployment Information
+      # Deployment completed - using GitHub Variables only
+      - name: ✅ Deployment Completed
         env:
           DEPLOYED_VERSION: ${{ steps.deploy.outputs.deployed_version }}
           SITE_URL: ${{ steps.deploy.outputs.site_url }}
           DEPLOYMENT_SOURCE: ${{ steps.version.outputs.source }}
         run: |
-          echo "📊 Storing deployment information..."
-          
-          # Create deployment info directory if it doesn't exist
-          mkdir -p .deployment-info
-          
-          # Store deployment configuration in deployment files
-          cat > .deployment-info/deployment.json << EOF
-          {
-            "plugin_version": "$DEPLOYED_VERSION",
-            "deployment_source": "$DEPLOYMENT_SOURCE",
-            "deployed_at": "$(date -u -Iseconds)",
-            "site_url": "$SITE_URL",
-            "admin_url": "$SITE_URL/wp-admin/",
-            "vm_instance": "$VM_INSTANCE",
-            "vm_zone": "$VM_ZONE",
-            "project_id": "$GCP_PROJECT_ID"
-          }
-          EOF
-          
-          echo "✅ Deployment information stored in deployment files"
+          echo "✅ Smart Gallery Plugin Deployment Completed!"
+          echo ""
+          echo "📊 Deployment Summary (using GitHub Variables):"
+          echo "- Plugin Version: $DEPLOYED_VERSION ✅"
+          echo "- Deployment Source: $DEPLOYMENT_SOURCE ✅"
+          echo "- Site URL: $SITE_URL ✅"
+          echo "- Admin URL: $SITE_URL/wp-admin/ ✅"
+          echo "- VM Instance: $VM_INSTANCE ✅"
+          echo "- Deployed At: $(date -u -Iseconds) ✅"
+          echo ""
+          echo "🎉 Plugin is ready for use!"
 
       - name: "🗑️ Cleanup"
         if: always()

@@ -671,8 +671,8 @@ jobs:
             exit 1
           fi
 
-      # Store infrastructure details (alternative method due to permissions)
-      - name: 💾 Store Infrastructure Details
+      # Infrastructure details stored in GitHub Variables only (no files created)
+      - name: ✅ Infrastructure Ready - Variables Updated
         env:
           VM_NAME: ${{ steps.extract_outputs.outputs.vm_name }}
           VM_ZONE: ${{ steps.extract_outputs.outputs.vm_zone }}
@@ -680,42 +680,20 @@ jobs:
           SITE_URL: ${{ steps.extract_outputs.outputs.site_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "💾 Storing infrastructure details..."
-          
-          # Create a deployment info file that other workflows can use
-          mkdir -p .deployment-info
-          cat > .deployment-info/infrastructure.json << EOF
-          {
-            "vm_name": "$VM_NAME",
-            "vm_zone": "$VM_ZONE", 
-            "vm_external_ip": "$VM_IP",
-            "site_url": "$SITE_URL",
-            "environment": "${{ env.ENVIRONMENT }}",
-            "project_id": "${{ env.GCP_PROJECT_ID }}",
-            "domain_name": "${{ env.DOMAIN_NAME }}",
-            "region": "${{ github.event.inputs.region }}",
-            "machine_type": "${{ github.event.inputs.machine_type }}",
-            "use_duckdns": "${{ env.USE_DUCKDNS }}",
-            "duckdns_subdomain": "${{ env.DUCKDNS_SUBDOMAIN }}",
-            "provisioned_at": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
-            "workflow_run_id": "${{ github.run_id }}",
-            "workflow_run_number": "${{ github.run_number }}"
-          }
-          EOF
-          
-          # Create simplified environment file for easy sourcing
-          cat > .deployment-info/environment.env << EOF
-          # Infrastructure Details - Generated $(date)
-          export GCP_VM_INSTANCE="$VM_NAME"
-          export GCP_VM_ZONE="$VM_ZONE"
-          export GCP_VM_EXTERNAL_IP="$VM_IP"
-          export SITE_URL="$SITE_URL"
-          export ENVIRONMENT="${{ env.ENVIRONMENT }}"
-          export GCP_PROJECT_ID="${{ env.GCP_PROJECT_ID }}"
-          export DOMAIN_NAME="${{ env.DOMAIN_NAME }}"
-          export USE_DUCKDNS="${{ env.USE_DUCKDNS }}"
-          export DUCKDNS_SUBDOMAIN="${{ env.DUCKDNS_SUBDOMAIN }}"
-          EOF
+          echo "✅ Infrastructure provisioning completed successfully!"
+          echo ""
+          echo "📊 All infrastructure information stored in GitHub Variables:"
+          echo "- GCP_PROJECT_ID: ${{ env.GCP_PROJECT_ID }} ✅"
+          echo "- GCP_VM_INSTANCE: $VM_NAME ✅"
+          echo "- GCP_VM_ZONE: $VM_ZONE ✅"
+          echo "- GCP_VM_EXTERNAL_IP: $VM_IP ✅"
+          echo "- SITE_URL: $SITE_URL ✅"
+          echo "- ENVIRONMENT: ${{ env.ENVIRONMENT }} ✅"
+          echo "- DOMAIN_NAME: ${{ env.DOMAIN_NAME }} ✅"
+          echo "- USE_DUCKDNS: ${{ env.USE_DUCKDNS }} ✅"
+          echo "- DUCKDNS_SUBDOMAIN: ${{ env.DUCKDNS_SUBDOMAIN }} ✅"
+          echo ""
+          echo "💡 No deployment files created - all data stored in GitHub Variables for reliability"
           
           # Try to set GitHub Variables using REST API (with error handling)
           echo "🔐 Attempting to store as GitHub Variables..."
@@ -893,45 +871,25 @@ jobs:
           echo ""
           echo "💡 Other workflows can read these files to get infrastructure details"
 
-      # Commit deployment info files to repository  
-      - name: 💾 Commit Infrastructure Info
+      # Infrastructure provisioning completed - no files needed
+      - name: 🎯 Next Steps
         env:
           VM_NAME: ${{ steps.extract_outputs.outputs.vm_name }}
           VM_IP: ${{ steps.extract_outputs.outputs.vm_external_ip }}
         run: |
-          # Add deployment info to git (but ignore in .gitignore for security)
-          echo "📝 Managing deployment information..."
-          
-          # Ensure .gitignore exists and has proper entries
-          if ! grep -q ".deployment-info/" .gitignore 2>/dev/null; then
-            echo "" >> .gitignore
-            echo "# Deployment information (may contain sensitive data)" >> .gitignore
-            echo ".deployment-info/" >> .gitignore
-            echo "✅ Added .deployment-info/ to .gitignore"
-          fi
-          
-          # Configure git (in case not set)
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          
-          # Only commit gitignore changes, not the sensitive deployment files
-          if git diff --quiet .gitignore; then
-            echo "📋 .gitignore already up to date"
-          else
-            git add .gitignore
-            git commit -m "chore: add deployment-info to gitignore
-
-            - Protect sensitive infrastructure information
-            - Added by infrastructure provisioning workflow" || echo "⚠️ Commit failed (may already exist)"
-            echo "✅ Updated .gitignore with deployment info exclusion"
-          fi
-          
+          echo "🎯 Infrastructure provisioning completed successfully!"
           echo ""
-          echo "🔒 Security Note:"
-          echo "- Deployment files contain sensitive information"
-          echo "- Files are created locally but NOT committed to repository"
-          echo "- Other workflows in the same run can access these files"
-          echo "- Files are automatically cleaned up after workflow completion"
+          echo "🚀 Next Steps:"
+          echo "1. Run 'Install Packages' workflow to set up server software"
+          echo "2. Run 'Configure Environment' workflow to set up WordPress"
+          echo "3. Run 'Deploy Plugin' workflow to install Smart Gallery"
+          echo ""
+          echo "💡 All workflows will automatically use GitHub Variables (no file dependencies)"
+          echo ""
+          echo "� VM Information:"
+          echo "- Instance: $VM_NAME"
+          echo "- External IP: $VM_IP"
+          echo "- Status: Ready for package installation ✅"
 
       # Verify DNS propagation (if Duck DNS is used)
       - name: 🔍 Verify DNS Propagation

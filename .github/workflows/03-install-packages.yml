@@ -493,24 +493,36 @@ jobs:
             --zone=$VM_ZONE \
             --quiet \
             --command="
-              sudo mysql -e \"CREATE DATABASE IF NOT EXISTS $DB_NAME;\"
-              sudo mysql -e \"CREATE USER IF NOT EXISTS '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASS';\"
-              sudo mysql -e \"GRANT ALL PRIVILEGES ON $DB_NAME.* TO '$DB_USER'@'localhost';\"
+              # Set database credentials
+              DB_NAME=\"$DB_NAME\"
+              DB_USER=\"$DB_USER\"
+              DB_PASS=\"$DB_PASS\"
+              
+              echo \"🔧 Creating database: \$DB_NAME\"
+              echo \"🔧 Creating user: \$DB_USER\"
+              
+              sudo mysql -e \"CREATE DATABASE IF NOT EXISTS \$DB_NAME;\"
+              sudo mysql -e \"CREATE USER IF NOT EXISTS '\$DB_USER'@'localhost' IDENTIFIED BY '\$DB_PASS';\"
+              sudo mysql -e \"GRANT ALL PRIVILEGES ON \$DB_NAME.* TO '\$DB_USER'@'localhost';\"
               sudo mysql -e \"FLUSH PRIVILEGES;\"
               
               # Test database connectivity to ensure everything works
               echo '🔍 Testing database connectivity...'
-              if mysql -h localhost -u '$DB_USER' -p'$DB_PASS' -e 'USE $DB_NAME; SELECT \"Database setup successful\" as status;' 2>/dev/null; then
+              if mysql -h localhost -u \"\$DB_USER\" -p\"\$DB_PASS\" -e \"USE \$DB_NAME; SELECT 'Database setup successful' as status;\" 2>/dev/null; then
                 echo '✅ Database connection test successful'
                 echo '✅ WordPress database created and tested successfully'
                 
                 # Store success marker (simple approach, no permission issues)
                 echo 'WORDPRESS_DB_READY=true' > /tmp/db-status
-                echo 'DB_NAME=$DB_NAME' >> /tmp/db-status  
-                echo 'DB_USER=$DB_USER' >> /tmp/db-status
-                echo 'CREATED_AT=\$(date)' >> /tmp/db-status
+                echo \"DB_NAME=\$DB_NAME\" >> /tmp/db-status  
+                echo \"DB_USER=\$DB_USER\" >> /tmp/db-status
+                echo \"CREATED_AT=\$(date)\" >> /tmp/db-status
               else
                 echo '❌ Database connectivity test failed'
+                echo '🔍 Debugging information:'
+                echo \"Attempting connection with user: \$DB_USER\"
+                echo \"To database: \$DB_NAME\"
+                mysql -h localhost -u \"\$DB_USER\" -p\"\$DB_PASS\" -e \"SELECT 'Connection test' as test;\" 2>&1 || true
                 exit 1
               fi
             "
@@ -805,28 +817,33 @@ jobs:
             --zone=$VM_ZONE \
             --quiet \
             --command="
+              # Set database credentials for verification
+              DB_NAME=\"$DB_NAME\"
+              DB_USER=\"$DB_USER\"
+              DB_PASS=\"$DB_PASS\"
+              
               echo '=== FINAL DATABASE CONFIG VERIFICATION ==='
-              echo 'Date: \$(date)'
-              echo 'User: \$(whoami)'
+              echo \"Date: \$(date)\"
+              echo \"User: \$(whoami)\"
               echo ''
               
               # Check database configuration using GitHub Variables approach
-              echo '� Database Configuration (from GitHub Variables):'
-              echo '  Database Name: $DB_NAME' 
-              echo '  Database User: $DB_USER'
+              echo '📊 Database Configuration (from GitHub Variables):'
+              echo \"  Database Name: \$DB_NAME\" 
+              echo \"  Database User: \$DB_USER\"
               echo '  Database Host: localhost'
               echo '  Password: Stored in GitHub Variables/Secrets'
               echo ''
               
               # Test database connectivity directly 
               echo '🗄️ Testing database connectivity:'
-              if mysql -h localhost -u '$DB_USER' -p'$DB_PASS' -e 'USE $DB_NAME; SELECT \"✅ Database connection successful\" as status;' 2>/dev/null; then
+              if mysql -h localhost -u \"\$DB_USER\" -p\"\$DB_PASS\" -e \"USE \$DB_NAME; SELECT '✅ Database connection successful' as status;\" 2>/dev/null; then
                 echo '✅ Database connection and access confirmed'
                 
                 # Check database setup details
                 echo ''
-                echo '� Database Details:'
-                mysql -h localhost -u '$DB_USER' -p'$DB_PASS' -e \"
+                echo '📊 Database Details:'
+                mysql -h localhost -u \"\$DB_USER\" -p\"\$DB_PASS\" -e \"
                   SELECT 
                     DATABASE() as 'Current Database',
                     USER() as 'Current User',
@@ -837,6 +854,11 @@ jobs:
                 echo '✅ DATABASE_CONFIG_STATUS: READY'
               else
                 echo '❌ Database connection failed'
+                echo '🔍 Debugging database connection:'
+                echo \"  User: \$DB_USER\"
+                echo \"  Database: \$DB_NAME\"
+                echo '  Testing basic MySQL connection:'
+                mysql -h localhost -u \"\$DB_USER\" -p\"\$DB_PASS\" -e \"SELECT 'Basic connection test' as test;\" 2>&1 || true
                 echo '❌ DATABASE_CONFIG_STATUS: FAILED'  
                 exit 1
               fi
@@ -859,7 +881,12 @@ jobs:
             --zone=$VM_ZONE \
             --quiet \
             --command="
-              if mysql -h localhost -u '$DB_USER' -p'$DB_PASS' -e 'USE $DB_NAME; SELECT 1;' >/dev/null 2>&1; then
+              # Set credentials for verification
+              DB_NAME=\"$DB_NAME\"
+              DB_USER=\"$DB_USER\"
+              DB_PASS=\"$DB_PASS\"
+              
+              if mysql -h localhost -u \"\$DB_USER\" -p\"\$DB_PASS\" -e \"USE \$DB_NAME; SELECT 1;\" >/dev/null 2>&1; then
                 echo 'DATABASE_READY'
               else
                 echo 'DATABASE_NOT_READY'

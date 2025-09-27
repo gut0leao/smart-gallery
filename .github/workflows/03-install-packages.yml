@@ -522,22 +522,21 @@ jobs:
               sudo mysql -e \"GRANT ALL PRIVILEGES ON $DB_NAME.* TO '$DB_USER'@'localhost';\"
               sudo mysql -e \"FLUSH PRIVILEGES;\"
               
-              # Store database credentials securely on VM with proper sudo usage
-              echo 'DB_NAME=$DB_NAME' | sudo tee /root/.wp-db-config > /dev/null
-              echo 'DB_USER=$DB_USER' | sudo tee -a /root/.wp-db-config > /dev/null
-              echo 'DB_PASS=$DB_PASS' | sudo tee -a /root/.wp-db-config > /dev/null
-              sudo chmod 600 /root/.wp-db-config
-              
-              # Verify file was created successfully
-              if sudo test -f /root/.wp-db-config; then
-                echo '✅ Database config file created at /root/.wp-db-config'
-                echo \"📏 File size: \$(sudo wc -c < /root/.wp-db-config) bytes\"
+              # Test database connectivity to ensure everything works
+              echo '🔍 Testing database connectivity...'
+              if mysql -h localhost -u '$DB_USER' -p'$DB_PASS' -e 'USE $DB_NAME; SELECT \"Database setup successful\" as status;' 2>/dev/null; then
+                echo '✅ Database connection test successful'
+                echo '✅ WordPress database created and tested successfully'
+                
+                # Store success marker (simple approach, no permission issues)
+                echo 'WORDPRESS_DB_READY=true' > /tmp/db-status
+                echo 'DB_NAME=$DB_NAME' >> /tmp/db-status  
+                echo 'DB_USER=$DB_USER' >> /tmp/db-status
+                echo 'CREATED_AT=\$(date)' >> /tmp/db-status
               else
-                echo '❌ Failed to create database config file'
+                echo '❌ Database connectivity test failed'
                 exit 1
               fi
-              
-              echo '✅ WordPress database created locally'
             "
           
           # Store database credentials in deployment files
@@ -644,17 +643,8 @@ jobs:
         run: |
           echo "🔐 Storing database password information..."
           
-          # Get the database password from VM for verification only
-          DB_PASS=$(gcloud compute ssh $VM_INSTANCE \
-            --zone=$VM_ZONE \
-            --quiet \
-            --command="
-              if sudo test -f /root/.wp-db-config; then
-                sudo grep 'DB_PASS=' /root/.wp-db-config | cut -d'=' -f2
-              else
-                echo 'CONFIG_FILE_NOT_FOUND'
-              fi
-            ")
+          # Database password is already available in this context
+          # No need to retrieve from VM since we just created it above
           
           # For security, we'll store just a hash/checksum for verification
           DB_HASH=$(echo -n "$DB_PASS" | sha256sum | cut -d' ' -f1)
@@ -685,7 +675,7 @@ jobs:
             -d "{\"name\":\"WP_DB_PASS_HASH\",\"value\":\"$DB_HASH\"}"
           
           echo "✅ Database password hash stored for verification"
-          echo "💡 The actual password is securely stored on the VM at /root/.wp-db-config"
+          echo "💡 The actual password is available in GitHub Variables and deployment files"
 
       # Configure log rotation
       - name: 📝 Configure Log Rotation
@@ -766,14 +756,12 @@ jobs:
               echo '' >> /tmp/status.md
               echo '### 🗄️ Database:' >> /tmp/status.md
               echo '- **MariaDB**: ' \$(systemctl is-active mariadb) >> /tmp/status.md
-              if sudo test -f /root/.wp-db-config; then
-                sudo cp /root/.wp-db-config /tmp/wp-db-config-temp
-                sudo chmod 644 /tmp/wp-db-config-temp
-                source /tmp/wp-db-config-temp
+              if [ -f /tmp/db-status ]; then
+                source /tmp/db-status 2>/dev/null
                 echo '- **WordPress Database**: \$DB_NAME' >> /tmp/status.md
                 echo '- **Database User**: \$DB_USER' >> /tmp/status.md
-                echo '- **Password**: Stored securely' >> /tmp/status.md
-                rm -f /tmp/wp-db-config-temp
+                echo '- **Password**: Stored in GitHub Variables' >> /tmp/status.md
+                echo '- **Status**: Ready (connectivity tested)' >> /tmp/status.md
               fi
               echo '' >> /tmp/status.md
               echo '### 🛠️ Tools:' >> /tmp/status.md
@@ -784,8 +772,9 @@ jobs:
               echo '### 💾 Stored Variables:' >> /tmp/status.md
               echo '- **WP_DB_NAME**: Available in GitHub Variables' >> /tmp/status.md
               echo '- **WP_DB_USER**: Available in GitHub Variables' >> /tmp/status.md
-              echo '- **WP_DB_PASSWORD**: Stored securely on VM (/root/.wp-db-config)' >> /tmp/status.md
+              echo '- **WP_DB_PASSWORD**: Available in GitHub Variables/Secrets' >> /tmp/status.md
               echo '- **WP_DB_PASS_HASH**: Available in GitHub Variables (for verification)' >> /tmp/status.md
+              echo '- **Database Connectivity**: ✅ Tested and confirmed' >> /tmp/status.md
               echo '' >> /tmp/status.md
               echo '### 🎯 Next Steps:' >> /tmp/status.md
               echo '1. Run **Configure Environment** workflow' >> /tmp/status.md
@@ -821,7 +810,7 @@ jobs:
           Database Configuration:
           - Database Name: wordpress
           - Database User: wordpress
-          - Config File: /root/.wp-db-config (created)
+          - Credentials: Stored in GitHub Variables
           
           Installation Status: COMPLETED SUCCESSFULLY
           EOL
@@ -846,66 +835,40 @@ jobs:
               echo 'User: \$(whoami)'
               echo ''
               
-              # Check if wp-db-config file exists (using sudo for proper permissions)
-              echo '📁 Checking /root/.wp-db-config:'
-              if sudo test -f /root/.wp-db-config; then
-                echo '✅ FILE EXISTS'
-                echo '📊 File info:'
-                sudo ls -la /root/.wp-db-config | sed 's/^/  /'
-                echo '📏 File size: \$(sudo wc -c < /root/.wp-db-config) bytes'
-                echo '📋 File contents (passwords masked):'
-                sudo cat /root/.wp-db-config | sed 's/DB_PASS=.*/DB_PASS=***HIDDEN***/' | sed 's/^/  /'
-                echo ''
-                
-                # Test if we can source the file (create temporary copy for testing)
-                echo '🧪 Testing file sourcing:'
-                sudo cp /root/.wp-db-config /tmp/wp-db-config-test
-                sudo chmod 644 /tmp/wp-db-config-test
-                if source /tmp/wp-db-config-test 2>/dev/null; then
-                  echo '✅ File can be sourced successfully'
-                  echo \"  DB_HOST: \${DB_HOST:-localhost}\"
-                  echo \"  DB_NAME: \${DB_NAME:-NOT_SET}\"
-                  echo \"  DB_USER: \${DB_USER:-NOT_SET}\"
-                  echo \"  DB_PASS: \${#DB_PASS} characters\"
-                else
-                  echo '❌ ERROR: Cannot source the file'
-                fi
-                sudo rm -f /tmp/wp-db-config-test
-              else
-                echo '❌ FILE NOT FOUND'
-                echo '🔍 Checking if /root directory is accessible:'
-                if sudo test -d /root; then
-                  echo '✅ /root directory exists'
-                  sudo ls -la /root/ | head -10 | sed 's/^/  /'
-                else
-                  echo '❌ /root directory not found'
-                fi
-              fi
-              
+              # Check database configuration using GitHub Variables approach
+              echo '� Database Configuration (from GitHub Variables):'
+              echo '  Database Name: $DB_NAME' 
+              echo '  Database User: $DB_USER'
+              echo '  Database Host: localhost'
+              echo '  Password: Stored in GitHub Variables/Secrets'
               echo ''
+              
+              # Test database connectivity directly 
               echo '🗄️ Testing database connectivity:'
-              if sudo test -f /root/.wp-db-config; then
-                # Create temporary readable copy for testing
-                sudo cp /root/.wp-db-config /tmp/wp-db-config-test
-                sudo chmod 644 /tmp/wp-db-config-test
-                source /tmp/wp-db-config-test
-                if mysql -h\"\${DB_HOST:-localhost}\" -u\"\$DB_USER\" -p\"\$DB_PASS\" -e \"USE \\\`\$DB_NAME\\\`; SELECT 'Database connection successful' as status;\" 2>/dev/null; then
-                  echo '✅ Database connection successful'
-                else
-                  echo '❌ Database connection failed'
-                fi
-                sudo rm -f /tmp/wp-db-config-test
+              if mysql -h localhost -u '$DB_USER' -p'$DB_PASS' -e 'USE $DB_NAME; SELECT \"✅ Database connection successful\" as status;' 2>/dev/null; then
+                echo '✅ Database connection and access confirmed'
+                
+                # Check database setup details
+                echo ''
+                echo '� Database Details:'
+                mysql -h localhost -u '$DB_USER' -p'$DB_PASS' -e \"
+                  SELECT 
+                    DATABASE() as 'Current Database',
+                    USER() as 'Current User',
+                    VERSION() as 'MySQL Version',
+                    NOW() as 'Current Time'
+                \" 2>/dev/null | sed 's/^/  /'
+                
+                echo '✅ DATABASE_CONFIG_STATUS: READY'
               else
-                echo '⚠️ Skipping database test - config file missing'
+                echo '❌ Database connection failed'
+                echo '❌ DATABASE_CONFIG_STATUS: FAILED'  
+                exit 1
               fi
               
               echo ''
               echo '📊 MariaDB service status:'
               systemctl status mariadb --no-pager -l | head -5 | sed 's/^/  /'
-              
-              echo ''
-              echo '📊 Disk space in /root:'
-              df -h /root | sed 's/^/  /'
               
               echo ''
               echo '=== END VERIFICATION ==='
@@ -916,15 +879,15 @@ jobs:
         run: |
           echo "📊 Storing verification results..."
           
-          # Get verification results from VM
+          # Get verification results from VM (check database connectivity instead of file)
           VERIFICATION_RESULT=$(gcloud compute ssh $VM_INSTANCE \
             --zone=$VM_ZONE \
             --quiet \
             --command="
-              if sudo test -f /root/.wp-db-config; then
-                echo 'CONFIG_FILE_EXISTS'
+              if mysql -h localhost -u '$DB_USER' -p'$DB_PASS' -e 'USE $DB_NAME; SELECT 1;' >/dev/null 2>&1; then
+                echo 'DATABASE_READY'
               else
-                echo 'CONFIG_FILE_MISSING'
+                echo 'DATABASE_NOT_READY'
               fi
             ")
           
@@ -944,12 +907,14 @@ jobs:
           }
           EOF
           
-          if [ "$VERIFICATION_RESULT" = "CONFIG_FILE_EXISTS" ]; then
-            echo "✅ Database configuration file verified successfully!"
+          if [ "$VERIFICATION_RESULT" = "DATABASE_READY" ]; then
+            echo "✅ Database configuration verified successfully!"
+            echo "✅ Database connectivity confirmed"
+            echo "🎉 Database credentials stored in GitHub Variables"
             echo "🎉 The 04-configure-environment workflow should work properly"
           else
-            echo "❌ Database configuration file is missing!"
-            echo "💡 This explains why 04-configure-environment fails with DB_CONFIG_MISSING"
+            echo "❌ Database connectivity test failed!"
+            echo "💡 Check the database setup and credentials"
             echo "🔧 Check the verification output above for troubleshooting details"
           fi
 

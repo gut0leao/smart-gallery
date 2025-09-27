@@ -13,48 +13,49 @@ jobs:
       - name: 📥 Checkout Repository
         uses: actions/checkout@v4
 
-      # Load infrastructure information from deployment files
+      # Load infrastructure information from GitHub Variables
       - name: 🔍 Load Infrastructure Information
         id: load_info
         run: |
-          echo "🔍 Loading infrastructure information..."
+          echo "🔍 Loading infrastructure information from GitHub Variables..."
           
-          # Check if deployment info files exist
-          if [ -f ".deployment-info/infrastructure.json" ]; then
-            echo "✅ Found deployment information file"
-            
-            # Extract information from JSON file
+          # Use GitHub Variables as primary and preferred source
+          VM_NAME="${{ vars.GCP_VM_INSTANCE }}"
+          VM_ZONE="${{ vars.GCP_VM_ZONE }}"
+          VM_IP="${{ vars.GCP_VM_EXTERNAL_IP }}"
+          SITE_URL="${{ vars.SITE_URL }}"
+          ENVIRONMENT="${{ vars.ENVIRONMENT }}"
+          PROJECT_ID="${{ vars.GCP_PROJECT_ID }}"
+          DOMAIN_NAME="${{ vars.DOMAIN_NAME }}"
+          USE_DUCKDNS="${{ vars.USE_DUCKDNS }}"
+          DUCKDNS_SUBDOMAIN="${{ vars.DUCKDNS_SUBDOMAIN }}"
+          
+          # Only check deployment files for info not available in Variables (like timestamps)
+          PROVISIONED_AT="Unknown"
+          if [ -f ".deployment-info/infrastructure.json" ] && [ -z "$VM_NAME" ]; then
+            echo "⚠️ GitHub Variables empty, falling back to deployment files..."
             VM_NAME=$(jq -r '.vm_name // "Not set"' .deployment-info/infrastructure.json)
             VM_ZONE=$(jq -r '.vm_zone // "Not set"' .deployment-info/infrastructure.json)
             VM_IP=$(jq -r '.vm_external_ip // "Not set"' .deployment-info/infrastructure.json)
-            SITE_URL=$(jq -r '.site_url // "Not set"' .deployment-info/infrastructure.json)
-            ENVIRONMENT=$(jq -r '.environment // "Not set"' .deployment-info/infrastructure.json)
             PROJECT_ID=$(jq -r '.project_id // "Not set"' .deployment-info/infrastructure.json)
-            DOMAIN_NAME=$(jq -r '.domain_name // "Not set"' .deployment-info/infrastructure.json)
-            USE_DUCKDNS=$(jq -r '.use_duckdns // "false"' .deployment-info/infrastructure.json)
-            DUCKDNS_SUBDOMAIN=$(jq -r '.duckdns_subdomain // "Not set"' .deployment-info/infrastructure.json)
-            PROVISIONED_AT=$(jq -r '.provisioned_at // "Not set"' .deployment-info/infrastructure.json)
-            
-            echo "📋 Infrastructure loaded from deployment files"
-            echo "DEPLOYMENT_FILES_EXIST=true" >> $GITHUB_ENV
-          else
-            echo "⚠️ No deployment information files found"
-            echo "DEPLOYMENT_FILES_EXIST=false" >> $GITHUB_ENV
-            
-            # Try to use GitHub Variables as fallback
-            VM_NAME="${{ vars.GCP_VM_INSTANCE }}"
-            VM_ZONE="${{ vars.GCP_VM_ZONE }}"
-            VM_IP="${{ vars.GCP_VM_EXTERNAL_IP }}"
-            SITE_URL="${{ vars.SITE_URL }}"
-            ENVIRONMENT="${{ vars.ENVIRONMENT }}"
-            PROJECT_ID="${{ vars.GCP_PROJECT_ID }}"
-            DOMAIN_NAME="${{ vars.DOMAIN_NAME }}"
-            USE_DUCKDNS="${{ vars.USE_DUCKDNS }}"
-            DUCKDNS_SUBDOMAIN="${{ vars.DUCKDNS_SUBDOMAIN }}"
-            PROVISIONED_AT="Unknown"
-            
-            echo "📋 Using GitHub Variables as fallback"
+            PROVISIONED_AT=$(jq -r '.provisioned_at // "Unknown"' .deployment-info/infrastructure.json)
+          elif [ -f ".deployment-info/infrastructure.json" ]; then
+            # Just get timestamp if Variables are populated
+            PROVISIONED_AT=$(jq -r '.provisioned_at // "Unknown"' .deployment-info/infrastructure.json 2>/dev/null || echo "Unknown")
           fi
+          
+          # Set defaults for any missing values
+          VM_NAME="${VM_NAME:-Not set}"
+          VM_ZONE="${VM_ZONE:-Not set}"
+          VM_IP="${VM_IP:-Not set}"
+          SITE_URL="${SITE_URL:-Not set}"
+          ENVIRONMENT="${ENVIRONMENT:-Not set}"
+          PROJECT_ID="${PROJECT_ID:-Not set}"
+          DOMAIN_NAME="${DOMAIN_NAME:-Not set}"
+          USE_DUCKDNS="${USE_DUCKDNS:-false}"
+          DUCKDNS_SUBDOMAIN="${DUCKDNS_SUBDOMAIN:-Not set}"
+          
+          echo "📋 Using GitHub Variables (preferred method)"
           
           # Set outputs and environment variables
           echo "VM_NAME=$VM_NAME" >> $GITHUB_ENV
@@ -123,11 +124,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           
           # Show data source
-          if [ "$DEPLOYMENT_FILES_EXIST" = "true" ]; then
-            echo "📁 **Data Source**: Deployment files (.deployment-info/)" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "📁 **Data Source**: GitHub Variables (fallback)" >> $GITHUB_STEP_SUMMARY
-          fi
+          echo "📁 **Data Source**: GitHub Variables (primary)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           if [ "$VM_NAME" != "Not set" ] && [ "$VM_NAME" != "" ]; then
@@ -164,18 +161,10 @@ jobs:
             echo "" >> $GITHUB_STEP_SUMMARY
             
             echo "### 🗄️ Database Information:" >> $GITHUB_STEP_SUMMARY
-            if [ -n "${{ vars.WP_DB_NAME }}" ] || [ -f ".deployment-info/database.json" ]; then
-              if [ -f ".deployment-info/database.json" ]; then
-                DB_NAME=$(jq -r '.database_name // "Not set"' .deployment-info/database.json 2>/dev/null || echo "Not set")
-                DB_USER=$(jq -r '.database_user // "Not set"' .deployment-info/database.json 2>/dev/null || echo "Not set")
-                echo "✅ **Database configured (from deployment files)**" >> $GITHUB_STEP_SUMMARY
-                echo "- **Database Name**: \`$DB_NAME\`" >> $GITHUB_STEP_SUMMARY
-                echo "- **Database User**: \`$DB_USER\`" >> $GITHUB_STEP_SUMMARY
-              else
-                echo "✅ **Database configured (from variables)**" >> $GITHUB_STEP_SUMMARY
-                echo "- **Database Name**: \`${{ vars.WP_DB_NAME }}\`" >> $GITHUB_STEP_SUMMARY
-                echo "- **Database User**: \`${{ vars.WP_DB_USER }}\`" >> $GITHUB_STEP_SUMMARY
-              fi
+            if [ -n "${{ vars.WP_DB_NAME }}" ]; then
+              echo "✅ **Database configured**" >> $GITHUB_STEP_SUMMARY
+              echo "- **Database Name**: \`${{ vars.WP_DB_NAME }}\`" >> $GITHUB_STEP_SUMMARY
+              echo "- **Database User**: \`${{ vars.WP_DB_USER }}\`" >> $GITHUB_STEP_SUMMARY
               echo "- **Password**: ${{ secrets.WP_DB_PASSWORD && '🔐 Stored as GitHub Secret' || '❌ Not set' }}" >> $GITHUB_STEP_SUMMARY
             else
               echo "⚠️ **Database not configured**" >> $GITHUB_STEP_SUMMARY
@@ -293,7 +282,7 @@ jobs:
           echo "  • Database Password: ${{ secrets.WP_DB_PASSWORD && 'Configured (Secret)' || 'Missing' }}"
           echo ""
           echo "📁 Data Sources:"
-          echo "  • Deployment Files: ${DEPLOYMENT_FILES_EXIST:-false}"
-          echo "  • GitHub Variables: Available as fallback"
+          echo "  • GitHub Variables: Primary source (current values)"
+          echo "  • Deployment Files: Used only for timestamps when available"
           echo ""
           echo "========================================================================================"

@@ -63,48 +63,22 @@ jobs:
       - name: 📥 Checkout Repository
         uses: actions/checkout@v4
 
-      # Load infrastructure information from deployment files
+      # Load infrastructure information from GitHub Variables only
       - name: 🔍 Load Infrastructure Information
         id: load_info
         run: |
-          echo "🔍 Loading infrastructure information..."
+          echo "🔍 Loading infrastructure information from GitHub Variables..."
           
-          # Check if deployment info files exist
-          if [ -f ".deployment-info/infrastructure.json" ]; then
-            echo "✅ Found deployment information file"
-            
-            # Extract information from JSON file
-            VM_NAME=$(jq -r '.vm_name // ""' .deployment-info/infrastructure.json)
-            VM_ZONE=$(jq -r '.vm_zone // ""' .deployment-info/infrastructure.json)
-            PROJECT_ID=$(jq -r '.project_id // ""' .deployment-info/infrastructure.json)
-            
-            # Override environment variables if found in deployment files
-            if [ -n "$VM_NAME" ]; then
-              echo "VM_INSTANCE=$VM_NAME" >> $GITHUB_ENV
-            fi
-            if [ -n "$VM_ZONE" ]; then
-              echo "VM_ZONE=$VM_ZONE" >> $GITHUB_ENV
-            fi
-            if [ -n "$PROJECT_ID" ]; then
-              echo "GCP_PROJECT_ID=$PROJECT_ID" >> $GITHUB_ENV
-            fi
-            
-            echo "📋 Using deployment files for infrastructure info"
-            echo "DEPLOYMENT_FILES_EXIST=true" >> $GITHUB_ENV
-          else
-            echo "📋 Using GitHub Variables/inputs for infrastructure info"
-            echo "DEPLOYMENT_FILES_EXIST=false" >> $GITHUB_ENV
-            
-            # Use original environment variables
-            echo "VM_INSTANCE=${{ env.VM_INSTANCE }}" >> $GITHUB_ENV
-            echo "VM_ZONE=${{ env.VM_ZONE }}" >> $GITHUB_ENV
-            echo "GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }}" >> $GITHUB_ENV
-          fi
+          # Use GitHub Variables directly (no file dependencies)
+          echo "VM_INSTANCE=${{ env.VM_INSTANCE }}" >> $GITHUB_ENV
+          echo "VM_ZONE=${{ env.VM_ZONE }}" >> $GITHUB_ENV
+          echo "GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }}" >> $GITHUB_ENV
           
           echo "📊 Infrastructure Information:"
-          echo "- VM Instance: ${VM_INSTANCE:-Not set}"
-          echo "- VM Zone: ${VM_ZONE:-Not set}"
-          echo "- Project ID: ${GCP_PROJECT_ID:-Not set}"
+          echo "- VM Instance: ${{ env.VM_INSTANCE }}"
+          echo "- VM Zone: ${{ env.VM_ZONE }}"
+          echo "- Project ID: ${{ env.GCP_PROJECT_ID }}"
+          echo "📡 Using GitHub Variables for all infrastructure info (no files needed)"
 
       # Authenticate to GCP
       - name: 🔐 Authenticate to Google Cloud
@@ -172,9 +146,9 @@ jobs:
               
               # Check database config (using GitHub Variables approach)
               echo -n 'Database Config: '
-              # Test database connectivity using deployment files or GitHub Variables
-              if [ -f ~/.deployment-info/database.json ] || systemctl is-active mariadb >/dev/null 2>&1; then
-                echo 'DEPLOYMENT FILES OR MARIADB AVAILABLE'
+                            # Test database connectivity using GitHub Variables
+              if systemctl is-active mariadb >/dev/null 2>&1; then
+                echo 'MARIADB AVAILABLE'
                 DB_CONFIG_OK=true
               else
                 echo 'NO DATABASE CONFIGURATION AVAILABLE'
@@ -227,7 +201,7 @@ jobs:
               echo -n 'WP-CLI file permissions: '
               ls -la /usr/local/bin/wp 2>/dev/null || echo 'FILE NOT FOUND'
               echo -n 'Database config approach: '
-              echo 'Using GitHub Variables/Deployment Files (no /root access needed)'
+                            echo 'Using GitHub Variables (no /root access needed)'
               
               echo '========================='
               
@@ -293,15 +267,15 @@ jobs:
         run: |
           echo "� Attempting database configuration recovery..."
           
-          # First, check if we have database info in deployment files
-          if [ -f ".deployment-info/database.json" ]; then
-            echo "✅ Found database.json in deployment files"
+          # First, check if we have database info in GitHub Variables
+          if [ -f ".GitHub Variables" ]; then
+            echo "✅ Found database.json in GitHub Variables"
             echo "📋 Attempting to restore database configuration on VM..."
             
             # Extract database info
-            DB_HOST=$(jq -r '.db_host // "localhost"' .deployment-info/database.json)
-            DB_NAME=$(jq -r '.db_name // ""' .deployment-info/database.json)
-            DB_USER=$(jq -r '.db_user // ""' .deployment-info/database.json)
+            DB_HOST=$(jq -r '.db_host // "localhost"' .GitHub Variables)
+            DB_NAME=$(jq -r '.db_name // ""' .GitHub Variables)
+            DB_USER=$(jq -r '.db_user // ""' .GitHub Variables)
             
             # Try to get password from GitHub Secret first, then fallback to deployment file
             if [ -n "${{ secrets.WP_DB_PASSWORD }}" ]; then
@@ -310,7 +284,7 @@ jobs:
               PASSWORD_SOURCE="GitHub Secret"
             else
               echo "⚠️ GitHub Secret not available, trying deployment file..."
-              DB_PASSWORD=$(jq -r '.db_password // ""' .deployment-info/database.json)
+              DB_PASSWORD=$(jq -r '.db_password // ""' .GitHub Variables)
               PASSWORD_SOURCE="Deployment File"
             fi
             
@@ -328,7 +302,7 @@ jobs:
               DB_USER="$3"
               DB_PASSWORD="$4"
               
-              echo "🔧 Restoring database configuration from deployment files..."
+              echo "🔧 Loading database configuration from GitHub Variables..."
               echo "- Host: $DB_HOST"
               echo "- Database: $DB_NAME"
               echo "- User: $DB_USER"
@@ -409,11 +383,11 @@ jobs:
                 echo "db_recovered=false" >> $GITHUB_OUTPUT
               fi
             else
-              echo "❌ Incomplete database information in deployment files"
+              echo "❌ Incomplete database information in GitHub Variables"
               echo "db_recovered=false" >> $GITHUB_OUTPUT
             fi
           else
-            echo "❌ No database configuration found in deployment files"
+            echo "❌ No database configuration found in GitHub Variables"
             echo "💡 Attempting to create standard WordPress database setup..."
             
             # Try to create standard WordPress database if MariaDB is running
@@ -451,14 +425,14 @@ jobs:
                   if mysql -u\"\$DB_USER\" -p\"\$DB_PASS\" -e \"USE \\\`\$DB_NAME\\\`; SELECT 1;\" >/dev/null 2>&1; then
                     echo 'Database connection test successful'
                     
-                    # Database credentials are available via deployment files
-                    echo 'Database ready - credentials stored in deployment files'
+                    # Database credentials are available via GitHub Variables
+                    echo 'Database ready - credentials stored in GitHub Variables'
                     
                     echo 'BASIC_SETUP_SUCCESS' > /tmp/db-recovery-status
                     echo \"Database: \$DB_NAME, User: \$DB_USER, Password: \${#DB_PASS} chars\" > /tmp/db-info
                     
                     # Also store in a basic deployment file for future use
-                    # Database credentials will be available from GitHub Variables
+                    # # Database credentials available from GitHub Variables
           {
             \"db_host\": \"localhost\",
             \"db_name\": \"\$DB_NAME\",
@@ -553,48 +527,22 @@ jobs:
       - name: 📥 Checkout Repository
         uses: actions/checkout@v4
 
-      # Load infrastructure information from deployment files
+      # Load infrastructure information from GitHub Variables only
       - name: 🔍 Load Infrastructure Information
         id: load_info
         run: |
-          echo "🔍 Loading infrastructure information..."
+          echo "🔍 Loading infrastructure information from GitHub Variables..."
           
-          # Check if deployment info files exist
-          if [ -f ".deployment-info/infrastructure.json" ]; then
-            echo "✅ Found deployment information file"
-            
-            # Extract information from JSON file
-            VM_NAME=$(jq -r '.vm_name // ""' .deployment-info/infrastructure.json)
-            VM_ZONE=$(jq -r '.vm_zone // ""' .deployment-info/infrastructure.json)
-            PROJECT_ID=$(jq -r '.project_id // ""' .deployment-info/infrastructure.json)
-            
-            # Override environment variables if found in deployment files
-            if [ -n "$VM_NAME" ]; then
-              echo "VM_INSTANCE=$VM_NAME" >> $GITHUB_ENV
-            fi
-            if [ -n "$VM_ZONE" ]; then
-              echo "VM_ZONE=$VM_ZONE" >> $GITHUB_ENV
-            fi
-            if [ -n "$PROJECT_ID" ]; then
-              echo "GCP_PROJECT_ID=$PROJECT_ID" >> $GITHUB_ENV
-            fi
-            
-            echo "📋 Using deployment files for infrastructure info"
-            echo "DEPLOYMENT_FILES_EXIST=true" >> $GITHUB_ENV
-          else
-            echo "📋 Using GitHub Variables/inputs for infrastructure info"
-            echo "DEPLOYMENT_FILES_EXIST=false" >> $GITHUB_ENV
-            
-            # Use original environment variables
-            echo "VM_INSTANCE=${{ env.VM_INSTANCE }}" >> $GITHUB_ENV
-            echo "VM_ZONE=${{ env.VM_ZONE }}" >> $GITHUB_ENV
-            echo "GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }}" >> $GITHUB_ENV
-          fi
+          # Use GitHub Variables directly (no file dependencies)
+          echo "VM_INSTANCE=${{ env.VM_INSTANCE }}" >> $GITHUB_ENV
+          echo "VM_ZONE=${{ env.VM_ZONE }}" >> $GITHUB_ENV
+          echo "GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }}" >> $GITHUB_ENV
           
           echo "📊 Infrastructure Information:"
-          echo "- VM Instance: ${VM_INSTANCE:-Not set}"
-          echo "- VM Zone: ${VM_ZONE:-Not set}"
-          echo "- Project ID: ${GCP_PROJECT_ID:-Not set}"
+          echo "- VM Instance: ${{ env.VM_INSTANCE }}"
+          echo "- VM Zone: ${{ env.VM_ZONE }}"
+          echo "- Project ID: ${{ env.GCP_PROJECT_ID }}"
+          echo "📡 Using GitHub Variables for all infrastructure info (no files needed)"
 
       # Authenticate to GCP
       - name: 🔐 Authenticate to Google Cloud
@@ -706,48 +654,22 @@ jobs:
       - name: 📥 Checkout Repository
         uses: actions/checkout@v4
 
-      # Load infrastructure information from deployment files
+      # Load infrastructure information from GitHub Variables only
       - name: 🔍 Load Infrastructure Information
         id: load_info
         run: |
-          echo "🔍 Loading infrastructure information..."
+          echo "🔍 Loading infrastructure information from GitHub Variables..."
           
-          # Check if deployment info files exist
-          if [ -f ".deployment-info/infrastructure.json" ]; then
-            echo "✅ Found deployment information file"
-            
-            # Extract information from JSON file
-            VM_NAME=$(jq -r '.vm_name // ""' .deployment-info/infrastructure.json)
-            VM_ZONE=$(jq -r '.vm_zone // ""' .deployment-info/infrastructure.json)
-            PROJECT_ID=$(jq -r '.project_id // ""' .deployment-info/infrastructure.json)
-            
-            # Override environment variables if found in deployment files
-            if [ -n "$VM_NAME" ]; then
-              echo "VM_INSTANCE=$VM_NAME" >> $GITHUB_ENV
-            fi
-            if [ -n "$VM_ZONE" ]; then
-              echo "VM_ZONE=$VM_ZONE" >> $GITHUB_ENV
-            fi
-            if [ -n "$PROJECT_ID" ]; then
-              echo "GCP_PROJECT_ID=$PROJECT_ID" >> $GITHUB_ENV
-            fi
-            
-            echo "📋 Using deployment files for infrastructure info"
-            echo "DEPLOYMENT_FILES_EXIST=true" >> $GITHUB_ENV
-          else
-            echo "📋 Using GitHub Variables/inputs for infrastructure info"
-            echo "DEPLOYMENT_FILES_EXIST=false" >> $GITHUB_ENV
-            
-            # Use original environment variables
-            echo "VM_INSTANCE=${{ env.VM_INSTANCE }}" >> $GITHUB_ENV
-            echo "VM_ZONE=${{ env.VM_ZONE }}" >> $GITHUB_ENV
-            echo "GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }}" >> $GITHUB_ENV
-          fi
+          # Use GitHub Variables directly (no file dependencies)
+          echo "VM_INSTANCE=${{ env.VM_INSTANCE }}" >> $GITHUB_ENV
+          echo "VM_ZONE=${{ env.VM_ZONE }}" >> $GITHUB_ENV
+          echo "GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }}" >> $GITHUB_ENV
           
           echo "📊 Infrastructure Information:"
-          echo "- VM Instance: ${VM_INSTANCE:-Not set}"
-          echo "- VM Zone: ${VM_ZONE:-Not set}"
-          echo "- Project ID: ${GCP_PROJECT_ID:-Not set}"
+          echo "- VM Instance: ${{ env.VM_INSTANCE }}"
+          echo "- VM Zone: ${{ env.VM_ZONE }}"
+          echo "- Project ID: ${{ env.GCP_PROJECT_ID }}"
+          echo "📡 Using GitHub Variables for all infrastructure info (no files needed)"
 
       # Authenticate to GCP
       - name: 🔐 Authenticate to Google Cloud
@@ -769,12 +691,12 @@ jobs:
             --zone=$VM_ZONE \
             --quiet \
             --command="
-              # Load database credentials from deployment files
-              if [ -f ~/.deployment-info/database.json ]; then
-                DB_HOST=\$(jq -r '.db_host // "localhost"' ~/.deployment-info/database.json)
-                DB_NAME=\$(jq -r '.db_name // "wordpress"' ~/.deployment-info/database.json)
-                DB_USER=\$(jq -r '.db_user // "wordpress"' ~/.deployment-info/database.json)
-                DB_PASS=\$(jq -r '.db_password // ""' ~/.deployment-info/database.json)
+              # Load database credentials from GitHub Variables
+              if [ -f ~/.GitHub Variables ]; then
+                DB_HOST=\$(jq -r '.db_host // "localhost"' ~/.GitHub Variables)
+                DB_NAME=\$(jq -r '.db_name // "wordpress"' ~/.GitHub Variables)
+                DB_USER=\$(jq -r '.db_user // "wordpress"' ~/.GitHub Variables)
+                DB_PASS=\$(jq -r '.db_password // ""' ~/.GitHub Variables)
               else
                 # Fallback to standard values
                 DB_HOST='localhost'
@@ -812,48 +734,22 @@ jobs:
       - name: 📥 Checkout Repository
         uses: actions/checkout@v4
 
-      # Load infrastructure information from deployment files
+      # Load infrastructure information from GitHub Variables only
       - name: 🔍 Load Infrastructure Information
         id: load_info
         run: |
-          echo "🔍 Loading infrastructure information..."
+          echo "🔍 Loading infrastructure information from GitHub Variables..."
           
-          # Check if deployment info files exist
-          if [ -f ".deployment-info/infrastructure.json" ]; then
-            echo "✅ Found deployment information file"
-            
-            # Extract information from JSON file
-            VM_NAME=$(jq -r '.vm_name // ""' .deployment-info/infrastructure.json)
-            VM_ZONE=$(jq -r '.vm_zone // ""' .deployment-info/infrastructure.json)
-            PROJECT_ID=$(jq -r '.project_id // ""' .deployment-info/infrastructure.json)
-            
-            # Override environment variables if found in deployment files
-            if [ -n "$VM_NAME" ]; then
-              echo "VM_INSTANCE=$VM_NAME" >> $GITHUB_ENV
-            fi
-            if [ -n "$VM_ZONE" ]; then
-              echo "VM_ZONE=$VM_ZONE" >> $GITHUB_ENV
-            fi
-            if [ -n "$PROJECT_ID" ]; then
-              echo "GCP_PROJECT_ID=$PROJECT_ID" >> $GITHUB_ENV
-            fi
-            
-            echo "📋 Using deployment files for infrastructure info"
-            echo "DEPLOYMENT_FILES_EXIST=true" >> $GITHUB_ENV
-          else
-            echo "📋 Using GitHub Variables/inputs for infrastructure info"
-            echo "DEPLOYMENT_FILES_EXIST=false" >> $GITHUB_ENV
-            
-            # Use original environment variables
-            echo "VM_INSTANCE=${{ env.VM_INSTANCE }}" >> $GITHUB_ENV
-            echo "VM_ZONE=${{ env.VM_ZONE }}" >> $GITHUB_ENV
-            echo "GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }}" >> $GITHUB_ENV
-          fi
+          # Use GitHub Variables directly (no file dependencies)
+          echo "VM_INSTANCE=${{ env.VM_INSTANCE }}" >> $GITHUB_ENV
+          echo "VM_ZONE=${{ env.VM_ZONE }}" >> $GITHUB_ENV
+          echo "GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }}" >> $GITHUB_ENV
           
           echo "📊 Infrastructure Information:"
-          echo "- VM Instance: ${VM_INSTANCE:-Not set}"
-          echo "- VM Zone: ${VM_ZONE:-Not set}"
-          echo "- Project ID: ${GCP_PROJECT_ID:-Not set}"
+          echo "- VM Instance: ${{ env.VM_INSTANCE }}"
+          echo "- VM Zone: ${{ env.VM_ZONE }}"
+          echo "- Project ID: ${{ env.GCP_PROJECT_ID }}"
+          echo "📡 Using GitHub Variables for all infrastructure info (no files needed)"
 
       # Authenticate to GCP
       - name: 🔐 Authenticate to Google Cloud
@@ -879,12 +775,12 @@ jobs:
             --zone=$VM_ZONE \
             --quiet \
             --command="
-              # Load database credentials from deployment files
-              if [ -f ~/.deployment-info/database.json ]; then
-                DB_HOST=\$(jq -r '.db_host // "localhost"' ~/.deployment-info/database.json)
-                DB_NAME=\$(jq -r '.db_name // "wordpress"' ~/.deployment-info/database.json)
-                DB_USER=\$(jq -r '.db_user // "wordpress"' ~/.deployment-info/database.json)
-                DB_PASS=\$(jq -r '.db_password // ""' ~/.deployment-info/database.json)
+              # Load database credentials from GitHub Variables
+              if [ -f ~/.GitHub Variables ]; then
+                DB_HOST=\$(jq -r '.db_host // "localhost"' ~/.GitHub Variables)
+                DB_NAME=\$(jq -r '.db_name // "wordpress"' ~/.GitHub Variables)
+                DB_USER=\$(jq -r '.db_user // "wordpress"' ~/.GitHub Variables)
+                DB_PASS=\$(jq -r '.db_password // ""' ~/.GitHub Variables)
               else
                 # Fallback to standard values
                 DB_HOST='localhost'
@@ -949,48 +845,22 @@ jobs:
       - name: 📥 Checkout Repository
         uses: actions/checkout@v4
 
-      # Load infrastructure information from deployment files
+      # Load infrastructure information from GitHub Variables only
       - name: 🔍 Load Infrastructure Information
         id: load_info
         run: |
-          echo "🔍 Loading infrastructure information..."
+          echo "🔍 Loading infrastructure information from GitHub Variables..."
           
-          # Check if deployment info files exist
-          if [ -f ".deployment-info/infrastructure.json" ]; then
-            echo "✅ Found deployment information file"
-            
-            # Extract information from JSON file
-            VM_NAME=$(jq -r '.vm_name // ""' .deployment-info/infrastructure.json)
-            VM_ZONE=$(jq -r '.vm_zone // ""' .deployment-info/infrastructure.json)
-            PROJECT_ID=$(jq -r '.project_id // ""' .deployment-info/infrastructure.json)
-            
-            # Override environment variables if found in deployment files
-            if [ -n "$VM_NAME" ]; then
-              echo "VM_INSTANCE=$VM_NAME" >> $GITHUB_ENV
-            fi
-            if [ -n "$VM_ZONE" ]; then
-              echo "VM_ZONE=$VM_ZONE" >> $GITHUB_ENV
-            fi
-            if [ -n "$PROJECT_ID" ]; then
-              echo "GCP_PROJECT_ID=$PROJECT_ID" >> $GITHUB_ENV
-            fi
-            
-            echo "📋 Using deployment files for infrastructure info"
-            echo "DEPLOYMENT_FILES_EXIST=true" >> $GITHUB_ENV
-          else
-            echo "📋 Using GitHub Variables/inputs for infrastructure info"
-            echo "DEPLOYMENT_FILES_EXIST=false" >> $GITHUB_ENV
-            
-            # Use original environment variables
-            echo "VM_INSTANCE=${{ env.VM_INSTANCE }}" >> $GITHUB_ENV
-            echo "VM_ZONE=${{ env.VM_ZONE }}" >> $GITHUB_ENV
-            echo "GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }}" >> $GITHUB_ENV
-          fi
+          # Use GitHub Variables directly (no file dependencies)
+          echo "VM_INSTANCE=${{ env.VM_INSTANCE }}" >> $GITHUB_ENV
+          echo "VM_ZONE=${{ env.VM_ZONE }}" >> $GITHUB_ENV
+          echo "GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }}" >> $GITHUB_ENV
           
           echo "📊 Infrastructure Information:"
-          echo "- VM Instance: ${VM_INSTANCE:-Not set}"
-          echo "- VM Zone: ${VM_ZONE:-Not set}"
-          echo "- Project ID: ${GCP_PROJECT_ID:-Not set}"
+          echo "- VM Instance: ${{ env.VM_INSTANCE }}"
+          echo "- VM Zone: ${{ env.VM_ZONE }}"
+          echo "- Project ID: ${{ env.GCP_PROJECT_ID }}"
+          echo "📡 Using GitHub Variables for all infrastructure info (no files needed)"
 
       # Authenticate to GCP
       - name: 🔐 Authenticate to Google Cloud
@@ -1055,48 +925,22 @@ jobs:
       - name: 📥 Checkout Repository
         uses: actions/checkout@v4
 
-      # Load infrastructure information from deployment files
+      # Load infrastructure information from GitHub Variables only
       - name: 🔍 Load Infrastructure Information
         id: load_info
         run: |
-          echo "🔍 Loading infrastructure information..."
+          echo "🔍 Loading infrastructure information from GitHub Variables..."
           
-          # Check if deployment info files exist
-          if [ -f ".deployment-info/infrastructure.json" ]; then
-            echo "✅ Found deployment information file"
-            
-            # Extract information from JSON file
-            VM_NAME=$(jq -r '.vm_name // ""' .deployment-info/infrastructure.json)
-            VM_ZONE=$(jq -r '.vm_zone // ""' .deployment-info/infrastructure.json)
-            PROJECT_ID=$(jq -r '.project_id // ""' .deployment-info/infrastructure.json)
-            
-            # Override environment variables if found in deployment files
-            if [ -n "$VM_NAME" ]; then
-              echo "VM_INSTANCE=$VM_NAME" >> $GITHUB_ENV
-            fi
-            if [ -n "$VM_ZONE" ]; then
-              echo "VM_ZONE=$VM_ZONE" >> $GITHUB_ENV
-            fi
-            if [ -n "$PROJECT_ID" ]; then
-              echo "GCP_PROJECT_ID=$PROJECT_ID" >> $GITHUB_ENV
-            fi
-            
-            echo "📋 Using deployment files for infrastructure info"
-            echo "DEPLOYMENT_FILES_EXIST=true" >> $GITHUB_ENV
-          else
-            echo "📋 Using GitHub Variables/inputs for infrastructure info"
-            echo "DEPLOYMENT_FILES_EXIST=false" >> $GITHUB_ENV
-            
-            # Use original environment variables
-            echo "VM_INSTANCE=${{ env.VM_INSTANCE }}" >> $GITHUB_ENV
-            echo "VM_ZONE=${{ env.VM_ZONE }}" >> $GITHUB_ENV
-            echo "GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }}" >> $GITHUB_ENV
-          fi
+          # Use GitHub Variables directly (no file dependencies)
+          echo "VM_INSTANCE=${{ env.VM_INSTANCE }}" >> $GITHUB_ENV
+          echo "VM_ZONE=${{ env.VM_ZONE }}" >> $GITHUB_ENV
+          echo "GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }}" >> $GITHUB_ENV
           
           echo "📊 Infrastructure Information:"
-          echo "- VM Instance: ${VM_INSTANCE:-Not set}"
-          echo "- VM Zone: ${VM_ZONE:-Not set}"
-          echo "- Project ID: ${GCP_PROJECT_ID:-Not set}"
+          echo "- VM Instance: ${{ env.VM_INSTANCE }}"
+          echo "- VM Zone: ${{ env.VM_ZONE }}"
+          echo "- Project ID: ${{ env.GCP_PROJECT_ID }}"
+          echo "📡 Using GitHub Variables for all infrastructure info (no files needed)"
 
       # Authenticate to GCP
       - name: 🔐 Authenticate to Google Cloud
@@ -1171,48 +1015,22 @@ jobs:
       - name: 📥 Checkout Repository
         uses: actions/checkout@v4
 
-      # Load infrastructure information from deployment files
+      # Load infrastructure information from GitHub Variables only
       - name: 🔍 Load Infrastructure Information
         id: load_info
         run: |
-          echo "🔍 Loading infrastructure information..."
+          echo "🔍 Loading infrastructure information from GitHub Variables..."
           
-          # Check if deployment info files exist
-          if [ -f ".deployment-info/infrastructure.json" ]; then
-            echo "✅ Found deployment information file"
-            
-            # Extract information from JSON file
-            VM_NAME=$(jq -r '.vm_name // ""' .deployment-info/infrastructure.json)
-            VM_ZONE=$(jq -r '.vm_zone // ""' .deployment-info/infrastructure.json)
-            PROJECT_ID=$(jq -r '.project_id // ""' .deployment-info/infrastructure.json)
-            
-            # Override environment variables if found in deployment files
-            if [ -n "$VM_NAME" ]; then
-              echo "VM_INSTANCE=$VM_NAME" >> $GITHUB_ENV
-            fi
-            if [ -n "$VM_ZONE" ]; then
-              echo "VM_ZONE=$VM_ZONE" >> $GITHUB_ENV
-            fi
-            if [ -n "$PROJECT_ID" ]; then
-              echo "GCP_PROJECT_ID=$PROJECT_ID" >> $GITHUB_ENV
-            fi
-            
-            echo "📋 Using deployment files for infrastructure info"
-            echo "DEPLOYMENT_FILES_EXIST=true" >> $GITHUB_ENV
-          else
-            echo "📋 Using GitHub Variables/inputs for infrastructure info"
-            echo "DEPLOYMENT_FILES_EXIST=false" >> $GITHUB_ENV
-            
-            # Use original environment variables
-            echo "VM_INSTANCE=${{ env.VM_INSTANCE }}" >> $GITHUB_ENV
-            echo "VM_ZONE=${{ env.VM_ZONE }}" >> $GITHUB_ENV
-            echo "GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }}" >> $GITHUB_ENV
-          fi
+          # Use GitHub Variables directly (no file dependencies)
+          echo "VM_INSTANCE=${{ env.VM_INSTANCE }}" >> $GITHUB_ENV
+          echo "VM_ZONE=${{ env.VM_ZONE }}" >> $GITHUB_ENV
+          echo "GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }}" >> $GITHUB_ENV
           
           echo "📊 Infrastructure Information:"
-          echo "- VM Instance: ${VM_INSTANCE:-Not set}"
-          echo "- VM Zone: ${VM_ZONE:-Not set}"
-          echo "- Project ID: ${GCP_PROJECT_ID:-Not set}"
+          echo "- VM Instance: ${{ env.VM_INSTANCE }}"
+          echo "- VM Zone: ${{ env.VM_ZONE }}"
+          echo "- Project ID: ${{ env.GCP_PROJECT_ID }}"
+          echo "📡 Using GitHub Variables for all infrastructure info (no files needed)"
 
       # Authenticate to GCP
       - name: 🔐 Authenticate to Google Cloud
@@ -1311,7 +1129,7 @@ jobs:
           echo "🔐 Admin Password: Securely generated ✅"
           echo ""
           echo "🚀 Ready for 'Deploy Plugin' workflow!"
-          echo "💡 No deployment files created - all data in GitHub Variables"
+          echo "💡 No GitHub Variables created - all data in GitHub Variables"
 
       # Cleanup
       - name: 🗑️ Cleanup

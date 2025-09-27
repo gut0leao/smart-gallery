@@ -41,43 +41,18 @@ jobs:
       - name: 📥 Checkout Repository
         uses: actions/checkout@v4
 
-      # Load infrastructure information from deployment files
+      # Load infrastructure information from GitHub Variables only
       - name: 🔍 Load Infrastructure Information
         id: load_info
         run: |
-          echo "🔍 Loading infrastructure information..."
+          echo "🔍 Loading infrastructure information from GitHub Variables..."
           
-          # Check if deployment info files exist
-          if [ -f ".deployment-info/infrastructure.json" ]; then
-            echo "✅ Found deployment information file"
-            
-            # Extract information from JSON file
-            VM_NAME=$(jq -r '.vm_name // ""' .deployment-info/infrastructure.json)
-            VM_ZONE=$(jq -r '.vm_zone // ""' .deployment-info/infrastructure.json)
-            PROJECT_ID=$(jq -r '.project_id // ""' .deployment-info/infrastructure.json)
-            
-            # Override environment variables if found in deployment files
-            if [ -n "$VM_NAME" ]; then
-              echo "VM_INSTANCE=$VM_NAME" >> $GITHUB_ENV
-            fi
-            if [ -n "$VM_ZONE" ]; then
-              echo "VM_ZONE=$VM_ZONE" >> $GITHUB_ENV
-            fi
-            if [ -n "$PROJECT_ID" ]; then
-              echo "GCP_PROJECT_ID=$PROJECT_ID" >> $GITHUB_ENV
-            fi
-            
-            echo "📋 Using deployment files for infrastructure info"
-            echo "DEPLOYMENT_FILES_EXIST=true" >> $GITHUB_ENV
-          else
-            echo "📋 Using GitHub Variables/inputs for infrastructure info"
-            echo "DEPLOYMENT_FILES_EXIST=false" >> $GITHUB_ENV
-            
-            # Use original environment variables
-            echo "VM_INSTANCE=${{ env.VM_INSTANCE }}" >> $GITHUB_ENV
-            echo "VM_ZONE=${{ env.VM_ZONE }}" >> $GITHUB_ENV
-            echo "GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }}" >> $GITHUB_ENV
-          fi
+          # Use GitHub Variables directly (no file dependencies)
+          echo "VM_INSTANCE=${{ env.VM_INSTANCE }}" >> $GITHUB_ENV
+          echo "VM_ZONE=${{ env.VM_ZONE }}" >> $GITHUB_ENV
+          echo "GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }}" >> $GITHUB_ENV
+          
+          echo "� Using GitHub Variables for all infrastructure info (no files needed)"
           
           echo "📊 Infrastructure Information:"
           echo "- VM Instance: ${VM_INSTANCE:-Not set}"
@@ -674,7 +649,7 @@ jobs:
             -d "{\"name\":\"WP_DB_PASS_HASH\",\"value\":\"$DB_HASH\"}"
           
           echo "✅ Database password hash stored for verification"
-          echo "💡 The actual password is available in GitHub Variables and deployment files"
+          echo "💡 The actual password is available in GitHub Variables "
 
       # Configure log rotation
       - name: 📝 Configure Log Rotation

@@ -88,7 +88,7 @@ jobs:
       # Generate or reuse SSH key for VM access
       - name: 🔑 Setup SSH Key for VM Access
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
         run: |
           echo "🔑 Setting up SSH key for VM access..."
           
@@ -726,7 +726,7 @@ jobs:
           VM_ZONE: ${{ steps.extract_outputs.outputs.vm_zone }}
           VM_IP: ${{ steps.extract_outputs.outputs.vm_external_ip }}
           SITE_URL: ${{ steps.extract_outputs.outputs.site_url }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
         run: |
           echo "✅ Infrastructure provisioning completed successfully!"
           echo ""

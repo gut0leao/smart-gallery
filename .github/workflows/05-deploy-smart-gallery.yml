@@ -157,7 +157,7 @@ jobs:
         if: steps.version.outputs.source == 'release' || (steps.version.outputs.source == 'specific' && github.event.inputs.plugin_version != 'latest')
         env:
           PLUGIN_VERSION: ${{ steps.version.outputs.version }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
         run: |
           echo "📥 Downloading plugin package from GitHub release..."
           

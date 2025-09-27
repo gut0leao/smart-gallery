@@ -5,7 +5,10 @@ on:
 
 jobs:
   show-info:
-    name: "📋 Display Infrastructure Information"
+    name: "📋 Display Infrastruct      - name: "📋 Infrastructure Information Display"
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+        run: |Information"
     runs-on: ubuntu-latest
     
     steps:
@@ -118,7 +121,7 @@ jobs:
 
       - name: "�📋 Infrastructure Information Display"
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
         run: |
           echo "## 🏗️ Smart Gallery Infrastructure Information" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -192,7 +195,8 @@ jobs:
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "### 🔐 Required Secrets Status:" >> $GITHUB_STEP_SUMMARY
             echo "- **GCP_SA_KEY**: ${{ secrets.GCP_SA_KEY && '✅ Set' || '❌ Not set' }}" >> $GITHUB_STEP_SUMMARY
-            echo "- **GITHUB_TOKEN**: ${{ secrets.GITHUB_TOKEN && '✅ Set' || '❌ Not set' }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **GH_PAT**: ${{ secrets.GH_PAT && '✅ Set (Enhanced permissions)' || '❌ Not set' }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **GITHUB_TOKEN**: ${{ secrets.GITHUB_TOKEN && '✅ Set (Default)' || '❌ Not set' }}" >> $GITHUB_STEP_SUMMARY
             
             if [ "$USE_DUCKDNS" = "true" ]; then
               echo "- **DUCKDNS_TOKEN**: ${{ secrets.DUCKDNS_TOKEN && '✅ Set' || '❌ Not set' }}" >> $GITHUB_STEP_SUMMARY
@@ -278,6 +282,8 @@ jobs:
           echo ""
           echo "🔐 Secrets Status:"
           echo "  • GCP Service Account: ${{ secrets.GCP_SA_KEY && 'Configured' || 'Missing' }}"
+          echo "  • GitHub PAT (Enhanced): ${{ secrets.GH_PAT && 'Configured' || 'Missing' }}"
+          echo "  • GitHub Token (Default): ${{ secrets.GITHUB_TOKEN && 'Configured' || 'Missing' }}"
           echo "  • Duck DNS Token: ${{ secrets.DUCKDNS_TOKEN && 'Configured' || 'Missing' }}"
           echo "  • Database Password: ${{ secrets.WP_DB_PASSWORD && 'Configured (Secret)' || 'Missing' }}"
           echo ""

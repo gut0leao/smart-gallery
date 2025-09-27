@@ -128,10 +128,11 @@ jobs:
             
             # Use GitHub CLI to store the secret (handles encryption automatically)
             if command -v gh >/dev/null 2>&1; then
-              # Store private key content as secret
-              cat ~/.ssh/id_rsa | gh secret set VM_SSH_PRIVATE_KEY --body-file -
+              # Store private key content as secret (read from stdin)
+              cat ~/.ssh/id_rsa | gh secret set VM_SSH_PRIVATE_KEY
               echo "✅ SSH key stored as VM_SSH_PRIVATE_KEY secret via GitHub CLI"
-            else\n              echo "⚠️ GitHub CLI not available, storing key for this session only"
+            else
+              echo "⚠️ GitHub CLI not available, storing key for this session only"
               echo "💡 The key will be available in VM metadata for this provisioning"
               echo "💡 For persistent storage, manually add the private key to Secrets as VM_SSH_PRIVATE_KEY"
             fi

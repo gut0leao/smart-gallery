@@ -522,13 +522,21 @@ jobs:
               sudo mysql -e \"GRANT ALL PRIVILEGES ON $DB_NAME.* TO '$DB_USER'@'localhost';\"
               sudo mysql -e \"FLUSH PRIVILEGES;\"
               
-              # Store database credentials securely on VM
-              sudo tee /root/.wp-db-config << EOL
-          DB_NAME=$DB_NAME
-          DB_USER=$DB_USER
-          DB_PASS=$DB_PASS
-          EOL
+              # Store database credentials securely on VM with proper sudo usage
+              echo 'DB_NAME=$DB_NAME' | sudo tee /root/.wp-db-config > /dev/null
+              echo 'DB_USER=$DB_USER' | sudo tee -a /root/.wp-db-config > /dev/null
+              echo 'DB_PASS=$DB_PASS' | sudo tee -a /root/.wp-db-config > /dev/null
               sudo chmod 600 /root/.wp-db-config
+              
+              # Verify file was created successfully
+              if sudo test -f /root/.wp-db-config; then
+                echo '✅ Database config file created at /root/.wp-db-config'
+                echo \"📏 File size: \$(sudo wc -c < /root/.wp-db-config) bytes\"
+              else
+                echo '❌ Failed to create database config file'
+                exit 1
+              fi
+              
               echo '✅ WordPress database created locally'
             "
           
@@ -640,7 +648,13 @@ jobs:
           DB_PASS=$(gcloud compute ssh $VM_INSTANCE \
             --zone=$VM_ZONE \
             --quiet \
-            --command="sudo grep 'DB_PASS=' /root/.wp-db-config | cut -d'=' -f2")
+            --command="
+              if sudo test -f /root/.wp-db-config; then
+                sudo grep 'DB_PASS=' /root/.wp-db-config | cut -d'=' -f2
+              else
+                echo 'CONFIG_FILE_NOT_FOUND'
+              fi
+            ")
           
           # For security, we'll store just a hash/checksum for verification
           DB_HASH=$(echo -n "$DB_PASS" | sha256sum | cut -d' ' -f1)
@@ -752,11 +766,14 @@ jobs:
               echo '' >> /tmp/status.md
               echo '### 🗄️ Database:' >> /tmp/status.md
               echo '- **MariaDB**: ' \$(systemctl is-active mariadb) >> /tmp/status.md
-              if [ -f /root/.wp-db-config ]; then
-                source /root/.wp-db-config
+              if sudo test -f /root/.wp-db-config; then
+                sudo cp /root/.wp-db-config /tmp/wp-db-config-temp
+                sudo chmod 644 /tmp/wp-db-config-temp
+                source /tmp/wp-db-config-temp
                 echo '- **WordPress Database**: \$DB_NAME' >> /tmp/status.md
                 echo '- **Database User**: \$DB_USER' >> /tmp/status.md
                 echo '- **Password**: Stored securely' >> /tmp/status.md
+                rm -f /tmp/wp-db-config-temp
               fi
               echo '' >> /tmp/status.md
               echo '### 🛠️ Tools:' >> /tmp/status.md
@@ -829,43 +846,55 @@ jobs:
               echo 'User: \$(whoami)'
               echo ''
               
-              # Check if wp-db-config file exists
+              # Check if wp-db-config file exists (using sudo for proper permissions)
               echo '📁 Checking /root/.wp-db-config:'
-              if [ -f /root/.wp-db-config ]; then
+              if sudo test -f /root/.wp-db-config; then
                 echo '✅ FILE EXISTS'
                 echo '📊 File info:'
-                ls -la /root/.wp-db-config | sed 's/^/  /'
-                echo '📏 File size: \$(wc -c < /root/.wp-db-config) bytes'
+                sudo ls -la /root/.wp-db-config | sed 's/^/  /'
+                echo '📏 File size: \$(sudo wc -c < /root/.wp-db-config) bytes'
                 echo '📋 File contents (passwords masked):'
-                cat /root/.wp-db-config | sed 's/DB_PASS=.*/DB_PASS=***HIDDEN***/' | sed 's/^/  /'
+                sudo cat /root/.wp-db-config | sed 's/DB_PASS=.*/DB_PASS=***HIDDEN***/' | sed 's/^/  /'
                 echo ''
                 
-                # Test if we can source the file
+                # Test if we can source the file (create temporary copy for testing)
                 echo '🧪 Testing file sourcing:'
-                if source /root/.wp-db-config 2>/dev/null; then
+                sudo cp /root/.wp-db-config /tmp/wp-db-config-test
+                sudo chmod 644 /tmp/wp-db-config-test
+                if source /tmp/wp-db-config-test 2>/dev/null; then
                   echo '✅ File can be sourced successfully'
-                  echo \"  DB_HOST: \${DB_HOST:-NOT_SET}\"
+                  echo \"  DB_HOST: \${DB_HOST:-localhost}\"
                   echo \"  DB_NAME: \${DB_NAME:-NOT_SET}\"
                   echo \"  DB_USER: \${DB_USER:-NOT_SET}\"
                   echo \"  DB_PASS: \${#DB_PASS} characters\"
                 else
                   echo '❌ ERROR: Cannot source the file'
                 fi
+                sudo rm -f /tmp/wp-db-config-test
               else
                 echo '❌ FILE NOT FOUND'
                 echo '🔍 Checking if /root directory is accessible:'
-                ls -la /root/ | head -10 | sed 's/^/  /'
+                if sudo test -d /root; then
+                  echo '✅ /root directory exists'
+                  sudo ls -la /root/ | head -10 | sed 's/^/  /'
+                else
+                  echo '❌ /root directory not found'
+                fi
               fi
               
               echo ''
               echo '🗄️ Testing database connectivity:'
-              if [ -f /root/.wp-db-config ]; then
-                source /root/.wp-db-config
+              if sudo test -f /root/.wp-db-config; then
+                # Create temporary readable copy for testing
+                sudo cp /root/.wp-db-config /tmp/wp-db-config-test
+                sudo chmod 644 /tmp/wp-db-config-test
+                source /tmp/wp-db-config-test
                 if mysql -h\"\${DB_HOST:-localhost}\" -u\"\$DB_USER\" -p\"\$DB_PASS\" -e \"USE \\\`\$DB_NAME\\\`; SELECT 'Database connection successful' as status;\" 2>/dev/null; then
                   echo '✅ Database connection successful'
                 else
                   echo '❌ Database connection failed'
                 fi
+                sudo rm -f /tmp/wp-db-config-test
               else
                 echo '⚠️ Skipping database test - config file missing'
               fi
@@ -892,7 +921,7 @@ jobs:
             --zone=$VM_ZONE \
             --quiet \
             --command="
-              if [ -f /root/.wp-db-config ]; then
+              if sudo test -f /root/.wp-db-config; then
                 echo 'CONFIG_FILE_EXISTS'
               else
                 echo 'CONFIG_FILE_MISSING'

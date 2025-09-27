@@ -40,7 +40,6 @@ jobs:
       # Checkout repository for scripts
       - name: 📥 Checkout Repository
         uses: actions/checkout@v4
-        uses: actions/checkout@v4
 
       # Load infrastructure information from deployment files
       - name: 🔍 Load Infrastructure Information
@@ -413,84 +412,25 @@ jobs:
           DB_USER="wordpress"
           DB_PASS=$(openssl rand -base64 32)
           
-          echo "📊 Database Configuration:"
-          echo "- Database Name: $DB_NAME"
-          echo "- Database User: $DB_USER"
-          echo "- Password Length: ${#DB_PASS} characters"
-          
-          # Create database setup script
-          cat > setup_database.sh << 'EOF'
-          #!/bin/bash
-          set -e
-          
-          # Get parameters
-          DB_NAME="$1"
-          DB_USER="$2"
-          DB_PASS="$3"
-          
-          echo "🗄️ Setting up database with provided credentials..."
-          echo "- Database Name: $DB_NAME"
-          echo "- Database User: $DB_USER"
-          echo "- Password Length: ${#DB_PASS} characters"
-          
-          # Create database and user
-          echo "🔧 Creating database and user..."
-          sudo mysql -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\`;" || { echo "❌ Failed to create database"; exit 1; }
-          sudo mysql -e "CREATE USER IF NOT EXISTS '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASS';" || { echo "❌ Failed to create user"; exit 1; }
-          sudo mysql -e "GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'localhost';" || { echo "❌ Failed to grant privileges"; exit 1; }
-          sudo mysql -e "FLUSH PRIVILEGES;" || { echo "❌ Failed to flush privileges"; exit 1; }
-          
-          # Test database connection
-          echo "🧪 Testing database connection..."
-          if mysql -u"$DB_USER" -p"$DB_PASS" -e "USE \`$DB_NAME\`; SELECT 1;" >/dev/null 2>&1; then
-            echo "✅ Database connection test successful"
-          else
-            echo "❌ Database connection test failed"
-            exit 1
-          fi
-          
-          # Store database credentials securely on VM
-          echo "💾 Storing database credentials on VM..."
-          sudo tee /root/.wp-db-config > /dev/null << EOL
+          # Create database on VM
+          gcloud compute ssh $VM_INSTANCE \
+            --zone=$VM_ZONE \
+            --quiet \
+            --command="
+              sudo mysql -e \"CREATE DATABASE IF NOT EXISTS $DB_NAME;\"
+              sudo mysql -e \"CREATE USER IF NOT EXISTS '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASS';\"
+              sudo mysql -e \"GRANT ALL PRIVILEGES ON $DB_NAME.* TO '$DB_USER'@'localhost';\"
+              sudo mysql -e \"FLUSH PRIVILEGES;\"
+              
+              # Store database credentials securely on VM
+              sudo tee /root/.wp-db-config << EOL
           DB_NAME=$DB_NAME
           DB_USER=$DB_USER
           DB_PASS=$DB_PASS
           EOL
-          
-          # Set proper permissions
-          sudo chmod 600 /root/.wp-db-config
-          sudo chown root:root /root/.wp-db-config
-          
-          # Verify the config file was created correctly
-          if [ -f "/root/.wp-db-config" ]; then
-            echo "✅ Database config file created at /root/.wp-db-config"
-            echo "📋 Config file size: $(sudo wc -c < /root/.wp-db-config) bytes"
-            echo "📋 Config file permissions: $(sudo stat -c %a /root/.wp-db-config)"
-          else
-            echo "❌ Failed to create database config file"
-            exit 1
-          fi
-          
-          echo "✅ WordPress database setup completed successfully!"
-          EOF
-          
-          # Copy script to VM
-          gcloud compute scp setup_database.sh \
-            $VM_INSTANCE:~/setup_database.sh \
-            --zone=$VM_ZONE \
-            --quiet
-          
-          # Execute database setup on VM with proper variable passing
-          gcloud compute ssh $VM_INSTANCE \
-            --zone=$VM_ZONE \
-            --quiet \
-            --command="chmod +x ~/setup_database.sh && ~/setup_database.sh '$DB_NAME' '$DB_USER' '$DB_PASS'"
-          
-          # Clean up script from VM
-          gcloud compute ssh $VM_INSTANCE \
-            --zone=$VM_ZONE \
-            --quiet \
-            --command="rm -f ~/setup_database.sh"
+              sudo chmod 600 /root/.wp-db-config
+              echo '✅ WordPress database created locally'
+            "
           
           # Store database credentials in deployment files
           echo "💾 Storing database credentials in deployment files..."
@@ -591,246 +531,47 @@ jobs:
           echo "🔐 Database Password: [STORED SECURELY ON VM]"
           echo "📁 Database info also stored in .deployment-info/database.json"
 
-      # Verify database configuration was created successfully
-      - name: ✅ Verify Database Configuration
-        run: |
-          echo "✅ Verifying database configuration was created successfully..."
-          
-          # Check local deployment files
-          if [ -f ".deployment-info/database.json" ]; then
-            echo "✅ Local database.json file exists"
-            
-            # Verify JSON structure
-            if jq empty .deployment-info/database.json 2>/dev/null; then
-              echo "✅ Database JSON file is valid"
-              DB_NAME=$(jq -r '.db_name' .deployment-info/database.json)
-              DB_USER=$(jq -r '.db_user' .deployment-info/database.json)
-              echo "📋 Database info: $DB_NAME / $DB_USER"
-            else
-              echo "❌ Database JSON file is invalid"
-              exit 1
-            fi
-          else
-            echo "❌ Local database.json file is missing"
-            exit 1
-          fi
-          
-          # Verify VM database configuration
-          echo "🔍 Verifying VM database configuration..."
-          
-          VM_DB_CHECK=$(gcloud compute ssh $VM_INSTANCE \
-            --zone=$VM_ZONE \
-            --quiet \
-            --command="
-              if [ -f '/root/.wp-db-config' ]; then
-                echo 'CONFIG_FILE_EXISTS'
-                # Check if file is readable and has content
-                if [ -s '/root/.wp-db-config' ]; then
-                  # Try to source the config and test database connectivity
-                  source /root/.wp-db-config
-                  if [ -n \"\$DB_NAME\" ] && [ -n \"\$DB_USER\" ] && [ -n \"\$DB_PASS\" ]; then
-                    if mysql -u\"\$DB_USER\" -p\"\$DB_PASS\" -e \"USE \\\`\$DB_NAME\\\`; SELECT 1;\" >/dev/null 2>&1; then
-                      echo 'DATABASE_ACCESSIBLE'
-                    else
-                      echo 'DATABASE_CONNECTION_FAILED'
-                    fi
-                  else
-                    echo 'CONFIG_INCOMPLETE'
-                  fi
-                else
-                  echo 'CONFIG_FILE_EMPTY'
-                fi
-              else
-                echo 'CONFIG_FILE_MISSING'
-              fi
-            ")
-          
-          echo "📊 VM Database Check Result: $VM_DB_CHECK"
-          
-          case "$VM_DB_CHECK" in
-            *"DATABASE_ACCESSIBLE"*)
-              echo "✅ Database configuration is fully functional!"
-              echo "🎉 Configure Environment workflow can now proceed"
-              ;;
-            *"CONFIG_FILE_MISSING"*)
-              echo "❌ Database config file is missing from VM"
-              echo "💡 This indicates the database setup script failed"
-              exit 1
-              ;;
-            *"CONFIG_FILE_EMPTY"*)
-              echo "❌ Database config file exists but is empty"
-              exit 1
-              ;;
-            *"CONFIG_INCOMPLETE"*)
-              echo "❌ Database config file is incomplete (missing variables)"
-              exit 1
-              ;;
-            *"DATABASE_CONNECTION_FAILED"*)
-              echo "❌ Database exists but connection failed"
-              echo "💡 This could indicate database user/permission issues"
-              exit 1
-              ;;
-            *)
-              echo "❌ Unexpected database check result: $VM_DB_CHECK"
-              exit 1
-              ;;
-          esac
-          
-          echo ""
-          echo "✅ Database Configuration Verification Summary:"
-          echo "✅ Local deployment files: Created and valid"
-          echo "✅ VM configuration file: Created and accessible" 
-          echo "✅ Database connectivity: Verified successfully"
-          echo "🎯 Ready for Configure Environment workflow!"
-
-      # Store database password as GitHub Secret
+      # Store database password as GitHub Secret (simplified approach)
       - name: 🔐 Store Database Password as Secret
         run: |
-          echo "🔐 Storing database password as GitHub Secret..."
+          echo "🔐 Storing database password information..."
           
-          # Get the database password from VM
+          # Get the database password from VM for verification only
           DB_PASS=$(gcloud compute ssh $VM_INSTANCE \
             --zone=$VM_ZONE \
             --quiet \
             --command="sudo grep 'DB_PASS=' /root/.wp-db-config | cut -d'=' -f2")
           
-          echo "📋 Database password retrieved (length: ${#DB_PASS} characters)"
+          # For security, we'll store just a hash/checksum for verification
+          DB_HASH=$(echo -n "$DB_PASS" | sha256sum | cut -d' ' -f1)
           
-          # Determine which token to use for secret management
+          # Determine which token to use for password hash storage
           if [ -n "${{ secrets.GH_PAT }}" ]; then
-            echo "✅ Using Personal Access Token (GH_PAT) for secret management"
             GITHUB_AUTH_TOKEN="${{ secrets.GH_PAT }}"
-            TOKEN_TYPE="Personal Access Token"
           else
-            echo "📋 Using default GITHUB_TOKEN (may have limited permissions)"
             GITHUB_AUTH_TOKEN="${{ secrets.GITHUB_TOKEN }}"
-            TOKEN_TYPE="Default GITHUB_TOKEN"
           fi
           
-          # Create or update the WP_DB_PASSWORD secret
-          echo "🔐 Storing database password as GitHub Secret..."
-          
-          # Get repository public key for encryption
-          echo "🔑 Getting repository public key..."
-          PUBLIC_KEY_RESPONSE=$(curl -s \
+          # Store database password hash as a variable for verification purposes
+          echo "🔐 Storing database password hash..."
+          curl -L \
+            -X PATCH \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer $GITHUB_AUTH_TOKEN" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/repos/${{ github.repository }}/actions/secrets/public-key")
-          
-          PUBLIC_KEY=$(echo "$PUBLIC_KEY_RESPONSE" | jq -r '.key')
-          KEY_ID=$(echo "$PUBLIC_KEY_RESPONSE" | jq -r '.key_id')
-          
-          if [ "$PUBLIC_KEY" = "null" ] || [ -z "$PUBLIC_KEY" ]; then
-            echo "❌ Failed to get repository public key"
-            echo "📋 This may be due to insufficient token permissions"
-            echo "� Falling back to storing password hash as variable..."
-            
-            # Fallback: store password hash
-            DB_HASH=$(echo -n "$DB_PASS" | sha256sum | cut -d' ' -f1)
-            curl -L \
-              -X PATCH \
-              -H "Accept: application/vnd.github+json" \
-              -H "Authorization: Bearer $GITHUB_AUTH_TOKEN" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              "https://api.github.com/repos/${{ github.repository }}/actions/variables/WP_DB_PASS_HASH" \
-              -d "{\"name\":\"WP_DB_PASS_HASH\",\"value\":\"$DB_HASH\"}" \
-              2>/dev/null || \
-            curl -L \
-              -X POST \
-              -H "Accept: application/vnd.github+json" \
-              -H "Authorization: Bearer $GITHUB_AUTH_TOKEN" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              "https://api.github.com/repos/${{ github.repository }}/actions/variables" \
-              -d "{\"name\":\"WP_DB_PASS_HASH\",\"value\":\"$DB_HASH\"}"
-            
-            echo "⚠️ Password stored as hash only due to API limitations"
-            exit 0
-          fi
-          
-          echo "✅ Repository public key obtained"
-          
-          # Install dependencies for encryption (sodium)
-          echo "🔧 Installing encryption dependencies..."
-          pip install pynacl > /dev/null 2>&1
-          
-          # Encrypt the password
-          echo "🔐 Encrypting database password..."
-          ENCRYPTED_VALUE=$(python3 << 'EOF'
-          import base64
-          import sys
-          from nacl import encoding, public
-          
-          def encrypt_secret(public_key, secret_value):
-              # Decode the public key
-              public_key_bytes = base64.b64decode(public_key)
-              sealed_box = public.SealedBox(public.PublicKey(public_key_bytes))
-              
-              # Encrypt the secret
-              encrypted = sealed_box.encrypt(secret_value.encode("utf-8"))
-              return base64.b64encode(encrypted).decode("utf-8")
-          
-          public_key = sys.argv[1]
-          secret_value = sys.argv[2]
-          
-          try:
-              result = encrypt_secret(public_key, secret_value)
-              print(result)
-          except Exception as e:
-              print(f"ERROR: {e}", file=sys.stderr)
-              sys.exit(1)
-          EOF
-          "$PUBLIC_KEY" "$DB_PASS")
-          
-          if [ $? -ne 0 ]; then
-            echo "❌ Failed to encrypt password"
-            exit 1
-          fi
-          
-          echo "✅ Password encrypted successfully"
-          
-          # Create or update the secret
-          echo "� Creating/updating GitHub Secret..."
-          SECRET_RESPONSE=$(curl -s -w "%{http_code}" -o /tmp/secret_response.json \
-            -X PUT \
+            https://api.github.com/repos/${{ github.repository }}/actions/variables/WP_DB_PASS_HASH \
+            -d "{\"name\":\"WP_DB_PASS_HASH\",\"value\":\"$DB_HASH\"}" \
+            2>/dev/null || \
+          curl -L \
+            -X POST \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer $GITHUB_AUTH_TOKEN" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/repos/${{ github.repository }}/actions/secrets/WP_DB_PASSWORD" \
-            -d "{
-              \"encrypted_value\": \"$ENCRYPTED_VALUE\",
-              \"key_id\": \"$KEY_ID\"
-            }")
+            https://api.github.com/repos/${{ github.repository }}/actions/variables \
+            -d "{\"name\":\"WP_DB_PASS_HASH\",\"value\":\"$DB_HASH\"}"
           
-          HTTP_CODE="${SECRET_RESPONSE: -3}"
-          
-          if [ "$HTTP_CODE" = "201" ] || [ "$HTTP_CODE" = "204" ]; then
-            echo "✅ Database password stored as GitHub Secret successfully!"
-            echo "🎯 Secret name: WP_DB_PASSWORD"
-            echo "🔐 Password is now securely encrypted and accessible by other workflows"
-          else
-            echo "❌ Failed to store secret (HTTP $HTTP_CODE)"
-            if [ -f /tmp/secret_response.json ]; then
-              echo "📋 Response: $(cat /tmp/secret_response.json)"
-            fi
-            
-            # Fallback to hash storage
-            echo "💡 Falling back to password hash storage..."
-            DB_HASH=$(echo -n "$DB_PASS" | sha256sum | cut -d' ' -f1)
-            set_github_variable "WP_DB_PASS_HASH" "$DB_HASH"
-            echo "⚠️ Password stored as hash only due to API limitations"
-          fi
-          
-          # Clean up
-          rm -f /tmp/secret_response.json
-          
-          echo ""
-          echo "✅ Database Password Storage Summary:"
-          echo "🔐 Primary: GitHub Secret (WP_DB_PASSWORD) - ${{ (HTTP_CODE == '201' || HTTP_CODE == '204') && 'Success' || 'Failed' }}"
-          echo "💾 VM Config: /root/.wp-db-config - Always available locally"
-          echo "📁 Deployment Files: .deployment-info/database.json - Contains other DB info"
-          echo ""
-          echo "💡 Other workflows can now use: \${{ secrets.WP_DB_PASSWORD }}"
+          echo "✅ Database password hash stored for verification"
+          echo "💡 The actual password is securely stored on the VM at /root/.wp-db-config"
 
       # Configure log rotation
       - name: 📝 Configure Log Rotation

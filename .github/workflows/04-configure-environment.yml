@@ -172,10 +172,10 @@ jobs:
               
               # Check database config
               echo -n 'Database Config: '
-              if [ -f /root/.wp-db-config ]; then
+              if sudo test -f /root/.wp-db-config; then
                 echo 'FOUND (/root/.wp-db-config exists)'
                 echo 'Contents:'
-                cat /root/.wp-db-config | sed 's/DB_PASS=.*/DB_PASS=***hidden***/' | sed 's/^/  /'
+                sudo cat /root/.wp-db-config | sed 's/DB_PASS=.*/DB_PASS=***hidden***/' | sed 's/^/  /'
                 DB_CONFIG_OK=true
               else
                 echo 'NOT FOUND (/root/.wp-db-config missing)'
@@ -228,7 +228,7 @@ jobs:
               echo -n 'WP-CLI file permissions: '
               ls -la /usr/local/bin/wp 2>/dev/null || echo 'FILE NOT FOUND'
               echo -n 'Root .wp-db-config permissions: '
-              ls -la /root/.wp-db-config 2>/dev/null || echo 'FILE NOT FOUND'
+              sudo ls -la /root/.wp-db-config 2>/dev/null || echo 'FILE NOT FOUND'
               
               echo '========================='
               
@@ -381,7 +381,7 @@ jobs:
               sudo chown root:root /root/.wp-db-config
               
               # Verify file was created correctly
-              if [ -f "/root/.wp-db-config" ] && [ -s "/root/.wp-db-config" ]; then
+              if sudo test -f "/root/.wp-db-config" && sudo test -s "/root/.wp-db-config"; then
                 echo "✅ Database config file created successfully!"
                 echo "📋 Config file size: $(sudo wc -c < /root/.wp-db-config) bytes"
                 echo "SUCCESS" > /tmp/db-recovery-status
@@ -798,7 +798,9 @@ jobs:
             --quiet \
             --command="
               # Load database credentials
-              source /root/.wp-db-config
+              sudo cp /root/.wp-db-config /tmp/wp-db-config-temp
+              sudo chmod 644 /tmp/wp-db-config-temp
+              source /tmp/wp-db-config-temp
               
               # Generate secure root password
               DB_ROOT_PASSWORD=\$(openssl rand -base64 32)
@@ -812,6 +814,9 @@ jobs:
               echo 'user=root' >> /root/.my.cnf
               echo \"password=\$DB_ROOT_PASSWORD\" >> /root/.my.cnf
               chmod 600 /root/.my.cnf
+              
+              # Clean up temporary file
+              rm -f /tmp/wp-db-config-temp
               
               echo '✅ Database security configured!'
             "
@@ -897,7 +902,9 @@ jobs:
             --quiet \
             --command="
               # Load database credentials
-              source /root/.wp-db-config
+              sudo cp /root/.wp-db-config /tmp/wp-db-config-temp
+              sudo chmod 644 /tmp/wp-db-config-temp
+              source /tmp/wp-db-config-temp
               
               cd /var/www/html
               
@@ -938,6 +945,9 @@ jobs:
               find /var/www/html -type d -exec chmod 755 {} \;
               find /var/www/html -type f -exec chmod 644 {} \;
               chmod 600 /var/www/html/wp-config.php
+              
+              # Clean up temporary file
+              rm -f /tmp/wp-db-config-temp
               
               echo '✅ WordPress installation completed!'
             "

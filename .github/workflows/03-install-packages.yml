@@ -715,6 +715,115 @@ jobs:
               echo '🎉 Installation marker created at /var/log/packages-installed'
             "
 
+      # Final verification of database configuration
+      - name: 🔍 Final Database Configuration Verification
+        run: |
+          echo "🔍 Final verification of database configuration..."
+          
+          gcloud compute ssh $VM_INSTANCE \
+            --zone=$VM_ZONE \
+            --quiet \
+            --command="
+              echo '=== FINAL DATABASE CONFIG VERIFICATION ==='
+              echo 'Date: \$(date)'
+              echo 'User: \$(whoami)'
+              echo ''
+              
+              # Check if wp-db-config file exists
+              echo '📁 Checking /root/.wp-db-config:'
+              if [ -f /root/.wp-db-config ]; then
+                echo '✅ FILE EXISTS'
+                echo '📊 File info:'
+                ls -la /root/.wp-db-config | sed 's/^/  /'
+                echo '📏 File size: \$(wc -c < /root/.wp-db-config) bytes'
+                echo '📋 File contents (passwords masked):'
+                cat /root/.wp-db-config | sed 's/DB_PASS=.*/DB_PASS=***HIDDEN***/' | sed 's/^/  /'
+                echo ''
+                
+                # Test if we can source the file
+                echo '🧪 Testing file sourcing:'
+                if source /root/.wp-db-config 2>/dev/null; then
+                  echo '✅ File can be sourced successfully'
+                  echo \"  DB_HOST: \${DB_HOST:-NOT_SET}\"
+                  echo \"  DB_NAME: \${DB_NAME:-NOT_SET}\"
+                  echo \"  DB_USER: \${DB_USER:-NOT_SET}\"
+                  echo \"  DB_PASS: \${#DB_PASS} characters\"
+                else
+                  echo '❌ ERROR: Cannot source the file'
+                fi
+              else
+                echo '❌ FILE NOT FOUND'
+                echo '🔍 Checking if /root directory is accessible:'
+                ls -la /root/ | head -10 | sed 's/^/  /'
+              fi
+              
+              echo ''
+              echo '🗄️ Testing database connectivity:'
+              if [ -f /root/.wp-db-config ]; then
+                source /root/.wp-db-config
+                if mysql -h\"\${DB_HOST:-localhost}\" -u\"\$DB_USER\" -p\"\$DB_PASS\" -e \"USE \\\`\$DB_NAME\\\`; SELECT 'Database connection successful' as status;\" 2>/dev/null; then
+                  echo '✅ Database connection successful'
+                else
+                  echo '❌ Database connection failed'
+                fi
+              else
+                echo '⚠️ Skipping database test - config file missing'
+              fi
+              
+              echo ''
+              echo '📊 MariaDB service status:'
+              systemctl status mariadb --no-pager -l | head -5 | sed 's/^/  /'
+              
+              echo ''
+              echo '📊 Disk space in /root:'
+              df -h /root | sed 's/^/  /'
+              
+              echo ''
+              echo '=== END VERIFICATION ==='
+            "
+
+      # Store verification results in deployment files
+      - name: 📊 Store Verification Results
+        run: |
+          echo "📊 Storing verification results..."
+          
+          # Get verification results from VM
+          VERIFICATION_RESULT=$(gcloud compute ssh $VM_INSTANCE \
+            --zone=$VM_ZONE \
+            --quiet \
+            --command="
+              if [ -f /root/.wp-db-config ]; then
+                echo 'CONFIG_FILE_EXISTS'
+              else
+                echo 'CONFIG_FILE_MISSING'
+              fi
+            ")
+          
+          echo "🔍 Verification result: $VERIFICATION_RESULT"
+          
+          # Create verification report
+          mkdir -p .deployment-info
+          cat > .deployment-info/install-packages-verification.json << EOF
+          {
+            "workflow_run_id": "${{ github.run_id }}",
+            "workflow_run_number": "${{ github.run_number }}",
+            "verification_timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+            "config_file_status": "$VERIFICATION_RESULT",
+            "vm_instance": "$VM_INSTANCE",
+            "vm_zone": "$VM_ZONE",
+            "project_id": "$GCP_PROJECT_ID"
+          }
+          EOF
+          
+          if [ "$VERIFICATION_RESULT" = "CONFIG_FILE_EXISTS" ]; then
+            echo "✅ Database configuration file verified successfully!"
+            echo "🎉 The 04-configure-environment workflow should work properly"
+          else
+            echo "❌ Database configuration file is missing!"
+            echo "💡 This explains why 04-configure-environment fails with DB_CONFIG_MISSING"
+            echo "🔧 Check the verification output above for troubleshooting details"
+          fi
+
       # Cleanup
       - name: 🗑️ Cleanup
         if: always()

@@ -40,6 +40,7 @@ jobs:
       # Checkout repository for scripts
       - name: 📥 Checkout Repository
         uses: actions/checkout@v4
+        uses: actions/checkout@v4
 
       # Load infrastructure information from deployment files
       - name: 🔍 Load Infrastructure Information

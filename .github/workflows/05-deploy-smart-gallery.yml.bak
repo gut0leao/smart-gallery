@@ -1,0 +1,380 @@
+name: "5. Deploy plugin 🚀"
+
+on:
+  workflow_dispatch:
+    inputs:
+      project_id:
+        description: 'GCP Project ID'
+        required: true
+        type: string
+      vm_instance:
+        description: 'VM Instance Name'
+        required: true
+        type: string
+      vm_zone:
+        description: 'VM Zone'
+        required: true
+        type: string
+      plugin_version:
+        description: 'Plugin version to deploy (latest/specific version)'
+        required: false
+        default: 'latest'
+        type: string
+      activate_plugin:
+        description: 'Activate plugin after installation'
+        required: false
+        default: true
+        type: boolean
+
+  release:
+    types: [published]
+
+  push:
+    branches: [main]
+    paths: ['wp-content/plugins/smart-gallery/**']
+
+env:
+  GCP_PROJECT_ID: ${{ github.event.inputs.project_id || vars.GCP_PROJECT_ID }}
+  VM_INSTANCE: ${{ github.event.inputs.vm_instance || vars.GCP_VM_INSTANCE }}
+  VM_ZONE: ${{ github.event.inputs.vm_zone || vars.GCP_VM_ZONE }}
+  PLUGIN_NAME: smart-gallery
+
+jobs:
+  deploy-plugin:
+    name: "🚀 Deploy Smart Gallery Plugin"
+    runs-on: ubuntu-latest
+    
+    outputs:
+      deployed_version: ${{ steps.deploy.outputs.deployed_version }}
+      site_url: ${{ steps.deploy.outputs.site_url }}
+    
+    steps:
+      - name: "📥 Checkout Repository"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Load infrastructure information from deployment files
+      - name: 🔍 Load Infrastructure Information
+        id: load_info
+        run: |
+          echo "🔍 Loading infrastructure information..."
+          
+          # Check if deployment info files exist
+          if [ -f ".deployment-info/infrastructure.json" ]; then
+            echo "✅ Found deployment information file"
+            
+            # Extract information from JSON file
+            VM_NAME=$(jq -r '.vm_name // ""' .deployment-info/infrastructure.json)
+            VM_ZONE=$(jq -r '.vm_zone // ""' .deployment-info/infrastructure.json)
+            PROJECT_ID=$(jq -r '.project_id // ""' .deployment-info/infrastructure.json)
+            
+            # Override environment variables if found in deployment files
+            if [ -n "$VM_NAME" ]; then
+              echo "VM_INSTANCE=$VM_NAME" >> $GITHUB_ENV
+            fi
+            if [ -n "$VM_ZONE" ]; then
+              echo "VM_ZONE=$VM_ZONE" >> $GITHUB_ENV
+            fi
+            if [ -n "$PROJECT_ID" ]; then
+              echo "GCP_PROJECT_ID=$PROJECT_ID" >> $GITHUB_ENV
+            fi
+            
+            echo "📋 Using deployment files for infrastructure info"
+            echo "DEPLOYMENT_FILES_EXIST=true" >> $GITHUB_ENV
+          else
+            echo "📋 Using GitHub Variables/inputs for infrastructure info"
+            echo "DEPLOYMENT_FILES_EXIST=false" >> $GITHUB_ENV
+            
+            # Use original environment variables
+            echo "VM_INSTANCE=${{ env.VM_INSTANCE }}" >> $GITHUB_ENV
+            echo "VM_ZONE=${{ env.VM_ZONE }}" >> $GITHUB_ENV
+            echo "GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }}" >> $GITHUB_ENV
+          fi
+          
+          echo "📊 Infrastructure Information:"
+          echo "- VM Instance: ${VM_INSTANCE:-Not set}"
+          echo "- VM Zone: ${VM_ZONE:-Not set}"
+          echo "- Project ID: ${GCP_PROJECT_ID:-Not set}"
+
+      - name: "🔐 Authenticate to Google Cloud"
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: "☁️ Setup Google Cloud SDK"
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: "🏷️ Determine Plugin Version"
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            VERSION="${{ github.event.release.tag_name }}"
+            SOURCE="release"
+            echo "📦 Deploying from GitHub release: $VERSION"
+          elif [ "${{ github.event.inputs.plugin_version }}" != "" ] && [ "${{ github.event.inputs.plugin_version }}" != "latest" ]; then
+            VERSION="${{ github.event.inputs.plugin_version }}"
+            SOURCE="specific"
+            echo "📦 Deploying specific version: $VERSION"
+          else
+            COMMIT_SHORT=$(git rev-parse --short HEAD)
+            VERSION="1.0.0-dev-${COMMIT_SHORT}"
+            SOURCE="main"
+            echo "📦 Deploying from main branch: $VERSION"
+          fi
+          
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "source=$SOURCE" >> $GITHUB_OUTPUT
+
+      - name: "📦 Build Plugin Package"
+        id: build
+        env:
+          PLUGIN_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          echo "📦 Building Smart Gallery plugin package..."
+          
+          sed -i "s/Version: .*/Version: $PLUGIN_VERSION/" wp-content/plugins/smart-gallery/smart-gallery.php
+          sed -i "s/define('SMART_GALLERY_VERSION', '[^']*')/define('SMART_GALLERY_VERSION', '$PLUGIN_VERSION')/" wp-content/plugins/smart-gallery/smart-gallery.php
+          
+          mkdir -p dist
+          cp -r wp-content/plugins/smart-gallery dist/
+          
+          find dist/smart-gallery -name "*.md" -not -name "README.md" -delete
+          find dist/smart-gallery -name ".git*" -delete
+          find dist/smart-gallery -name "*.tmp" -delete
+          find dist/smart-gallery -name "*.log" -delete
+          find dist/smart-gallery -name "debug-*.php" -delete
+          
+          cd dist
+          zip -r "../smart-gallery-${PLUGIN_VERSION}.zip" smart-gallery/
+          cd ..
+          
+          sha256sum "smart-gallery-${PLUGIN_VERSION}.zip" > "smart-gallery-${PLUGIN_VERSION}.zip.sha256"
+          
+          echo "package_path=smart-gallery-${PLUGIN_VERSION}.zip" >> $GITHUB_OUTPUT
+          echo "checksum_path=smart-gallery-${PLUGIN_VERSION}.zip.sha256" >> $GITHUB_OUTPUT
+          
+          echo "✅ Plugin package created: smart-gallery-${PLUGIN_VERSION}.zip"
+          ls -la "smart-gallery-${PLUGIN_VERSION}.zip"
+
+      - name: "📥 Download Release Package"
+        if: steps.version.outputs.source == 'release' || (steps.version.outputs.source == 'specific' && github.event.inputs.plugin_version != 'latest')
+        env:
+          PLUGIN_VERSION: ${{ steps.version.outputs.version }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "📥 Downloading plugin package from GitHub release..."
+          
+          gh release download "$PLUGIN_VERSION" \
+            --pattern "smart-gallery-*.zip" \
+            --pattern "smart-gallery-*.zip.sha256"
+          
+          PACKAGE_FILE=$(ls smart-gallery-*.zip | head -1)
+          CHECKSUM_FILE=$(ls smart-gallery-*.zip.sha256 | head -1)
+          
+          echo "package_path=$PACKAGE_FILE" >> $GITHUB_OUTPUT
+          echo "checksum_path=$CHECKSUM_FILE" >> $GITHUB_OUTPUT
+          
+          echo "✅ Downloaded package: $PACKAGE_FILE"
+
+      - name: "🚀 Deploy Plugin to VM"
+        id: deploy
+        env:
+          PACKAGE_PATH: ${{ steps.build.outputs.package_path }}
+          CHECKSUM_PATH: ${{ steps.build.outputs.checksum_path }}
+          PLUGIN_VERSION: ${{ steps.version.outputs.version }}
+          ACTIVATE_PLUGIN: ${{ github.event.inputs.activate_plugin || 'true' }}
+        run: |
+          echo "🚀 Starting plugin deployment..."
+          
+          echo "🔍 Verifying package integrity..."
+          sha256sum -c "$CHECKSUM_PATH"
+          
+          echo "📤 Uploading plugin to VM..."
+          gcloud compute scp "$PACKAGE_PATH" \
+            $VM_INSTANCE:~/smart-gallery-deploy.zip \
+            --zone=$VM_ZONE \
+            --quiet
+          
+          SITE_URL=$(gcloud compute ssh $VM_INSTANCE \
+            --zone=$VM_ZONE \
+            --quiet \
+            --command="sudo grep 'SITE_URL=' /root/.wp-admin-config | cut -d'=' -f2" || echo "")
+          
+          echo "🔧 Installing plugin on WordPress..."
+          gcloud compute ssh $VM_INSTANCE \
+            --zone=$VM_ZONE \
+            --quiet \
+            --command="
+              set -e
+              echo 'Starting Smart Gallery plugin deployment...'
+              echo 'Version: $PLUGIN_VERSION'
+              
+              if [ -d '/var/www/html/wp-content/plugins/smart-gallery' ]; then
+                echo 'Backing up current plugin...'
+                sudo cp -r /var/www/html/wp-content/plugins/smart-gallery \
+                  /var/www/html/wp-content/plugins/smart-gallery.backup.\$(date +%Y%m%d-%H%M%S)
+              fi
+              
+              echo 'Extracting plugin package...'
+              cd /tmp
+              unzip -q ~/smart-gallery-deploy.zip
+              
+              echo 'Installing plugin files...'
+              sudo rm -rf /var/www/html/wp-content/plugins/smart-gallery
+              sudo mv smart-gallery /var/www/html/wp-content/plugins/
+              sudo chown -R www-data:www-data /var/www/html/wp-content/plugins/smart-gallery
+              sudo chmod -R 755 /var/www/html/wp-content/plugins/smart-gallery
+              
+              echo 'Clearing caches...'
+              cd /var/www/html
+              sudo -u www-data wp cache flush --quiet 2>/dev/null || echo 'Cache flush attempted'
+              
+              if [ '$ACTIVATE_PLUGIN' = 'true' ]; then
+                echo 'Activating Smart Gallery plugin...'
+                sudo -u www-data wp plugin activate smart-gallery --quiet
+                
+                if sudo -u www-data wp plugin is-active smart-gallery --quiet; then
+                  echo 'Smart Gallery plugin is active!'
+                else
+                  echo 'Plugin installed but activation may have failed'
+                fi
+              else
+                echo 'Plugin installed but not activated (as requested)'
+              fi
+              
+              echo 'Recording deployment info...'
+              echo \"Deployment Date: \$(date -u)\" > /var/log/smart-gallery-deployment.log
+              echo \"Plugin Version: $PLUGIN_VERSION\" >> /var/log/smart-gallery-deployment.log
+              echo \"Deployed By: GitHub Actions\" >> /var/log/smart-gallery-deployment.log
+              echo \"Workflow Run: ${{ github.run_id }}\" >> /var/log/smart-gallery-deployment.log
+              echo \"Commit: ${{ github.sha }}\" >> /var/log/smart-gallery-deployment.log
+              
+              echo 'Plugin deployment completed successfully!'
+            "
+          
+          echo "deployed_version=$PLUGIN_VERSION" >> $GITHUB_OUTPUT
+          echo "site_url=$SITE_URL" >> $GITHUB_OUTPUT
+          
+          echo "✅ Plugin deployment completed!"
+
+      - name: "✅ Verify Plugin Deployment"
+        env:
+          SITE_URL: ${{ steps.deploy.outputs.site_url }}
+          PLUGIN_VERSION: ${{ steps.deploy.outputs.deployed_version }}
+        run: |
+          echo "✅ Verifying plugin deployment..."
+          
+          gcloud compute ssh $VM_INSTANCE \
+            --zone=$VM_ZONE \
+            --quiet \
+            --command="
+              cd /var/www/html
+              
+              echo 'Checking plugin installation...'
+              
+              if [ -d '/var/www/html/wp-content/plugins/smart-gallery' ]; then
+                echo 'Plugin directory exists'
+              else
+                echo 'Plugin directory not found'
+                exit 1
+              fi
+              
+              if sudo -u www-data wp plugin list --format=csv | grep -q 'smart-gallery'; then
+                PLUGIN_STATUS=\$(sudo -u www-data wp plugin list --format=csv | grep 'smart-gallery' | cut -d',' -f3)
+                echo \"Plugin found with status: \$PLUGIN_STATUS\"
+              else
+                echo 'Plugin not found in WordPress'
+                exit 1
+              fi
+              
+              INSTALLED_VERSION=\$(sudo -u www-data wp plugin list --format=csv | grep 'smart-gallery' | cut -d',' -f4)
+              echo \"Installed version: \$INSTALLED_VERSION\"
+              
+              echo 'Plugin files:'
+              ls -la /var/www/html/wp-content/plugins/smart-gallery/ | head -10
+            "
+
+      - name: "🏥 Post-deployment Health Check"
+        env:
+          SITE_URL: ${{ steps.deploy.outputs.site_url }}
+        if: env.SITE_URL != ''
+        run: |
+          echo "🏥 Running post-deployment health check..."
+          
+          sleep 15
+          
+          if curl -sSf "$SITE_URL" > /dev/null; then
+            echo "✅ Site is accessible!"
+          else
+            echo "⚠️ Site may be temporarily unavailable"
+          fi
+          
+          if curl -sSf "$SITE_URL/wp-admin/" > /dev/null; then
+            echo "✅ WordPress admin is accessible!"
+          else
+            echo "⚠️ WordPress admin may need attention"
+          fi
+          
+          echo "🎉 Health check completed!"
+
+      - name: "📊 Deployment Summary"
+        env:
+          DEPLOYED_VERSION: ${{ steps.deploy.outputs.deployed_version }}
+          SITE_URL: ${{ steps.deploy.outputs.site_url }}
+          DEPLOYMENT_SOURCE: ${{ steps.version.outputs.source }}
+        run: |
+          echo "## 🚀 Smart Gallery Plugin Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### ✅ Deployment Details:" >> $GITHUB_STEP_SUMMARY
+          echo "- **Plugin Version**: \`$DEPLOYED_VERSION\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Source**: $DEPLOYMENT_SOURCE" >> $GITHUB_STEP_SUMMARY
+          echo "- **VM Instance**: \`$VM_INSTANCE\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deployed At**: $(date -u)" >> $GITHUB_STEP_SUMMARY
+          
+          if [ ! -z "$SITE_URL" ]; then
+            echo "- **Site URL**: $SITE_URL" >> $GITHUB_STEP_SUMMARY
+            echo "- **Admin URL**: $SITE_URL/wp-admin/" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🎯 Next Steps:" >> $GITHUB_STEP_SUMMARY
+          echo "1. Access WordPress admin to verify plugin" >> $GITHUB_STEP_SUMMARY
+          echo "2. Configure Smart Gallery widget in Elementor" >> $GITHUB_STEP_SUMMARY
+          echo "3. Test plugin functionality with demo content" >> $GITHUB_STEP_SUMMARY
+
+      # Store deployment information
+      - name: 📊 Store Deployment Information
+        env:
+          DEPLOYED_VERSION: ${{ steps.deploy.outputs.deployed_version }}
+          SITE_URL: ${{ steps.deploy.outputs.site_url }}
+          DEPLOYMENT_SOURCE: ${{ steps.version.outputs.source }}
+        run: |
+          echo "📊 Storing deployment information..."
+          
+          # Create deployment info directory if it doesn't exist
+          mkdir -p .deployment-info
+          
+          # Store deployment configuration in deployment files
+          cat > .deployment-info/deployment.json << EOF
+          {
+            "plugin_version": "$DEPLOYED_VERSION",
+            "deployment_source": "$DEPLOYMENT_SOURCE",
+            "deployed_at": "$(date -u -Iseconds)",
+            "site_url": "$SITE_URL",
+            "admin_url": "$SITE_URL/wp-admin/",
+            "vm_instance": "$VM_INSTANCE",
+            "vm_zone": "$VM_ZONE",
+            "project_id": "$GCP_PROJECT_ID"
+          }
+          EOF
+          
+          echo "✅ Deployment information stored in deployment files"
+
+      - name: "🗑️ Cleanup"
+        if: always()
+        run: |
+          rm -f smart-gallery-*.zip*
+          rm -rf dist/
+          echo "✅ Deployment workflow completed"

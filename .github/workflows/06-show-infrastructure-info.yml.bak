@@ -1,0 +1,299 @@
+name: "6. Show Infrastructure Info 📋"
+
+on:
+  workflow_dispatch:
+
+jobs:
+  show-info:
+    name: "📋 Display Infrastructure Information"
+    runs-on: ubuntu-latest
+    
+    steps:
+      # Checkout to access deployment files
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      # Load infrastructure information from deployment files
+      - name: 🔍 Load Infrastructure Information
+        id: load_info
+        run: |
+          echo "🔍 Loading infrastructure information..."
+          
+          # Check if deployment info files exist
+          if [ -f ".deployment-info/infrastructure.json" ]; then
+            echo "✅ Found deployment information file"
+            
+            # Extract information from JSON file
+            VM_NAME=$(jq -r '.vm_name // "Not set"' .deployment-info/infrastructure.json)
+            VM_ZONE=$(jq -r '.vm_zone // "Not set"' .deployment-info/infrastructure.json)
+            VM_IP=$(jq -r '.vm_external_ip // "Not set"' .deployment-info/infrastructure.json)
+            SITE_URL=$(jq -r '.site_url // "Not set"' .deployment-info/infrastructure.json)
+            ENVIRONMENT=$(jq -r '.environment // "Not set"' .deployment-info/infrastructure.json)
+            PROJECT_ID=$(jq -r '.project_id // "Not set"' .deployment-info/infrastructure.json)
+            DOMAIN_NAME=$(jq -r '.domain_name // "Not set"' .deployment-info/infrastructure.json)
+            USE_DUCKDNS=$(jq -r '.use_duckdns // "false"' .deployment-info/infrastructure.json)
+            DUCKDNS_SUBDOMAIN=$(jq -r '.duckdns_subdomain // "Not set"' .deployment-info/infrastructure.json)
+            PROVISIONED_AT=$(jq -r '.provisioned_at // "Not set"' .deployment-info/infrastructure.json)
+            
+            echo "📋 Infrastructure loaded from deployment files"
+            echo "DEPLOYMENT_FILES_EXIST=true" >> $GITHUB_ENV
+          else
+            echo "⚠️ No deployment information files found"
+            echo "DEPLOYMENT_FILES_EXIST=false" >> $GITHUB_ENV
+            
+            # Try to use GitHub Variables as fallback
+            VM_NAME="${{ vars.GCP_VM_INSTANCE }}"
+            VM_ZONE="${{ vars.GCP_VM_ZONE }}"
+            VM_IP="${{ vars.GCP_VM_EXTERNAL_IP }}"
+            SITE_URL="${{ vars.SITE_URL }}"
+            ENVIRONMENT="${{ vars.ENVIRONMENT }}"
+            PROJECT_ID="${{ vars.GCP_PROJECT_ID }}"
+            DOMAIN_NAME="${{ vars.DOMAIN_NAME }}"
+            USE_DUCKDNS="${{ vars.USE_DUCKDNS }}"
+            DUCKDNS_SUBDOMAIN="${{ vars.DUCKDNS_SUBDOMAIN }}"
+            PROVISIONED_AT="Unknown"
+            
+            echo "📋 Using GitHub Variables as fallback"
+          fi
+          
+          # Set outputs and environment variables
+          echo "VM_NAME=$VM_NAME" >> $GITHUB_ENV
+          echo "VM_ZONE=$VM_ZONE" >> $GITHUB_ENV
+          echo "VM_IP=$VM_IP" >> $GITHUB_ENV
+          echo "SITE_URL=$SITE_URL" >> $GITHUB_ENV
+          echo "ENVIRONMENT=$ENVIRONMENT" >> $GITHUB_ENV
+          echo "PROJECT_ID=$PROJECT_ID" >> $GITHUB_ENV
+          echo "DOMAIN_NAME=$DOMAIN_NAME" >> $GITHUB_ENV
+          echo "USE_DUCKDNS=$USE_DUCKDNS" >> $GITHUB_ENV
+          echo "DUCKDNS_SUBDOMAIN=$DUCKDNS_SUBDOMAIN" >> $GITHUB_ENV
+          echo "PROVISIONED_AT=$PROVISIONED_AT" >> $GITHUB_ENV
+          
+          echo ""
+          echo "📊 Loaded Information:"
+          echo "- VM Name: $VM_NAME"
+          echo "- VM Zone: $VM_ZONE"
+          echo "- External IP: $VM_IP"
+          echo "- Environment: $ENVIRONMENT"
+          echo "- Provisioned: $PROVISIONED_AT"
+
+      # Check VM status directly from GCP (if credentials available)
+      - name: � Check Live VM Status
+        continue-on-error: true
+        run: |
+          if [ "$VM_NAME" != "Not set" ] && [ "$VM_ZONE" != "Not set" ]; then
+            echo "🔍 Checking live VM status..."
+            
+            # Try to authenticate (will skip if no credentials)
+            if [ -n "${{ secrets.GCP_SA_KEY }}" ]; then
+              echo '${{ secrets.GCP_SA_KEY }}' | base64 -d > /tmp/gcp-key.json
+              gcloud auth activate-service-account --key-file=/tmp/gcp-key.json --quiet || echo "⚠️ Could not authenticate to GCP"
+              rm -f /tmp/gcp-key.json
+              
+              if [ "$PROJECT_ID" != "Not set" ]; then
+                gcloud config set project "$PROJECT_ID"
+                
+                # Get VM status
+                VM_STATUS=$(gcloud compute instances describe "$VM_NAME" --zone="$VM_ZONE" --format="value(status)" 2>/dev/null || echo "UNKNOWN")
+                VM_MACHINE_TYPE=$(gcloud compute instances describe "$VM_NAME" --zone="$VM_ZONE" --format="value(machineType)" 2>/dev/null | sed 's|.*/||' || echo "unknown")
+                
+                echo "VM_STATUS=$VM_STATUS" >> $GITHUB_ENV
+                echo "VM_MACHINE_TYPE=$VM_MACHINE_TYPE" >> $GITHUB_ENV
+                
+                echo "✅ Live VM Status: $VM_STATUS"
+                echo "✅ Machine Type: $VM_MACHINE_TYPE"
+              else
+                echo "⚠️ No project ID available"
+              fi
+            else
+              echo "⚠️ No GCP credentials available for live status check"
+              echo "VM_STATUS=CREDENTIALS_NEEDED" >> $GITHUB_ENV
+              echo "VM_MACHINE_TYPE=unknown" >> $GITHUB_ENV
+            fi
+          else
+            echo "⚠️ No VM information available"
+            echo "VM_STATUS=NO_VM_INFO" >> $GITHUB_ENV
+            echo "VM_MACHINE_TYPE=unknown" >> $GITHUB_ENV
+          fi
+
+      - name: "�📋 Infrastructure Information Display"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "## 🏗️ Smart Gallery Infrastructure Information" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Show data source
+          if [ "$DEPLOYMENT_FILES_EXIST" = "true" ]; then
+            echo "📁 **Data Source**: Deployment files (.deployment-info/)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "📁 **Data Source**: GitHub Variables (fallback)" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "$VM_NAME" != "Not set" ] && [ "$VM_NAME" != "" ]; then
+            echo "### ✅ Active Infrastructure:" >> $GITHUB_STEP_SUMMARY
+            echo "- **VM Instance**: \`$VM_NAME\`" >> $GITHUB_STEP_SUMMARY
+            echo "- **Zone**: \`$VM_ZONE\`" >> $GITHUB_STEP_SUMMARY
+            echo "- **External IP**: \`$VM_IP\`" >> $GITHUB_STEP_SUMMARY
+            echo "- **Site URL**: $SITE_URL" >> $GITHUB_STEP_SUMMARY
+            echo "- **Environment**: \`$ENVIRONMENT\`" >> $GITHUB_STEP_SUMMARY
+            echo "- **Project ID**: \`$PROJECT_ID\`" >> $GITHUB_STEP_SUMMARY
+            
+            # Add live status if available
+            if [ "$VM_STATUS" != "CREDENTIALS_NEEDED" ] && [ "$VM_STATUS" != "NO_VM_INFO" ]; then
+              case "$VM_STATUS" in
+                "RUNNING")
+                  echo "- **Status**: 🟢 \`$VM_STATUS\` (Active)" >> $GITHUB_STEP_SUMMARY
+                  ;;
+                "STOPPED"|"TERMINATED")
+                  echo "- **Status**: 🔴 \`$VM_STATUS\` (Inactive)" >> $GITHUB_STEP_SUMMARY
+                  ;;
+                "STARTING")
+                  echo "- **Status**: 🟡 \`$VM_STATUS\` (Starting)" >> $GITHUB_STEP_SUMMARY
+                  ;;
+                *)
+                  echo "- **Status**: ⚪ \`$VM_STATUS\`" >> $GITHUB_STEP_SUMMARY
+                  ;;
+              esac
+              echo "- **Machine Type**: \`$VM_MACHINE_TYPE\`" >> $GITHUB_STEP_SUMMARY
+            fi
+            
+            if [ "$PROVISIONED_AT" != "Not set" ] && [ "$PROVISIONED_AT" != "Unknown" ]; then
+              echo "- **Provisioned**: $PROVISIONED_AT" >> $GITHUB_STEP_SUMMARY
+            fi
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            echo "### 🗄️ Database Information:" >> $GITHUB_STEP_SUMMARY
+            if [ -n "${{ vars.WP_DB_NAME }}" ] || [ -f ".deployment-info/database.json" ]; then
+              if [ -f ".deployment-info/database.json" ]; then
+                DB_NAME=$(jq -r '.database_name // "Not set"' .deployment-info/database.json 2>/dev/null || echo "Not set")
+                DB_USER=$(jq -r '.database_user // "Not set"' .deployment-info/database.json 2>/dev/null || echo "Not set")
+                echo "✅ **Database configured (from deployment files)**" >> $GITHUB_STEP_SUMMARY
+                echo "- **Database Name**: \`$DB_NAME\`" >> $GITHUB_STEP_SUMMARY
+                echo "- **Database User**: \`$DB_USER\`" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "✅ **Database configured (from variables)**" >> $GITHUB_STEP_SUMMARY
+                echo "- **Database Name**: \`${{ vars.WP_DB_NAME }}\`" >> $GITHUB_STEP_SUMMARY
+                echo "- **Database User**: \`${{ vars.WP_DB_USER }}\`" >> $GITHUB_STEP_SUMMARY
+              fi
+              echo "- **Password**: ${{ secrets.WP_DB_PASSWORD && '🔐 Stored as GitHub Secret' || '❌ Not set' }}" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "⚠️ **Database not configured**" >> $GITHUB_STEP_SUMMARY
+              echo "Run the **Install Packages** workflow to set up the database." >> $GITHUB_STEP_SUMMARY
+            fi
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            if [ "$USE_DUCKDNS" = "true" ]; then
+              echo "### 🦆 Duck DNS Configuration:" >> $GITHUB_STEP_SUMMARY
+              echo "✅ **Duck DNS configured automatically**" >> $GITHUB_STEP_SUMMARY
+              echo "- **Subdomain**: \`$DUCKDNS_SUBDOMAIN\`" >> $GITHUB_STEP_SUMMARY
+              echo "- **Full Domain**: \`$DUCKDNS_SUBDOMAIN.duckdns.org\`" >> $GITHUB_STEP_SUMMARY
+              echo "- **Points to**: \`$VM_IP\`" >> $GITHUB_STEP_SUMMARY
+              echo "- **Status**: Active" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "### 🌐 DNS Configuration Required:" >> $GITHUB_STEP_SUMMARY
+              echo "Configure your DNS provider with an **A Record**:" >> $GITHUB_STEP_SUMMARY
+              echo "- **Type**: A Record" >> $GITHUB_STEP_SUMMARY
+              echo "- **Name**: \`$DOMAIN_NAME\`" >> $GITHUB_STEP_SUMMARY
+              echo "- **Value**: \`$VM_IP\`" >> $GITHUB_STEP_SUMMARY
+              echo "- **TTL**: 300 (5 minutes)" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "💡 **Tip**: Consider using Duck DNS for automatic management!" >> $GITHUB_STEP_SUMMARY
+            fi
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 🔐 Required Secrets Status:" >> $GITHUB_STEP_SUMMARY
+            echo "- **GCP_SA_KEY**: ${{ secrets.GCP_SA_KEY && '✅ Set' || '❌ Not set' }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **GITHUB_TOKEN**: ${{ secrets.GITHUB_TOKEN && '✅ Set' || '❌ Not set' }}" >> $GITHUB_STEP_SUMMARY
+            
+            if [ "$USE_DUCKDNS" = "true" ]; then
+              echo "- **DUCKDNS_TOKEN**: ${{ secrets.DUCKDNS_TOKEN && '✅ Set' || '❌ Not set' }}" >> $GITHUB_STEP_SUMMARY
+            fi
+            echo "- **WP_DB_PASSWORD**: ${{ secrets.WP_DB_PASSWORD && '✅ Set (Secret)' || '❌ Not set' }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            echo "### 🔧 Next Steps:" >> $GITHUB_STEP_SUMMARY
+            if [ "$VM_STATUS" = "RUNNING" ]; then
+              echo "✅ **VM is running and ready for configuration**" >> $GITHUB_STEP_SUMMARY
+              echo "- Run **Install Packages** workflow (if not done)" >> $GITHUB_STEP_SUMMARY
+              echo "- Run **Configure Environment** workflow" >> $GITHUB_STEP_SUMMARY  
+              echo "- Run **Deploy Plugin** workflow" >> $GITHUB_STEP_SUMMARY
+            elif [ "$VM_STATUS" = "STOPPED" ] || [ "$VM_STATUS" = "TERMINATED" ]; then
+              echo "⚠️ **VM is not running**" >> $GITHUB_STEP_SUMMARY
+              echo "- Start VM: \`gcloud compute instances start $VM_NAME --zone=$VM_ZONE\`" >> $GITHUB_STEP_SUMMARY
+              echo "- Or run **Provision Infrastructure** workflow again" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "� **Check VM status manually if needed**" >> $GITHUB_STEP_SUMMARY
+              echo "- Verify infrastructure with GCP Console" >> $GITHUB_STEP_SUMMARY
+              echo "- Run workflows as needed" >> $GITHUB_STEP_SUMMARY
+            fi
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            echo "### 🌐 Access Information:" >> $GITHUB_STEP_SUMMARY
+            if [ "$VM_STATUS" = "RUNNING" ]; then
+              echo "- **SSH Access**: \`gcloud compute ssh $VM_NAME --zone=$VM_ZONE\`" >> $GITHUB_STEP_SUMMARY
+              if [ "$USE_DUCKDNS" = "true" ]; then
+                echo "- **Website**: https://$DUCKDNS_SUBDOMAIN.duckdns.org" >> $GITHUB_STEP_SUMMARY
+                echo "- **Admin**: https://$DUCKDNS_SUBDOMAIN.duckdns.org/wp-admin" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "- **Website**: $SITE_URL" >> $GITHUB_STEP_SUMMARY
+                echo "- **Admin**: $SITE_URL/wp-admin" >> $GITHUB_STEP_SUMMARY
+              fi
+            else
+              echo "⚠️ **VM must be running to access services**" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "### ⚠️ No Infrastructure Found:" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "No infrastructure information is available. This could mean:" >> $GITHUB_STEP_SUMMARY
+            echo "- Infrastructure hasn't been provisioned yet" >> $GITHUB_STEP_SUMMARY
+            echo "- Deployment files were not created" >> $GITHUB_STEP_SUMMARY  
+            echo "- GitHub Variables permissions are not available" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**🚀 To get started:**" >> $GITHUB_STEP_SUMMARY
+            echo "1. Run the **Provision Infrastructure** workflow" >> $GITHUB_STEP_SUMMARY
+            echo "2. Configure your GCP credentials (\`GCP_SA_KEY\` secret)" >> $GITHUB_STEP_SUMMARY
+            echo "3. Set up your domain (or use Duck DNS)" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo ""
+          echo "========================================================================================"
+          echo "🏗️ SMART GALLERY INFRASTRUCTURE STATUS"
+          echo "========================================================================================"
+          echo ""
+          echo "📊 Infrastructure Overview:"
+          echo "  • VM Instance: ${VM_NAME:-Not provisioned}"
+          echo "  • Zone: ${VM_ZONE:-Not set}"  
+          echo "  • External IP: ${VM_IP:-Not assigned}"
+          echo "  • Site URL: ${SITE_URL:-Not configured}"
+          echo "  • Environment: ${ENVIRONMENT:-Not set}"
+          echo "  • Project ID: ${PROJECT_ID:-Not set}"
+          echo ""
+          if [ "$VM_STATUS" != "NO_VM_INFO" ] && [ "$VM_STATUS" != "CREDENTIALS_NEEDED" ]; then
+            echo "� Live Status:"
+            echo "  • VM Status: $VM_STATUS"
+            echo "  • Machine Type: $VM_MACHINE_TYPE"
+          else
+            echo "🔍 Live Status: Unable to check (credentials needed)"
+          fi
+          echo ""
+          echo "🌐 DNS Configuration:"
+          if [ "$USE_DUCKDNS" = "true" ]; then
+            echo "  • Duck DNS: Enabled"
+            echo "  • Subdomain: ${DUCKDNS_SUBDOMAIN:-Not set}"
+            echo "  • Full Domain: ${DUCKDNS_SUBDOMAIN:-subdomain}.duckdns.org"
+          else
+            echo "  • Duck DNS: Disabled"
+            echo "  • Domain: ${DOMAIN_NAME:-Not set}"
+            echo "  • Manual DNS configuration required"
+          fi
+          echo ""
+          echo "🔐 Secrets Status:"
+          echo "  • GCP Service Account: ${{ secrets.GCP_SA_KEY && 'Configured' || 'Missing' }}"
+          echo "  • Duck DNS Token: ${{ secrets.DUCKDNS_TOKEN && 'Configured' || 'Missing' }}"
+          echo "  • Database Password: ${{ secrets.WP_DB_PASSWORD && 'Configured (Secret)' || 'Missing' }}"
+          echo ""
+          echo "📁 Data Sources:"
+          echo "  • Deployment Files: ${DEPLOYMENT_FILES_EXIST:-false}"
+          echo "  • GitHub Variables: Available as fallback"
+          echo ""
+          echo "========================================================================================"

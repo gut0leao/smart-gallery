@@ -480,13 +480,24 @@ jobs:
 
       # Create WordPress database
       - name: 🗄️ Create WordPress Database
+        env:
+          WP_DB_PASSWORD_SECRET: ${{ secrets.WP_DB_PASSWORD }}
         run: |
           echo "🗄️ Creating WordPress database..."
           
           # Generate database credentials and store them
           DB_NAME="wordpress"
           DB_USER="wordpress"
-          DB_PASS=$(openssl rand -base64 32)
+          
+          if [ -n "$WP_DB_PASSWORD_SECRET" ]; then
+            echo "🔐 Using database password from secret WP_DB_PASSWORD"
+            DB_PASS="$WP_DB_PASSWORD_SECRET"
+          else
+            echo "⚠️ WP_DB_PASSWORD secret not set, generating a random password..."
+            DB_PASS=$(openssl rand -base64 32)
+          fi
+          
+          DB_PASS_B64="$(printf '%s' "$DB_PASS" | base64 | tr -d '\n')"
           
           # Create database on VM
           gcloud compute ssh $VM_INSTANCE \
@@ -496,13 +507,17 @@ jobs:
               # Set database credentials
               DB_NAME=\"$DB_NAME\"
               DB_USER=\"$DB_USER\"
-              DB_PASS=\"$DB_PASS\"
+              DB_PASS_B64=\"$DB_PASS_B64\"
+              DB_PASS=\$(printf '%s' \"\$DB_PASS_B64\" | base64 --decode)
+              ESCAPED_DB_PASS=\$(printf \"%s\" \"\$DB_PASS\" | sed \"s/'/''/g\")
               
               echo \"🔧 Creating database: \$DB_NAME\"
               echo \"🔧 Creating user: \$DB_USER\"
               
               sudo mysql -e \"CREATE DATABASE IF NOT EXISTS \$DB_NAME;\"
-              sudo mysql -e \"CREATE USER IF NOT EXISTS '\$DB_USER'@'localhost' IDENTIFIED BY '\$DB_PASS';\"
+              sudo mysql -e \"CREATE USER IF NOT EXISTS '\$DB_USER'@'localhost' IDENTIFIED BY '\$ESCAPED_DB_PASS';\"
+              sudo mysql -e \"ALTER USER '\$DB_USER'@'localhost' IDENTIFIED BY '\$ESCAPED_DB_PASS';\" || \
+                sudo mysql -e \"SET PASSWORD FOR '\$DB_USER'@'localhost' = PASSWORD('\$ESCAPED_DB_PASS');\"
               sudo mysql -e \"GRANT ALL PRIVILEGES ON \$DB_NAME.* TO '\$DB_USER'@'localhost';\"
               sudo mysql -e \"FLUSH PRIVILEGES;\"
               

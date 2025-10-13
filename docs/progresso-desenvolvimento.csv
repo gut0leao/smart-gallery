@@ -1,0 +1,24 @@
+Fase,ID Funcionalidade,Nome da Atividade,Complexidade,Tempo Previsto (horas),Tempo Realizado (horas),Status,Observações
+Fase 1: Fundação,F1.1,Exibição Básica da Galeria,Médio,4-6,5,✅ Completo,Layout em grid de CPT com design responsivo implementado
+Fase 1: Fundação,F1.2,Integração Framework Pods,Alto,8-10,12,✅ Completo,"Integração completa CPT, campos personalizados, taxonomias, controles título/descrição"
+Fase 1: Fundação,F1.3,Controles Básicos Elementor,Baixo,2-4,3,✅ Completo,Interface de configuração do widget no Elementor
+Fase 1: Fundação,F1.4,Efeitos de Hover,Baixo,2-3,2,✅ Completo,Efeitos de zoom na imagem e revelação de conteúdo
+Fase 2: Funcionalidades Principais,F2.1,Sistema de Paginação,Médio,3-4,4,✅ Completo,Sistema de paginação com integração completa busca/filtros
+Fase 3: Busca e Filtros Básicos,F3.1,Busca por Texto,Médio,3-4,4,✅ Completo,"Busca server-side manual, posicionamento configurável, integração com paginação"
+Fase 3: Busca e Filtros Básicos,F3.2,Filtros por Campos Personalizados,Alto,8-10,10,✅ Completo,"Filtros dinâmicos por campos personalizados, contadores, integração busca/paginação"
+Fase 4: Filtros Avançados,F3.3,Filtros por Taxonomia,Alto,8-10,12,✅ Completo,"Filtros hierárquicos de taxonomia, contadores agregados, seleção em cascata"
+Fase 4: Filtros Avançados,F3.4,Gerenciamento de Filtros,Alto,6-8,4,✅ Completo,"Coordenação unificada de filtros, limpeza de URL, comportamento Limpar Tudo"
+Fase 4: Melhorias UX/UI,F4.4,Painel de Status Debug,Baixo,2-3,2,✅ Completo,"Painel debug unificado, design limpo, alternância de visibilidade"
+Fase 5: Administração,F5.1,Gerenciamento de Dependências,Baixo,2-3,0,⏳ Pendente,Tratamento gracioso de dependências ausentes
+Fase 4: Melhorias UX/UI,F4.1,Estados de Carregamento,Baixo,3-4,0,⏳ Pendente,Feedback visual durante operações de dados
+Fase 4: Melhorias UX/UI,F4.2,Integração Visual,Médio,4-6,0,⏳ Pendente,Integração perfeita com temas Elementor
+Fase 4: Melhorias UX/UI,F4.3,Animações e Transições,Baixo,3-4,0,⏳ Pendente,Melhorias na experiência do usuário com animações
+Fase 5: Administração,F5.2,Controles Avançados Elementor,Médio,5-7,0,⏳ Pendente,Interface completa de configuração do widget
+Fase 6: Finalização,F5.3,Informações do Plugin,Baixo,1-2,0,⏳ Pendente,Marca e informações do plugin
+Extra: Infraestrutura,INFRA-1,Configuração Local DDEV,Baixo,2-3,4,✅ Completo,Script completo de configuração local com WordPress + plugins
+Extra: Infraestrutura,INFRA-2,Configuração Demo Docker,Médio,3-4,3,✅ Completo,"Dockerfile, entrypoint, docker-compose.yml para demo local"
+Extra: Infraestrutura,INFRA-3,Documentação e Requisitos,Baixo,2-3,6,✅ Completo,"Requirements.md centralizado, decisões documentadas, tags de versão"
+Extra: Infraestrutura,INFRA-4,Sistema de Limpeza URL,Médio,4-5,5,✅ Completo,Sistema de remoção de filtros incompatíveis da URL
+Extra: Infraestrutura,INFRA-5,Gerenciamento Repositório,Baixo,1-2,2,✅ Completo,"Tags Git, commits estruturados, backup de progresso"
+Extra: Infraestrutura,INFRA-6,Deploy com SSL Automático,Alto,6-8,7,✅ Completo,"GitHub Actions com Let's Encrypt, configuração SSL automática, documentação"
+Extra: Infraestrutura,INFRA-7,Script Limpeza GCP,Alto,6-8,8,✅ Completo,"Script abrangente cleanup GCP, autenticação service account, dry-run testado"

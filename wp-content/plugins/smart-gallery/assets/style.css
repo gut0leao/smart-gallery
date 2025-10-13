@@ -1,0 +1,1052 @@
+/* Smart Gallery Plugin Styles */
+
+/* Basic Gallery Grid */
+.smart-gallery-widget {
+    width: 100%;
+}
+
+.smart-gallery-grid {
+    display: grid;
+    gap: 20px;
+    /* Grid columns controlled by Elementor - no default needed */
+    justify-content: center;
+    margin: 0 auto;
+}
+
+.smart-gallery-item {
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.smart-gallery-item img {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+    image-rendering: optimizeQuality;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+}
+
+/* Hover Effects - Image Hover */
+.smart-gallery-item.hover-image-enabled img {
+    transition: transform 0.3s ease;
+}
+
+.smart-gallery-item.hover-image-enabled:hover img {
+    transform: scale(1.10);
+}
+
+/* Hover Effects - Content Hover (Reveal Effect) */
+.smart-gallery-item.hover-content-enabled .smart-gallery-content {
+    transform: translateY(100%);
+    opacity: 0;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.smart-gallery-item.hover-content-enabled:hover .smart-gallery-content {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+/* Content always visible when content hover is disabled */
+.smart-gallery-item:not(.hover-content-enabled) .smart-gallery-content {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+/* Link styling */
+.smart-gallery-item a {
+    display: block;
+    width: 100%;
+    height: 100%;
+    text-decoration: none;
+    color: inherit;
+}
+
+/* Responsive Grid - Gap adjustments and centering */
+@media (max-width: 768px) {
+    .smart-gallery-grid {
+        gap: 15px;
+        justify-content: center;
+        justify-items: center;
+    }
+    
+    .smart-gallery-widget {
+        text-align: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .smart-gallery-grid {
+        gap: 10px;
+        justify-content: center;
+        justify-items: center;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    }
+    
+    .smart-gallery-widget {
+        text-align: center;
+        padding: 0 10px;
+    }
+}
+
+/* Configuration Display */
+.smart-gallery-config {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+/* ================================
+   F2.1 - Pagination System Styles
+   ================================ */
+.smart-gallery-pagination {
+    margin-top: 30px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-family: inherit;
+}
+
+.smart-gallery-pagination .pagination-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 12px;
+    text-decoration: none;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 400;
+    transition: all 0.2s ease;
+    min-width: 40px;
+    height: 40px;
+    text-align: center;
+    border: 1px solid #e5e5e5;
+    color: #666;
+    background: #fff;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.smart-gallery-pagination .pagination-button:hover {
+    color: #666;
+    border-color: #bbb;
+    background-color: #f5f5f5;
+}
+
+.smart-gallery-pagination .pagination-button.pagination-current {
+    background-color: #666;
+    border-color: #666;
+    color: #fff;
+    cursor: default;
+}
+
+.smart-gallery-pagination .pagination-button.pagination-current:hover {
+    background-color: #666;
+    border-color: #666;
+    color: #fff;
+}
+
+.smart-gallery-pagination .pagination-prev,
+.smart-gallery-pagination .pagination-next {
+    padding: 8px 16px;
+    font-weight: 400;
+}
+
+.smart-gallery-pagination .pagination-ellipsis {
+    padding: 0 8px;
+    color: #999;
+    font-size: 16px;
+    line-height: 40px;
+    user-select: none;
+}
+
+/* Focus states for accessibility */
+.smart-gallery-pagination .pagination-button:focus {
+    outline: 2px solid #999;
+    outline-offset: 2px;
+}
+
+/* Animation for page transitions */
+.smart-gallery-grid {
+    transition: opacity 0.3s ease;
+}
+
+/* Pagination Responsive Design */
+@media (max-width: 768px) {
+    .smart-gallery-pagination {
+        gap: 6px;
+    }
+    
+    .smart-gallery-pagination .pagination-button {
+        min-width: 40px;
+        height: 40px;
+        padding: 8px 12px;
+        font-size: 13px;
+    }
+    
+    .smart-gallery-pagination .pagination-prev,
+    .smart-gallery-pagination .pagination-next {
+        padding: 8px 16px;
+    }
+    
+    .smart-gallery-pagination .pagination-ellipsis {
+        line-height: 40px;
+    }
+}
+
+@media (max-width: 480px) {
+    .smart-gallery-pagination {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .smart-gallery-pagination .pagination-button {
+        min-width: 50px;
+    }
+    
+    /* Stack prev/next buttons and page numbers separately */
+    .smart-gallery-pagination .pagination-prev,
+    .smart-gallery-pagination .pagination-next {
+        order: 2;
+        width: 100px;
+    }
+}
+
+/* ================================
+   F3.1 - Text Search System Styles
+   ================================ */
+
+/* Search Container Layout */
+.smart-gallery-search-container {
+    margin-bottom: 20px;
+    width: 100%;
+}
+
+.smart-gallery-search-container.smart-gallery-search-upper_bar {
+    /* Upper bar: full width above gallery */
+    margin-bottom: 25px;
+}
+
+.smart-gallery-search-container.smart-gallery-search-left_bar {
+    /* Left bar: contained in sidebar */
+    margin-bottom: 15px;
+    margin-right: 20px;
+    min-width: 250px;
+}
+
+/* Main Content Layout for Left Bar */
+.smart-gallery-main-content {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+}
+
+.smart-gallery-left-bar {
+    flex-shrink: 0;
+    min-width: 250px;
+    max-width: 300px;
+}
+
+.smart-gallery-content {
+    flex: 1;
+    min-width: 0; /* Allow shrinking */
+}
+
+/* Search Form */
+.smart-gallery-search-form {
+    display: block;
+    width: 100%;
+}
+
+.smart-gallery-search-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Search Input Container */
+.smart-gallery-search-input-container {
+    position: relative;
+    flex: 1;
+    display: flex;
+    align-items: center;
+}
+
+.smart-gallery-search-input {
+    width: 100%;
+    padding: 12px 50px 12px 16px; /* Right padding for internal button */
+    border: 1px solid #dedede !important;
+    border-radius: 8px !important;
+    font-size: 14px;
+    font-family: inherit;
+    background-color: #fff;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    outline: none;
+}
+
+.smart-gallery-search-input:focus {
+    border-color: #bbb;
+    box-shadow: 0 0 0 2px rgba(187, 187, 187, 0.1);
+}
+
+.smart-gallery-search-input::placeholder {
+    color: #aaa;
+    opacity: 1;
+}
+
+/* Internal Search Button (inside input) */
+.smart-gallery-search-button-internal {
+    position: absolute !important;
+    right: 8px !important;
+    top: 50% !important;
+    transform: translateY(-48%) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 40px !important;
+    height: 40px !important;
+    background: transparent !important;
+    border: none !important;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    color: #666;
+    transition: all 0.2s ease;
+    z-index: 10 !important;
+    /* Reset button defaults and prevent red borders */
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    outline: none;
+    box-shadow: none;
+}
+
+/* Ensure no red borders in any state */
+.smart-gallery-search-button-internal:enabled {
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    color: #666; /* Manter cor original */
+}
+
+.smart-gallery-search-button-internal:hover:not(:disabled) {
+    background-color: transparent; /* Sem fundo */
+    color: #666;
+    transform: translateY(-48%) !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+.smart-gallery-search-button-internal:active:not(:disabled) {
+    background-color: transparent; /* Sem fundo */
+    color: #666;
+    transform: translateY(-48%) !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+.smart-gallery-search-button-internal:focus {
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    background-color: transparent; /* Sem fundo */
+    color: #666;
+}
+
+.smart-gallery-search-button-internal:disabled {
+    padding: 0;
+    background-color: transparent !important;
+    color: #ccc !important;
+    border: none !important;
+    cursor: not-allowed;
+    opacity: 0.6;
+    transform: translateY(-48%) !important;
+    box-shadow: none !important;
+}
+
+.smart-gallery-search-button-internal .search-button-icon {
+    padding: 0 !important;
+    width: 20px !important;
+    height: 20px !important;
+    display: inline-block !important;
+    flex-shrink: 0 !important;
+    flex-grow: 0 !important;
+    min-width: 20px !important;
+    min-height: 20px !important;
+    max-width: 20px !important;
+    max-height: 20px !important;
+}
+
+.smart-gallery-search-button-internal .search-button-icon svg {
+    width: 20px !important;
+    height: 20px !important;
+    fill: #666;
+    stroke: none;
+    flex-shrink: 0 !important;
+}
+
+/* Ensure icon size is consistent in all button states */
+.smart-gallery-search-button-internal:hover:not(:disabled) .search-button-icon,
+.smart-gallery-search-button-internal:active:not(:disabled) .search-button-icon,
+.smart-gallery-search-button-internal:focus .search-button-icon,
+.smart-gallery-search-button-internal:disabled .search-button-icon {
+    width: 20px !important;
+    height: 20px !important;
+    min-width: 20px !important;
+    min-height: 20px !important;
+    max-width: 20px !important;
+    max-height: 20px !important;
+}
+
+.smart-gallery-search-button-internal:hover:not(:disabled) .search-button-icon svg,
+.smart-gallery-search-button-internal:active:not(:disabled) .search-button-icon svg,
+.smart-gallery-search-button-internal:focus .search-button-icon svg,
+.smart-gallery-search-button-internal:disabled .search-button-icon svg {
+    width: 20px !important;
+    height: 20px !important;
+}
+
+/* Search Button */
+.smart-gallery-search-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    color: #ffffff;
+    transition: all 0.3s ease;
+    min-height: 48px;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.smart-gallery-search-button:hover:not(:disabled) {
+    transform: translateY(-1px);
+}
+
+.smart-gallery-search-button:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.smart-gallery-search-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+    transform: none;
+}
+
+.smart-gallery-search-button .search-button-icon {
+    font-size: 16px;
+}
+
+.smart-gallery-search-button .search-button-text {
+    font-size: 14px;
+}
+
+/* Clear Button */
+.smart-gallery-clear-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 12px 16px;
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    border-radius: 4px;
+    text-decoration: none;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 400;
+    color: #666;
+    transition: all 0.2s ease;
+    min-height: 48px;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.smart-gallery-clear-button:hover {
+    background-color: #f5f5f5;
+    border-color: #bbb;
+    color: #666;
+    text-decoration: none;
+}
+
+.smart-gallery-clear-button:active {
+    background-color: #eee;
+    border-color: #aaa;
+    color: #666;
+}
+
+.smart-gallery-clear-button .clear-button-icon {
+    font-size: 16px;
+}
+
+.smart-gallery-clear-button .clear-button-text {
+    font-size: 14px;
+}
+
+/* Focus states for accessibility */
+.smart-gallery-search-button:focus,
+.smart-gallery-clear-button:focus {
+    outline: 2px solid #999;
+    outline-offset: 2px;
+}
+
+/* Responsive Design for Search */
+@media (max-width: 768px) {
+    .smart-gallery-main-content {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .smart-gallery-left-bar {
+        min-width: 100%;
+        max-width: 100%;
+        margin-right: 0;
+    }
+    
+    .smart-gallery-search-container.smart-gallery-search-left_bar {
+        min-width: 100%;
+        margin-right: 0;
+        margin-bottom: 20px;
+    }
+    
+    .smart-gallery-search-group {
+        gap: 6px;
+    }
+    
+    .smart-gallery-search-input {
+        padding: 10px 12px 10px 36px;
+        font-size: 13px;
+        border-color: #dedede !important;
+        border-radius: 8px !important;
+    }
+    
+    .smart-gallery-search-icon {
+        left: 10px;
+        font-size: 14px;
+    }
+    
+    .smart-gallery-search-button,
+    .smart-gallery-clear-button {
+        padding: 10px 12px;
+        min-height: 44px;
+        font-size: 13px;
+    }
+    
+    .smart-gallery-search-button .search-button-icon,
+    .smart-gallery-clear-button .clear-button-icon {
+        font-size: 14px;
+    }
+    
+    /* Ensure internal search button icon keeps its size */
+    .smart-gallery-search-button-internal .search-button-icon {
+        width: 20px !important;
+        height: 20px !important;
+        font-size: inherit !important;
+    }
+    
+    .smart-gallery-search-button .search-button-text,
+    .smart-gallery-clear-button .clear-button-text {
+        font-size: 12px;
+    }
+}
+
+@media (max-width: 480px) {
+    .smart-gallery-search-group {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    
+    .smart-gallery-search-input-container {
+        width: 100%;
+        min-width: 0;
+    }
+    
+    .smart-gallery-search-button {
+        flex: 1;
+        justify-content: center;
+        min-width: 80px;
+    }
+    
+    .smart-gallery-clear-button {
+        flex: 1;
+        justify-content: center;
+        min-width: 80px;
+    }
+    
+    /* Hide text labels on very small screens, show icons only */
+    .smart-gallery-search-button .search-button-text,
+    .smart-gallery-clear-button .clear-button-text {
+        display: none;
+    }
+}
+
+/* =================================================================
+   F3.2 - Custom Fields Filtering Styles
+   ================================================================= */
+
+/* Filters Container */
+.smart-gallery-filters {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 15px;
+    border: 1px solid #e5e5e5;
+}
+
+/* Filter Header and Title */
+.smart-gallery-filters-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 15px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e5e5e5;
+}
+
+.smart-gallery-filters-title {
+    margin: 0;
+    padding: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+    display: flex;
+    align-items: center;
+}
+
+.smart-gallery-filters-title .smart-gallery-icon {
+    width: 20px;
+    height: 20px;
+    vertical-align: middle;
+    margin-right: 8px;
+    stroke: currentColor;
+    border: none !important;
+    background: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+
+.smart-gallery-clear-all-filters-header {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #6c757d;
+    width: 20px;
+    height: 20px;
+    outline: none !important;
+    box-shadow: none !important;
+    vertical-align: middle;
+}
+
+.smart-gallery-clear-all-filters-header:hover {
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    color: #5a6268 !important;
+    opacity: 1 !important;
+    transform: none !important;
+}
+
+.smart-gallery-clear-all-filters-header:active,
+.smart-gallery-clear-all-filters-header:focus {
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+.smart-gallery-clear-all-filters-header .smart-gallery-icon {
+    width: 20px;
+    height: 20px;
+    fill: currentColor;
+    border: none !important;
+    background: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+    display: block;
+}
+
+.smart-gallery-clear-all-filters-header:hover .smart-gallery-icon {
+    fill: currentColor !important;
+    background: none !important;
+    background-color: transparent !important;
+}
+
+.smart-gallery-filters-title .screen-reader-text {
+    position: absolute !important;
+    clip: rect(1px, 1px, 1px, 1px);
+    padding: 0 !important;
+    border: 0 !important;
+    height: 1px !important;
+    width: 1px !important;
+    overflow: hidden;
+}
+
+/* Filter Sections */
+.smart-gallery-filter-section {
+    margin-bottom: 20px;
+}
+
+.smart-gallery-filter-section:last-of-type {
+    margin-bottom: 15px;
+}
+
+.smart-gallery-filter-title {
+    margin: 0 0 10px 0;
+    padding: 0;
+    font-size: 14px;
+    font-weight: 500;
+    color: #666;
+}
+
+/* Filter Options */
+.smart-gallery-filter-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.smart-gallery-filter-option {
+    display: flex;
+    align-items: center;
+    padding: 6px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.smart-gallery-filter-option:hover {
+    background: #f0f0f0;
+}
+
+.smart-gallery-filter-option input[type="checkbox"] {
+    margin: 0 8px 0 0;
+    min-width: 16px;
+    height: 16px;
+    accent-color: #333;
+}
+
+.smart-gallery-filter-option .filter-value {
+    color: #333;
+    margin-right: 5px;
+}
+
+.smart-gallery-filter-option .filter-count {
+    color: #999;
+    font-size: 12px;
+    font-weight: normal;
+    margin-left: auto;
+}
+
+/* Filter Clear Buttons */
+.smart-gallery-filter-clear {
+    background: transparent;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 12px;
+    color: #666;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-top: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.smart-gallery-filter-clear:hover {
+    background: #f5f5f5;
+    border-color: #999;
+    color: #333;
+}
+
+.smart-gallery-filter-clear .clear-icon {
+    font-size: 14px;
+    line-height: 1;
+}
+
+.smart-gallery-clear-all-filters {
+    background: #666;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 5px;
+    width: 100%;
+    justify-content: center;
+}
+
+.smart-gallery-clear-all-filters:hover {
+    background: #555;
+}
+
+.smart-gallery-clear-all-filters .clear-icon {
+    font-size: 16px;
+    line-height: 1;
+}
+
+/* Left Bar Layout */
+.smart-gallery-left-bar {
+    min-width: 280px;
+    max-width: 320px;
+    margin-right: 20px;
+}
+
+/* Responsive Filters */
+@media (max-width: 768px) {
+    .smart-gallery-left-bar {
+        min-width: 0;
+        max-width: none;
+        margin-right: 0;
+        margin-bottom: 20px;
+    }
+    
+    .smart-gallery-filters {
+        padding: 15px;
+    }
+    
+    .smart-gallery-filter-options {
+        gap: 6px;
+    }
+    
+    .smart-gallery-filter-option {
+        padding: 5px 6px;
+        font-size: 12px;
+    }
+    
+    .smart-gallery-clear-all-filters {
+        padding: 8px 12px;
+        font-size: 12px;
+    }
+}
+
+@media (max-width: 480px) {
+    .smart-gallery-filters {
+        padding: 12px;
+        margin-top: 10px;
+    }
+    
+    .smart-gallery-filters-title {
+        font-size: 15px;
+        margin-bottom: 12px;
+    }
+    
+    .smart-gallery-filter-title {
+        font-size: 13px;
+        margin-bottom: 8px;
+    }
+    
+    .smart-gallery-filter-option {
+        padding: 4px 6px;
+        font-size: 12px;
+    }
+    
+    .smart-gallery-filter-option input[type="checkbox"] {
+        min-width: 14px;
+        height: 14px;
+        margin-right: 6px;
+    }
+}
+
+/* =============================================================================
+   TAXONOMY FILTERS (F3.3)
+   ========================================================================== */
+
+/* Taxonomy Filter Section */
+.smart-gallery-taxonomy-filter-section {
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #e8e8e8;
+}
+
+.smart-gallery-taxonomy-filter-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.smart-gallery-taxonomy-filter-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Taxonomy Filter Options */
+.smart-gallery-taxonomy-filter-option {
+    display: flex;
+    align-items: center;
+    padding: 6px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    line-height: 1.4;
+    font-size: 14px;
+}
+
+.smart-gallery-taxonomy-filter-option:hover {
+    background-color: #f8f9fa;
+}
+
+.smart-gallery-taxonomy-filter-option input[type="checkbox"] {
+    margin: 0 8px 0 0;
+    min-width: 16px;
+    height: 16px;
+    accent-color: #0073aa;
+    cursor: pointer;
+}
+
+.taxonomy-term-name {
+    flex: 1;
+    color: #333;
+}
+
+.taxonomy-term-count {
+    color: #666;
+    font-size: 13px;
+    font-weight: normal;
+    margin-left: 6px;
+}
+
+/* Hierarchical Indentation */
+.smart-gallery-term-level-1 {
+    padding-left: 20px;
+    position: relative;
+}
+
+.smart-gallery-term-level-1::before {
+    content: '└';
+    position: absolute;
+    left: 6px;
+    color: #ccc;
+    font-family: monospace;
+}
+
+.smart-gallery-term-level-2 {
+    padding-left: 40px;
+    position: relative;
+}
+
+.smart-gallery-term-level-2::before {
+    content: '└└';
+    position: absolute;
+    left: 6px;
+    color: #ccc;
+    font-family: monospace;
+}
+
+.smart-gallery-term-level-3 {
+    padding-left: 60px;
+    position: relative;
+}
+
+.smart-gallery-term-level-3::before {
+    content: '└└└';
+    position: absolute;
+    left: 6px;
+    color: #ccc;
+    font-family: monospace;
+}
+
+/* Deeper levels (if needed) */
+.smart-gallery-term-level-4 {
+    padding-left: 80px;
+}
+
+.smart-gallery-term-level-5 {
+    padding-left: 100px;
+}
+
+/* Selected State */
+.smart-gallery-taxonomy-filter-option input[type="checkbox"]:checked + .taxonomy-term-name {
+    font-weight: 600;
+    color: #0073aa;
+}
+
+.smart-gallery-taxonomy-filter-option:has(input[type="checkbox"]:checked) {
+    background-color: #f0f6fc;
+    border: 1px solid #c3dbf0;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .smart-gallery-taxonomy-filter-section {
+        margin-bottom: 15px;
+        padding-bottom: 15px;
+    }
+    
+    .smart-gallery-taxonomy-filter-options {
+        gap: 6px;
+    }
+    
+    .smart-gallery-taxonomy-filter-option {
+        padding: 5px 6px;
+        font-size: 13px;
+    }
+    
+    .taxonomy-term-count {
+        font-size: 12px;
+    }
+    
+    .smart-gallery-term-level-1 {
+        padding-left: 16px;
+    }
+    
+    .smart-gallery-term-level-2 {
+        padding-left: 32px;
+    }
+    
+    .smart-gallery-term-level-3 {
+        padding-left: 48px;
+    }
+}
+
+@media (max-width: 480px) {
+    .smart-gallery-taxonomy-filter-option {
+        padding: 4px 5px;
+        font-size: 12px;
+    }
+    
+    .smart-gallery-taxonomy-filter-option input[type="checkbox"] {
+        min-width: 14px;
+        height: 14px;
+        margin-right: 6px;
+    }
+    
+    .taxonomy-term-count {
+        font-size: 11px;
+    }
+    
+    .smart-gallery-term-level-1 {
+        padding-left: 14px;
+    }
+    
+    .smart-gallery-term-level-2 {
+        padding-left: 28px;
+    }
+    
+    .smart-gallery-term-level-3 {
+        padding-left: 42px;
+    }
+}

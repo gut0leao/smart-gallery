@@ -5,12 +5,9 @@ on:
 
 jobs:
   show-info:
-    name: "📋 Display Infrastruct      - name: "📋 Infrastructure Information Display"
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
-        run: |Information"
+    name: "📋 Infrastructure Information Display"
     runs-on: ubuntu-latest
-    
+
     steps:
       # Checkout to access deployment files
       - name: 📥 Checkout Repository
@@ -21,7 +18,7 @@ jobs:
         id: load_info
         run: |
           echo "🔍 Loading infrastructure information from GitHub Variables..."
-          
+
           # Use GitHub Variables as primary and preferred source
           VM_NAME="${{ vars.GCP_VM_INSTANCE }}"
           VM_ZONE="${{ vars.GCP_VM_ZONE }}"
@@ -32,7 +29,7 @@ jobs:
           DOMAIN_NAME="${{ vars.DOMAIN_NAME }}"
           USE_DUCKDNS="${{ vars.USE_DUCKDNS }}"
           DUCKDNS_SUBDOMAIN="${{ vars.DUCKDNS_SUBDOMAIN }}"
-          
+
           # Only check deployment files for info not available in Variables (like timestamps)
           PROVISIONED_AT="Unknown"
           if [ -f ".deployment-info/infrastructure.json" ] && [ -z "$VM_NAME" ]; then
@@ -46,7 +43,7 @@ jobs:
             # Just get timestamp if Variables are populated
             PROVISIONED_AT=$(jq -r '.provisioned_at // "Unknown"' .deployment-info/infrastructure.json 2>/dev/null || echo "Unknown")
           fi
-          
+
           # Set defaults for any missing values
           VM_NAME="${VM_NAME:-Not set}"
           VM_ZONE="${VM_ZONE:-Not set}"
@@ -57,9 +54,9 @@ jobs:
           DOMAIN_NAME="${DOMAIN_NAME:-Not set}"
           USE_DUCKDNS="${USE_DUCKDNS:-false}"
           DUCKDNS_SUBDOMAIN="${DUCKDNS_SUBDOMAIN:-Not set}"
-          
+
           echo "📋 Using GitHub Variables (preferred method)"
-          
+
           # Set outputs and environment variables
           echo "VM_NAME=$VM_NAME" >> $GITHUB_ENV
           echo "VM_ZONE=$VM_ZONE" >> $GITHUB_ENV
@@ -71,7 +68,7 @@ jobs:
           echo "USE_DUCKDNS=$USE_DUCKDNS" >> $GITHUB_ENV
           echo "DUCKDNS_SUBDOMAIN=$DUCKDNS_SUBDOMAIN" >> $GITHUB_ENV
           echo "PROVISIONED_AT=$PROVISIONED_AT" >> $GITHUB_ENV
-          
+
           echo ""
           echo "📊 Loaded Information:"
           echo "- VM Name: $VM_NAME"
@@ -125,11 +122,11 @@ jobs:
         run: |
           echo "## 🏗️ Smart Gallery Infrastructure Information" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           # Show data source
           echo "📁 **Data Source**: GitHub Variables (primary)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           if [ "$VM_NAME" != "Not set" ] && [ "$VM_NAME" != "" ]; then
             echo "### ✅ Active Infrastructure:" >> $GITHUB_STEP_SUMMARY
             echo "- **VM Instance**: \`$VM_NAME\`" >> $GITHUB_STEP_SUMMARY
@@ -247,7 +244,7 @@ jobs:
             echo "2. Configure your GCP credentials (\`GCP_SA_KEY\` secret)" >> $GITHUB_STEP_SUMMARY
             echo "3. Set up your domain (or use Duck DNS)" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           echo ""
           echo "========================================================================================"
           echo "🏗️ SMART GALLERY INFRASTRUCTURE STATUS"

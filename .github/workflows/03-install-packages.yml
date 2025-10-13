@@ -35,6 +35,9 @@ jobs:
   install-packages:
     name: 📦 Install Server Packages
     runs-on: ubuntu-latest
+    env:
+      WP_DB_NAME: wordpress
+      WP_DB_USER: wordpress
     
     steps:
       # Checkout repository for scripts
@@ -494,7 +497,7 @@ jobs:
             DB_PASS="$WP_DB_PASSWORD_SECRET"
           else
             echo "⚠️ WP_DB_PASSWORD secret not set, generating a random password..."
-            DB_PASS=$(openssl rand -base64 32)
+            DB_PASS=$(openssl rand -hex 16)  # hex only, no special characters
           fi
           
           DB_PASS_B64="$(printf '%s' "$DB_PASS" | base64 | tr -d '\n')"
@@ -514,12 +517,11 @@ jobs:
               echo \"🔧 Creating database: \$DB_NAME\"
               echo \"🔧 Creating user: \$DB_USER\"
               
-              sudo mysql -e \"CREATE DATABASE IF NOT EXISTS \$DB_NAME;\"
-              sudo mysql -e \"CREATE USER IF NOT EXISTS '\$DB_USER'@'localhost' IDENTIFIED BY '\$ESCAPED_DB_PASS';\"
-              sudo mysql -e \"ALTER USER '\$DB_USER'@'localhost' IDENTIFIED BY '\$ESCAPED_DB_PASS';\" || \
-                sudo mysql -e \"SET PASSWORD FOR '\$DB_USER'@'localhost' = PASSWORD('\$ESCAPED_DB_PASS');\"
-              sudo mysql -e \"GRANT ALL PRIVILEGES ON \$DB_NAME.* TO '\$DB_USER'@'localhost';\"
-              sudo mysql -e \"FLUSH PRIVILEGES;\"
+              sudo mysql -e "CREATE DATABASE IF NOT EXISTS \$DB_NAME;"
+              sudo mysql -e "DROP USER IF EXISTS '\$DB_USER'@'localhost';"
+              sudo mysql -e "CREATE USER '\$DB_USER'@'localhost' IDENTIFIED WITH mysql_native_password BY '\$ESCAPED_DB_PASS';"
+              sudo mysql -e "GRANT ALL PRIVILEGES ON \$DB_NAME.* TO '\$DB_USER'@'localhost';"
+              sudo mysql -e "FLUSH PRIVILEGES;"
               
               # Test database connectivity to ensure everything works
               echo '🔍 Testing database connectivity...'
@@ -635,49 +637,18 @@ jobs:
           
           set -e  # Re-enable exit on error
           
-          echo "✅ Database credentials stored in GitHub Variables and Secrets"
-          echo "📝 Database Name: $DB_NAME"
-          echo "📝 Database User: $DB_USER" 
-          echo "🔐 Database Password: [STORED SECURELY IN GITHUB VARIABLES]"
-
-      # Store database password as GitHub Secret (simplified approach)
-      - name: 🔐 Store Database Password as Secret
-        run: |
-          echo "🔐 Storing database password information..."
-          
-          # Database password is already available in this context
-          # No need to retrieve from VM since we just created it above
-          
-          # For security, we'll store just a hash/checksum for verification
-          DB_HASH=$(echo -n "$DB_PASS" | sha256sum | cut -d' ' -f1)
-          
-          # Determine which token to use for password hash storage
-          if [ -n "${{ secrets.GH_PAT }}" ]; then
-            GITHUB_AUTH_TOKEN="${{ secrets.GH_PAT }}"
+          if [ -n "$WP_DB_PASSWORD_SECRET" ]; then
+            echo "✅ Database password sourced from GitHub secret WP_DB_PASSWORD"
           else
-            GITHUB_AUTH_TOKEN="${{ secrets.GITHUB_TOKEN }}"
+            echo "✅ Temporary database password generated for this run (stored in workflow env)"
           fi
-          
-          # Store database password hash as a variable for verification purposes
-          echo "🔐 Storing database password hash..."
-          curl -L \
-            -X PATCH \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer $GITHUB_AUTH_TOKEN" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            https://api.github.com/repos/${{ github.repository }}/actions/variables/WP_DB_PASS_HASH \
-            -d "{\"name\":\"WP_DB_PASS_HASH\",\"value\":\"$DB_HASH\"}" \
-            2>/dev/null || \
-          curl -L \
-            -X POST \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer $GITHUB_AUTH_TOKEN" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            https://api.github.com/repos/${{ github.repository }}/actions/variables \
-            -d "{\"name\":\"WP_DB_PASS_HASH\",\"value\":\"$DB_HASH\"}"
-          
-          echo "✅ Database password hash stored for verification"
-          echo "💡 The actual password is available in GitHub Variables "
+          echo "📝 Database Name: $DB_NAME"
+          echo "📝 Database User: $DB_USER"
+          if [ -n "$WP_DB_PASSWORD_SECRET" ]; then
+            echo "🔐 Database Password: Managed via secret WP_DB_PASSWORD"
+          else
+            echo "🔐 Database Password: Generated for this workflow run only"
+          fi
 
       # Configure log rotation
       - name: 📝 Configure Log Rotation
@@ -762,7 +733,7 @@ jobs:
                 source /tmp/db-status 2>/dev/null
                 echo '- **WordPress Database**: \$DB_NAME' >> /tmp/status.md
                 echo '- **Database User**: \$DB_USER' >> /tmp/status.md
-                echo '- **Password**: Stored in GitHub Variables' >> /tmp/status.md
+                echo '- **Password**: Managed via GitHub secret WP_DB_PASSWORD' >> /tmp/status.md
                 echo '- **Status**: Ready (connectivity tested)' >> /tmp/status.md
               fi
               echo '' >> /tmp/status.md
@@ -774,8 +745,7 @@ jobs:
               echo '### 💾 Stored Variables:' >> /tmp/status.md
               echo '- **WP_DB_NAME**: Available in GitHub Variables' >> /tmp/status.md
               echo '- **WP_DB_USER**: Available in GitHub Variables' >> /tmp/status.md
-              echo '- **WP_DB_PASSWORD**: Available in GitHub Variables/Secrets' >> /tmp/status.md
-              echo '- **WP_DB_PASS_HASH**: Available in GitHub Variables (for verification)' >> /tmp/status.md
+              echo '- **WP_DB_PASSWORD**: Stored as GitHub secret WP_DB_PASSWORD' >> /tmp/status.md
               echo '- **Database Connectivity**: ✅ Tested and confirmed' >> /tmp/status.md
               echo '' >> /tmp/status.md
               echo '### 🎯 Next Steps:' >> /tmp/status.md
@@ -803,7 +773,7 @@ jobs:
           
           Installed Components:
           - Nginx: \$(nginx -v 2>&1 | head -1)
-          - PHP: \$(php -v | head -1)
+          - PHP: \$(php -v 2>&1 | head -1)
           - MariaDB: \$(mysql --version | head -1)
           - WP-CLI: \$(wp --version)
           - Composer: \$(composer --version | head -1)
@@ -812,7 +782,7 @@ jobs:
           Database Configuration:
           - Database Name: wordpress
           - Database User: wordpress
-          - Credentials: Stored in GitHub Variables
+          - Credentials: Stored in GitHub secret WP_DB_PASSWORD
           
           Installation Status: COMPLETED SUCCESSFULLY
           EOL
@@ -825,8 +795,26 @@ jobs:
 
       # Final verification of database configuration
       - name: 🔍 Final Database Configuration Verification
+        env:
+          WP_DB_PASSWORD_SECRET: ${{ secrets.WP_DB_PASSWORD }}
         run: |
           echo "🔍 Final verification of database configuration..."
+          
+          DB_NAME="${WP_DB_NAME:-wordpress}"
+          DB_USER="${WP_DB_USER:-wordpress}"
+          DB_PASS="${WP_DB_PASSWORD_SECRET:-}"
+          
+          if [ -z "$DB_PASS" ] && [ -n "${WP_DB_PASSWORD_GENERATED:-}" ]; then
+            DB_PASS=$(printf '%s' "$WP_DB_PASSWORD_GENERATED" | base64 --decode 2>/dev/null || true)
+          fi
+          
+          if [ -z "$DB_PASS" ]; then
+            echo "::error::Database password is not available. Ensure WP_DB_PASSWORD secret is configured."
+            exit 1
+          fi
+          
+          echo "::add-mask::$DB_PASS"
+          DB_PASS_B64="$(printf '%s' "$DB_PASS" | base64 | tr -d '\n')"
           
           gcloud compute ssh $VM_INSTANCE \
             --zone=$VM_ZONE \
@@ -835,7 +823,8 @@ jobs:
               # Set database credentials for verification
               DB_NAME=\"$DB_NAME\"
               DB_USER=\"$DB_USER\"
-              DB_PASS=\"$DB_PASS\"
+              DB_PASS_B64=\"$DB_PASS_B64\"
+              DB_PASS=\$(printf '%s' \"\$DB_PASS_B64\" | base64 --decode)
               
               echo '=== FINAL DATABASE CONFIG VERIFICATION ==='
               echo \"Date: \$(date)\"
@@ -888,8 +877,26 @@ jobs:
 
       # Store verification results in deployment files
       - name: 📊 Store Verification Results
+        env:
+          WP_DB_PASSWORD_SECRET: ${{ secrets.WP_DB_PASSWORD }}
         run: |
           echo "📊 Storing verification results..."
+          
+          DB_NAME="${WP_DB_NAME:-wordpress}"
+          DB_USER="${WP_DB_USER:-wordpress}"
+          DB_PASS="${WP_DB_PASSWORD_SECRET:-}"
+          
+          if [ -z "$DB_PASS" ] && [ -n "${WP_DB_PASSWORD_GENERATED:-}" ]; then
+            DB_PASS=$(printf '%s' "$WP_DB_PASSWORD_GENERATED" | base64 --decode 2>/dev/null || true)
+          fi
+          
+          if [ -z "$DB_PASS" ]; then
+            echo "::error::Database password is not available. Ensure WP_DB_PASSWORD secret is configured."
+            exit 1
+          fi
+          
+          echo "::add-mask::$DB_PASS"
+          DB_PASS_B64="$(printf '%s' "$DB_PASS" | base64 | tr -d '\n')"
           
           # Get verification results from VM (check database connectivity instead of file)
           VERIFICATION_RESULT=$(gcloud compute ssh $VM_INSTANCE \
@@ -899,7 +906,8 @@ jobs:
               # Set credentials for verification
               DB_NAME=\"$DB_NAME\"
               DB_USER=\"$DB_USER\"
-              DB_PASS=\"$DB_PASS\"
+              DB_PASS_B64=\"$DB_PASS_B64\"
+              DB_PASS=\$(printf '%s' \"\$DB_PASS_B64\" | base64 --decode)
               
               if mysql -h localhost -u \"\$DB_USER\" -p\"\$DB_PASS\" -e \"USE \$DB_NAME; SELECT 1;\" >/dev/null 2>&1; then
                 echo 'DATABASE_READY'

@@ -627,13 +627,18 @@ jobs:
         run: |
           # Skip wait if VM already existed and was not recreated
           # We only wait if VM was created or replaced (which triggers restart)
-          CREATE_COUNT=${CREATE_COUNT:-0}
-          REPLACE_COUNT=${REPLACE_COUNT:-0}
           
-          if [ "$VM_ALREADY_EXISTS" = "true" ] && [ "$CREATE_COUNT" = "0" ] && [ "$REPLACE_COUNT" = "0" ]; then
+          # Normalize counts: remove leading zeros and treat empty as 0
+          CREATE_COUNT=${CREATE_COUNT:-0}
+          CREATE_COUNT=$((10#${CREATE_COUNT} + 0))  # Convert to decimal, removing leading zeros
+          REPLACE_COUNT=${REPLACE_COUNT:-0}
+          REPLACE_COUNT=$((10#${REPLACE_COUNT} + 0))  # Convert to decimal, removing leading zeros
+          
+          echo "📊 Detected Terraform changes: CREATE=$CREATE_COUNT, REPLACE=$REPLACE_COUNT, VM_ALREADY_EXISTS=$VM_ALREADY_EXISTS"
+          
+          if [ "$VM_ALREADY_EXISTS" = "true" ] && [ "$CREATE_COUNT" -eq 0 ] && [ "$REPLACE_COUNT" -eq 0 ]; then
             echo "✅ VM already exists and was not recreated - skipping startup wait"
             echo "💡 The VM was already running (only updates applied, no restart needed)"
-            echo "📊 Terraform changes: CREATE=$CREATE_COUNT, REPLACE=$REPLACE_COUNT"
             echo "🚀 Ready to proceed to next steps immediately!"
             exit 0
           fi

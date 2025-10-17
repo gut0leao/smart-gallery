@@ -116,7 +116,9 @@ jobs:
           echo "🧪 Testing SSH connection with workflow key..."
           for i in {1..5}; do
             if gcloud compute ssh $VM_INSTANCE \
+            --ssh-key-file=~/.ssh/id_rsa \
               --zone=$VM_ZONE \
+              --ssh-key-file=~/.ssh/id_rsa \
               --quiet \
               --command="echo 'SSH connection successful'" 2>/dev/null; then
               echo "✅ SSH connection established successfully"
@@ -178,6 +180,7 @@ jobs:
         run: |
           echo "🔄 Updating system packages..."
           gcloud compute ssh $VM_INSTANCE \
+            --ssh-key-file=~/.ssh/id_rsa \
             --zone=$VM_ZONE \
             --quiet \
             --command="
@@ -191,6 +194,7 @@ jobs:
         run: |
           echo "🌐 Installing Nginx..."
           gcloud compute ssh $VM_INSTANCE \
+            --ssh-key-file=~/.ssh/id_rsa \
             --zone=$VM_ZONE \
             --quiet \
             --command="
@@ -219,6 +223,7 @@ jobs:
         run: |
           echo "🐘 Adding PHP $PHP_VERSION repository..."
           gcloud compute ssh $VM_INSTANCE \
+            --ssh-key-file=~/.ssh/id_rsa \
             --zone=$VM_ZONE \
             --quiet \
             --command="
@@ -239,6 +244,7 @@ jobs:
         run: |
           echo "🐘 Installing PHP $PHP_VERSION core packages..."
           gcloud compute ssh $VM_INSTANCE \
+            --ssh-key-file=~/.ssh/id_rsa \
             --zone=$VM_ZONE \
             --quiet \
             --command="
@@ -272,6 +278,7 @@ jobs:
         run: |
           echo "🔌 Installing essential PHP extensions..."
           gcloud compute ssh $VM_INSTANCE \
+            --ssh-key-file=~/.ssh/id_rsa \
             --zone=$VM_ZONE \
             --quiet \
             --command="
@@ -303,6 +310,7 @@ jobs:
         run: |
           echo "📦 Installing additional PHP extensions..."
           gcloud compute ssh $VM_INSTANCE \
+            --ssh-key-file=~/.ssh/id_rsa \
             --zone=$VM_ZONE \
             --quiet \
             --command="
@@ -324,6 +332,7 @@ jobs:
         run: |
           echo "⚙️ Configuring PHP-FPM..."
           gcloud compute ssh $VM_INSTANCE \
+            --ssh-key-file=~/.ssh/id_rsa \
             --zone=$VM_ZONE \
             --quiet \
             --command="
@@ -343,6 +352,7 @@ jobs:
         run: |
           echo "🗄️ Installing MariaDB..."
           gcloud compute ssh $VM_INSTANCE \
+            --ssh-key-file=~/.ssh/id_rsa \
             --zone=$VM_ZONE \
             --quiet \
             --command="
@@ -371,6 +381,7 @@ jobs:
         run: |
           echo "🔒 Securing MariaDB..."
           gcloud compute ssh $VM_INSTANCE \
+            --ssh-key-file=~/.ssh/id_rsa \
             --zone=$VM_ZONE \
             --quiet \
             --command="
@@ -386,6 +397,7 @@ jobs:
         run: |
           echo "🔧 Installing WP-CLI..."
           gcloud compute ssh $VM_INSTANCE \
+            --ssh-key-file=~/.ssh/id_rsa \
             --zone=$VM_ZONE \
             --quiet \
             --command="
@@ -439,6 +451,7 @@ jobs:
         run: |
           echo "🎼 Installing Composer..."
           gcloud compute ssh $VM_INSTANCE \
+            --ssh-key-file=~/.ssh/id_rsa \
             --zone=$VM_ZONE \
             --quiet \
             --command="
@@ -461,6 +474,7 @@ jobs:
         run: |
           echo "🛠️ Installing additional tools..."
           gcloud compute ssh $VM_INSTANCE \
+            --ssh-key-file=~/.ssh/id_rsa \
             --zone=$VM_ZONE \
             --quiet \
             --command="
@@ -516,6 +530,7 @@ jobs:
           
           # Create database on VM using heredoc for better quoting
           gcloud compute ssh $VM_INSTANCE \
+            --ssh-key-file=~/.ssh/id_rsa \
             --zone=$VM_ZONE \
             --quiet \
             --command='bash -s' << EOF
@@ -667,6 +682,7 @@ jobs:
         run: |
           echo "📝 Configuring log rotation..."
           gcloud compute ssh $VM_INSTANCE \
+            --ssh-key-file=~/.ssh/id_rsa \
             --zone=$VM_ZONE \
             --quiet \
             --command="
@@ -692,6 +708,7 @@ jobs:
           echo "🔍 Verifying package installation..."
           
           gcloud compute ssh $VM_INSTANCE \
+            --ssh-key-file=~/.ssh/id_rsa \
             --zone=$VM_ZONE \
             --quiet \
             --command="
@@ -727,6 +744,7 @@ jobs:
           echo "📊 Getting service status summary..."
           
           gcloud compute ssh $VM_INSTANCE \
+            --ssh-key-file=~/.ssh/id_rsa \
             --zone=$VM_ZONE \
             --quiet \
             --command="
@@ -773,6 +791,7 @@ jobs:
         run: |
           echo "✅ Marking installation as complete..."
           gcloud compute ssh $VM_INSTANCE \
+            --ssh-key-file=~/.ssh/id_rsa \
             --zone=$VM_ZONE \
             --quiet \
             --command="
@@ -829,6 +848,7 @@ jobs:
           DB_PASS_B64="$(printf '%s' "$DB_PASS" | base64 | tr -d '\n')"
           
           gcloud compute ssh $VM_INSTANCE \
+            --ssh-key-file=~/.ssh/id_rsa \
             --zone=$VM_ZONE \
             --quiet \
             --command="
@@ -912,6 +932,7 @@ jobs:
           
           # Get verification results from VM (check database connectivity instead of file)
           VERIFICATION_RESULT=$(gcloud compute ssh $VM_INSTANCE \
+            --ssh-key-file=~/.ssh/id_rsa \
             --zone=$VM_ZONE \
             --quiet \
             --command="

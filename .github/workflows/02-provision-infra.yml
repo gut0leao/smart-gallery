@@ -262,7 +262,11 @@ jobs:
           
           # Enhanced VM check and import
           echo "🖥️ Checking VM Instance..."
+          VM_ALREADY_EXISTS="false"
           if check_vm_status "$NAME_PREFIX-vm" "$ZONE"; then
+            VM_ALREADY_EXISTS="true"
+            echo "VM_ALREADY_EXISTS=true" >> $GITHUB_ENV
+            
             # VM exists and configuration matches - try to import
             if ! terraform state show "google_compute_instance.smart_gallery_vm" >/dev/null 2>&1; then
               echo "📥 Importing existing VM..."
@@ -277,6 +281,8 @@ jobs:
             else
               echo "✅ VM already in Terraform state"
             fi
+          else
+            echo "VM_ALREADY_EXISTS=false" >> $GITHUB_ENV
           fi
           
           # Import firewall rules
@@ -610,12 +616,28 @@ jobs:
             echo "✅ Infrastructure information extracted from existing resources!"
           fi
 
-      # Wait for VM to be ready
+      # Wait for VM to be ready (only for newly created VMs)
       - name: ⏳ Wait for VM Startup
         env:
           VM_NAME: ${{ steps.extract_outputs.outputs.vm_name }}
           VM_ZONE: ${{ steps.extract_outputs.outputs.vm_zone }}
+          VM_ALREADY_EXISTS: ${{ env.VM_ALREADY_EXISTS }}
         run: |
+          # Skip wait if VM already existed before this workflow
+          if [ "$VM_ALREADY_EXISTS" = "true" ] && [ "${{ env.PLAN_HAS_CHANGES }}" = "false" ]; then
+            echo "✅ VM already exists and no changes were made - skipping startup wait"
+            echo "💡 The VM was already running before this workflow started"
+            echo "🚀 Ready to proceed to next steps immediately!"
+            exit 0
+          fi
+          
+          # If VM was recreated or newly created, wait for it
+          if [ "${{ env.PLAN_HAS_CHANGES }}" = "true" ]; then
+            echo "🆕 VM was created or modified - waiting for startup completion..."
+          else
+            echo "⚠️ Unexpected state: No changes but VM check needed"
+          fi
+          
           echo "⏳ Waiting for VM to be ready for SSH connections..."
           
           # First, wait for VM to be accessible via SSH (basic connectivity)

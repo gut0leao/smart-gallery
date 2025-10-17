@@ -542,19 +542,14 @@ jobs:
               echo '🔧 Creating user: \$DB_USER'
               
               # Create database and drop user if exists
-              sudo mysql -e \"CREATE DATABASE IF NOT EXISTS \$DB_NAME;\"
-              sudo mysql -e \"DROP USER IF EXISTS '\$DB_USER'@'localhost';\" 2>/dev/null || true
+              sudo mysql -e "CREATE DATABASE IF NOT EXISTS \$DB_NAME;"
+              sudo mysql -e "DROP USER IF EXISTS '\$DB_USER'@'localhost';" 2>/dev/null || true
               
-              # Create user with password using PASSWORD() function to handle special chars
-              # First create user without password
-              sudo mysql -e \"CREATE USER '\$DB_USER'@'localhost';\"
-              
-              # Then set password using mysql client with -p option via expect-like approach
-              sudo mysql -e \"SET PASSWORD FOR '\$DB_USER'@'localhost' = PASSWORD('\$DB_PASS');\"
-              
-              # Grant privileges
-              sudo mysql -e \"GRANT ALL PRIVILEGES ON \$DB_NAME.* TO '\$DB_USER'@'localhost';\"
-              sudo mysql -e \"FLUSH PRIVILEGES;\"
+              # Create user with password in one step (no escaping issues with base64)
+              # The password comes already decoded from base64, so it's safe to use
+              sudo mysql -e "CREATE USER '\$DB_USER'@'localhost' IDENTIFIED BY '\$DB_PASS';"
+              sudo mysql -e "GRANT ALL PRIVILEGES ON \$DB_NAME.* TO '\$DB_USER'@'localhost';"
+              sudo mysql -e "FLUSH PRIVILEGES;"
               
               # Test database connectivity
               echo '🔍 Testing database connectivity...'

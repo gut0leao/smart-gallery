@@ -116,9 +116,8 @@ jobs:
           echo "🧪 Testing SSH connection with workflow key..."
           for i in {1..5}; do
             if gcloud compute ssh $VM_INSTANCE \
-            --ssh-key-file=~/.ssh/id_rsa \
-              --zone=$VM_ZONE \
               --ssh-key-file=~/.ssh/id_rsa \
+              --zone=$VM_ZONE \
               --quiet \
               --command="echo 'SSH connection successful'" 2>/dev/null; then
               echo "✅ SSH connection established successfully"

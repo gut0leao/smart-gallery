@@ -44,8 +44,8 @@ resource "google_compute_instance" "smart_gallery_vm" {
   tags = ["smart-gallery-server"]
 
   metadata = {
-    ssh-keys               = "ubuntu:${file("~/.ssh/id_rsa.pub")}"
-    enable-oslogin         = "TRUE"
+    ssh-keys               = var.ssh_public_key != "" ? "ubuntu:${var.ssh_public_key}" : null
+    enable-oslogin         = "FALSE"
     startup-script         = data.template_file.startup_script.rendered
     block-project-ssh-keys = "TRUE"
   }
@@ -59,7 +59,6 @@ resource "google_compute_instance" "smart_gallery_vm" {
     
     # Don't recreate the VM if these attributes change
     ignore_changes = [
-      metadata["ssh-keys"],
       metadata["startup-script"],
       metadata["user-data"],
       boot_disk[0].initialize_params[0].labels,

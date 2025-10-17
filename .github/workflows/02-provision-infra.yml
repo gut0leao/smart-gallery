@@ -162,6 +162,7 @@ jobs:
           TF_VAR_region: ${{ github.event.inputs.region }}
           TF_VAR_machine_type: ${{ github.event.inputs.machine_type }}
           TF_VAR_zone: ${{ github.event.inputs.region }}-a
+          TF_VAR_ssh_public_key: ${{ env.SSH_PUBLIC_KEY }}
         run: |
           echo "🔍 Checking for existing resources and importing if needed..."
           
@@ -321,6 +322,7 @@ jobs:
           TF_VAR_region: ${{ github.event.inputs.region }}
           TF_VAR_machine_type: ${{ github.event.inputs.machine_type }}
           TF_VAR_zone: ${{ github.event.inputs.region }}-a
+          TF_VAR_ssh_public_key: ${{ env.SSH_PUBLIC_KEY }}
         run: |
           echo "📋 Creating Terraform plan with detailed analysis..."
           
@@ -455,6 +457,7 @@ jobs:
           TF_VAR_region: ${{ github.event.inputs.region }}
           TF_VAR_machine_type: ${{ github.event.inputs.machine_type }}
           TF_VAR_zone: ${{ github.event.inputs.region }}-a
+          TF_VAR_ssh_public_key: ${{ env.SSH_PUBLIC_KEY }}
         run: |
           echo "🚀 Applying Terraform configuration..."
           
@@ -509,6 +512,7 @@ jobs:
           TF_VAR_region: ${{ github.event.inputs.region }}
           TF_VAR_machine_type: ${{ github.event.inputs.machine_type }}
           TF_VAR_zone: ${{ github.event.inputs.region }}-a
+          TF_VAR_ssh_public_key: ${{ env.SSH_PUBLIC_KEY }}
         run: |
           echo "📤 Extracting infrastructure information..."
           

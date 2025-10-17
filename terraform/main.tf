@@ -48,6 +48,12 @@ variable "environment" {
 variable "machine_type" {
   description = "GCP VM machine type"
   type        = string
+}
+
+variable "ssh_public_key" {
+  description = "SSH public key for VM access"
+  type        = string
+  default     = ""
   default     = "e2-micro" # Free tier eligible
 }
 

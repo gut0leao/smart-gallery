@@ -527,48 +527,43 @@ jobs:
           
           DB_PASS_B64="$(printf '%s' "$DB_PASS" | base64 | tr -d '\n')"
           
-          # Create database on VM
-          gcloud compute ssh $VM_INSTANCE \
-            --ssh-key-file=~/.ssh/id_rsa \
-            --zone=$VM_ZONE \
-            --quiet -- bash -c "
-              DB_NAME='$DB_NAME'
-              DB_USER='$DB_USER'
-              DB_PASS_B64='$DB_PASS_B64'
-              DB_PASS=\\\$(printf '%s' \\\"\\\$DB_PASS_B64\\\" | base64 --decode)
-              
-              echo '🔧 Creating database: '\\\$DB_NAME
-              echo '🔧 Creating user: '\\\$DB_USER
-              
-              # Create database and drop user if exists
-              sudo mysql -e \\\"CREATE DATABASE IF NOT EXISTS \\\$DB_NAME;\\\"
-              sudo mysql -e \\\"DROP USER IF EXISTS '\\\$DB_USER'@'localhost';\\\" 2>/dev/null || true
-              
-              # Create user with password in one step
-              sudo mysql -e \\\"CREATE USER '\\\$DB_USER'@'localhost' IDENTIFIED BY '\\\$DB_PASS';\\\"
-              sudo mysql -e \\\"GRANT ALL PRIVILEGES ON \\\$DB_NAME.* TO '\\\$DB_USER'@'localhost';\\\"
-              sudo mysql -e \\\"FLUSH PRIVILEGES;\\\"
-              
-              # Test database connectivity
-              echo '🔍 Testing database connectivity...'
-              if mysql -h localhost -u \\\"\\\$DB_USER\\\" -p\\\"\\\$DB_PASS\\\" -e \\\"USE \\\$DB_NAME; SELECT 'Database setup successful' as status;\\\" 2>/dev/null; then
-                echo '✅ Database connection test successful'
-                echo '✅ WordPress database created and tested successfully'
-                
-                # Store success marker
-                echo 'WORDPRESS_DB_READY=true' > /tmp/db-status
-                echo \\\"DB_NAME=\\\$DB_NAME\\\" >> /tmp/db-status  
-                echo \\\"DB_USER=\\\$DB_USER\\\" >> /tmp/db-status
-                echo \\\"CREATED_AT=\\\$(date)\\\" >> /tmp/db-status
-              else
-                echo '❌ Database connectivity test failed'
-                echo '🔍 Debugging information:'
-                echo \\\"Attempting connection with user: \\\$DB_USER\\\"
-                echo \\\"To database: \\\$DB_NAME\\\"
-                mysql -h localhost -u \\\"\\\$DB_USER\\\" -p\\\"\\\$DB_PASS\\\" -e \\\"SELECT 'Connection test' as test;\\\" 2>&1 || true
-                exit 1
-              fi
-            "
+          # Create and execute database setup via gcloud scp
+          {
+            echo '#!/bin/bash'
+            echo 'set -e'
+            echo 'DB_NAME="$1"'
+            echo 'DB_USER="$2"'
+            echo 'DB_PASS_B64="$3"'
+            echo 'DB_PASS=$(printf "%s" "$DB_PASS_B64" | base64 --decode)'
+            echo 'echo "🔧 Creating database: $DB_NAME"'
+            echo 'echo "🔧 Creating user: $DB_USER"'
+            echo 'sudo mysql -e "CREATE DATABASE IF NOT EXISTS $DB_NAME;"'
+            echo 'sudo mysql -e "DROP USER IF EXISTS '\''$DB_USER'\''@'\''localhost'\'';" 2>/dev/null || true'
+            echo 'sudo mysql -e "CREATE USER '\''$DB_USER'\''@'\''localhost'\'' IDENTIFIED BY '\''$DB_PASS'\'';"'
+            echo 'sudo mysql -e "GRANT ALL PRIVILEGES ON $DB_NAME.* TO '\''$DB_USER'\''@'\''localhost'\'';"'
+            echo 'sudo mysql -e "FLUSH PRIVILEGES;"'
+            echo 'echo "🔍 Testing database connectivity..."'
+            echo 'if mysql -h localhost -u "$DB_USER" -p"$DB_PASS" -e "USE $DB_NAME; SELECT '\''Database setup successful'\'' as status;" 2>/dev/null; then'
+            echo '  echo "✅ Database connection test successful"'
+            echo '  echo "✅ WordPress database created and tested successfully"'
+            echo '  echo '\''WORDPRESS_DB_READY=true'\'' > /tmp/db-status'
+            echo '  echo "DB_NAME=$DB_NAME" >> /tmp/db-status'
+            echo '  echo "DB_USER=$DB_USER" >> /tmp/db-status'
+            echo '  echo "CREATED_AT=$(date)" >> /tmp/db-status'
+            echo 'else'
+            echo '  echo "❌ Database connectivity test failed"'
+            echo '  echo "🔍 Debugging information:"'
+            echo '  echo "Attempting connection with user: $DB_USER"'
+            echo '  echo "To database: $DB_NAME"'
+            echo '  mysql -h localhost -u "$DB_USER" -p"$DB_PASS" -e "SELECT '\''Connection test'\'' as test;" 2>&1 || true'
+            echo '  exit 1'
+            echo 'fi'
+          } > /tmp/create-db.sh
+          
+          chmod +x /tmp/create-db.sh
+          gcloud compute scp /tmp/create-db.sh $VM_INSTANCE:/tmp/create-db.sh --zone=$VM_ZONE --quiet
+          gcloud compute ssh $VM_INSTANCE --ssh-key-file=~/.ssh/id_rsa --zone=$VM_ZONE --quiet --command="bash /tmp/create-db.sh '$DB_NAME' '$DB_USER' '$DB_PASS_B64' && rm /tmp/create-db.sh"
+          rm -f /tmp/create-db.sh
           
           # Store database credentials in deployment files
           echo "💾 Storing database credentials in deployment files..."

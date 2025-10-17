@@ -502,20 +502,20 @@ jobs:
           
           DB_PASS_B64="$(printf '%s' "$DB_PASS" | base64 | tr -d '\n')"
           
-          # Create database on VM
+          # Create database on VM using heredoc for better quoting
           gcloud compute ssh $VM_INSTANCE \
             --zone=$VM_ZONE \
             --quiet \
-            --command="
+            --command='bash -s' << EOF
               # Set database credentials
-              DB_NAME=\"$DB_NAME\"
-              DB_USER=\"$DB_USER\"
-              DB_PASS_B64=\"$DB_PASS_B64\"
-              DB_PASS=\$(printf '%s' \"\$DB_PASS_B64\" | base64 --decode)
-              ESCAPED_DB_PASS=\$(printf \"%s\" \"\$DB_PASS\" | sed \"s/'/''/g\")
+              DB_NAME="$DB_NAME"
+              DB_USER="$DB_USER"
+              DB_PASS_B64="$DB_PASS_B64"
+              DB_PASS=\$(printf '%s' "\$DB_PASS_B64" | base64 --decode)
+              ESCAPED_DB_PASS=\$(printf "%s" "\$DB_PASS" | sed "s/'/''/g")
               
-              echo \"🔧 Creating database: \$DB_NAME\"
-              echo \"🔧 Creating user: \$DB_USER\"
+              echo "🔧 Creating database: \$DB_NAME"
+              echo "🔧 Creating user: \$DB_USER"
               
               sudo mysql -e "CREATE DATABASE IF NOT EXISTS \$DB_NAME;"
               sudo mysql -e "DROP USER IF EXISTS '\$DB_USER'@'localhost';"
@@ -525,24 +525,24 @@ jobs:
               
               # Test database connectivity to ensure everything works
               echo '🔍 Testing database connectivity...'
-              if mysql -h localhost -u \"\$DB_USER\" -p\"\$DB_PASS\" -e \"USE \$DB_NAME; SELECT 'Database setup successful' as status;\" 2>/dev/null; then
+              if mysql -h localhost -u "\$DB_USER" -p"\$DB_PASS" -e "USE \$DB_NAME; SELECT 'Database setup successful' as status;" 2>/dev/null; then
                 echo '✅ Database connection test successful'
                 echo '✅ WordPress database created and tested successfully'
                 
                 # Store success marker (simple approach, no permission issues)
                 echo 'WORDPRESS_DB_READY=true' > /tmp/db-status
-                echo \"DB_NAME=\$DB_NAME\" >> /tmp/db-status  
-                echo \"DB_USER=\$DB_USER\" >> /tmp/db-status
-                echo \"CREATED_AT=\$(date)\" >> /tmp/db-status
+                echo "DB_NAME=\$DB_NAME" >> /tmp/db-status  
+                echo "DB_USER=\$DB_USER" >> /tmp/db-status
+                echo "CREATED_AT=\$(date)" >> /tmp/db-status
               else
                 echo '❌ Database connectivity test failed'
                 echo '🔍 Debugging information:'
-                echo \"Attempting connection with user: \$DB_USER\"
-                echo \"To database: \$DB_NAME\"
-                mysql -h localhost -u \"\$DB_USER\" -p\"\$DB_PASS\" -e \"SELECT 'Connection test' as test;\" 2>&1 || true
+                echo "Attempting connection with user: \$DB_USER"
+                echo "To database: \$DB_NAME"
+                mysql -h localhost -u "\$DB_USER" -p"\$DB_PASS" -e "SELECT 'Connection test' as test;" 2>&1 || true
                 exit 1
               fi
-            "
+          EOF
           
           # Store database credentials in deployment files
           echo "💾 Storing database credentials in deployment files..."

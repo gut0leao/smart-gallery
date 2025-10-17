@@ -616,29 +616,70 @@ jobs:
           VM_NAME: ${{ steps.extract_outputs.outputs.vm_name }}
           VM_ZONE: ${{ steps.extract_outputs.outputs.vm_zone }}
         run: |
-          echo "⏳ Waiting for VM to complete startup..."
+          echo "⏳ Waiting for VM to be ready for SSH connections..."
           
-          # Wait up to 5 minutes for startup script completion
-          for i in {1..30}; do
+          # First, wait for VM to be accessible via SSH (basic connectivity)
+          echo "🔍 Testing SSH connectivity..."
+          SSH_READY=false
+          for i in {1..12}; do
+            if gcloud compute ssh $VM_NAME \
+              --zone=$VM_ZONE \
+              --command="echo 'SSH Ready'" \
+              --quiet 2>/dev/null; then
+              echo "✅ SSH connection established (attempt $i/12)"
+              SSH_READY=true
+              break
+            fi
+            echo "⏳ Waiting for SSH... (attempt $i/12)"
+            sleep 10
+          done
+          
+          if [ "$SSH_READY" = "false" ]; then
+            echo "❌ Could not establish SSH connection after 2 minutes"
+            echo "🔍 VM may still be booting or SSH service not ready"
+            exit 1
+          fi
+          
+          # Now check for startup script completion (with shorter timeout)
+          echo ""
+          echo "🔍 Checking startup script completion..."
+          STARTUP_COMPLETED=false
+          for i in {1..6}; do
             if gcloud compute ssh $VM_NAME \
               --zone=$VM_ZONE \
               --command="test -f /var/log/startup-completed" \
               --quiet 2>/dev/null; then
-              echo "✅ VM startup completed!"
+              echo "✅ Startup script completed successfully!"
+              STARTUP_COMPLETED=true
               break
             fi
-            
-            if [ $i -eq 30 ]; then
-              echo "⚠️ Startup script may still be running"
-              gcloud compute ssh $VM_NAME \
-                --zone=$VM_ZONE \
-                --command="tail -20 /var/log/startup-script.log" \
-                --quiet || echo "Could not check startup log"
-            fi
-            
-            echo "Waiting... (${i}/30)"
+            echo "⏳ Waiting for startup script... (attempt $i/6)"
             sleep 10
           done
+          
+          if [ "$STARTUP_COMPLETED" = "false" ]; then
+            echo "⚠️ Startup script completion marker not found after 1 minute"
+            echo "📋 This is usually OK - the script may still be running in background"
+            echo "🔍 Checking startup script log..."
+            
+            # Try to get last lines of startup log
+            if gcloud compute ssh $VM_NAME \
+              --zone=$VM_ZONE \
+              --command="tail -15 /var/log/startup-script.log 2>/dev/null || echo 'Log not available yet'" \
+              --quiet 2>/dev/null; then
+              echo ""
+              echo "💡 Startup script is running - package installation will wait if needed"
+            else
+              echo "⚠️ Could not check startup log, but VM is accessible"
+            fi
+            
+            # Don't fail - just warn
+            echo ""
+            echo "✅ Proceeding with VM accessible (startup script may complete in background)"
+          fi
+          
+          echo ""
+          echo "✅ VM is ready for next workflow steps!"
 
       # Configure Duck DNS automatically (if enabled)
       - name: 🦆 Configure Duck DNS

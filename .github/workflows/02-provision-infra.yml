@@ -616,26 +616,34 @@ jobs:
             echo "✅ Infrastructure information extracted from existing resources!"
           fi
 
-      # Wait for VM to be ready (only for newly created VMs)
+      # Wait for VM to be ready (only for newly created or replaced VMs)
       - name: ⏳ Wait for VM Startup
         env:
           VM_NAME: ${{ steps.extract_outputs.outputs.vm_name }}
           VM_ZONE: ${{ steps.extract_outputs.outputs.vm_zone }}
           VM_ALREADY_EXISTS: ${{ env.VM_ALREADY_EXISTS }}
+          CREATE_COUNT: ${{ env.CREATE_COUNT }}
+          REPLACE_COUNT: ${{ env.REPLACE_COUNT }}
         run: |
-          # Skip wait if VM already existed before this workflow
-          if [ "$VM_ALREADY_EXISTS" = "true" ] && [ "${{ env.PLAN_HAS_CHANGES }}" = "false" ]; then
-            echo "✅ VM already exists and no changes were made - skipping startup wait"
-            echo "💡 The VM was already running before this workflow started"
+          # Skip wait if VM already existed and was not recreated
+          # We only wait if VM was created or replaced (which triggers restart)
+          CREATE_COUNT=${CREATE_COUNT:-0}
+          REPLACE_COUNT=${REPLACE_COUNT:-0}
+          
+          if [ "$VM_ALREADY_EXISTS" = "true" ] && [ "$CREATE_COUNT" = "0" ] && [ "$REPLACE_COUNT" = "0" ]; then
+            echo "✅ VM already exists and was not recreated - skipping startup wait"
+            echo "💡 The VM was already running (only updates applied, no restart needed)"
+            echo "📊 Terraform changes: CREATE=$CREATE_COUNT, REPLACE=$REPLACE_COUNT"
             echo "🚀 Ready to proceed to next steps immediately!"
             exit 0
           fi
           
           # If VM was recreated or newly created, wait for it
-          if [ "${{ env.PLAN_HAS_CHANGES }}" = "true" ]; then
-            echo "🆕 VM was created or modified - waiting for startup completion..."
+          if [ "$CREATE_COUNT" -gt 0 ] || [ "$REPLACE_COUNT" -gt 0 ]; then
+            echo "🆕 VM was created or replaced - waiting for startup completion..."
+            echo "📊 Terraform changes: CREATE=$CREATE_COUNT, REPLACE=$REPLACE_COUNT"
           else
-            echo "⚠️ Unexpected state: No changes but VM check needed"
+            echo "🔄 VM was updated in-place - checking if SSH is ready..."
           fi
           
           echo "⏳ Waiting for VM to be ready for SSH connections..."

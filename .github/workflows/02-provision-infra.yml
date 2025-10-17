@@ -640,12 +640,31 @@ jobs:
           
           echo "⏳ Waiting for VM to be ready for SSH connections..."
           
+          # Configure SSH to use our key (prevent gcloud from generating new ones)
+          echo "🔑 Configuring SSH to use workflow key..."
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          
+          # Restore our SSH key from earlier step (should already be there)
+          if [ ! -f ~/.ssh/id_rsa ]; then
+            echo "⚠️ SSH key not found, restoring from secret..."
+            echo "${{ secrets.VM_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+            chmod 600 ~/.ssh/id_rsa
+            ssh-keygen -y -f ~/.ssh/id_rsa > ~/.ssh/id_rsa.pub
+          fi
+          
+          # Configure gcloud to use our key instead of generating new ones
+          gcloud config set compute/region ${{ github.event.inputs.region }}
+          gcloud config set compute/zone $VM_ZONE
+          
           # First, wait for VM to be accessible via SSH (basic connectivity)
-          echo "🔍 Testing SSH connectivity..."
+          echo "🔍 Testing SSH connectivity with workflow key..."
           SSH_READY=false
           for i in {1..12}; do
+            # Use --ssh-key-file to force using our key
             if gcloud compute ssh $VM_NAME \
               --zone=$VM_ZONE \
+              --ssh-key-file=~/.ssh/id_rsa \
               --command="echo 'SSH Ready'" \
               --quiet 2>/dev/null; then
               echo "✅ SSH connection established (attempt $i/12)"
@@ -669,6 +688,7 @@ jobs:
           for i in {1..6}; do
             if gcloud compute ssh $VM_NAME \
               --zone=$VM_ZONE \
+              --ssh-key-file=~/.ssh/id_rsa \
               --command="test -f /var/log/startup-completed" \
               --quiet 2>/dev/null; then
               echo "✅ Startup script completed successfully!"
@@ -687,6 +707,7 @@ jobs:
             # Try to get last lines of startup log
             if gcloud compute ssh $VM_NAME \
               --zone=$VM_ZONE \
+              --ssh-key-file=~/.ssh/id_rsa \
               --command="tail -15 /var/log/startup-script.log 2>/dev/null || echo 'Log not available yet'" \
               --quiet 2>/dev/null; then
               echo ""

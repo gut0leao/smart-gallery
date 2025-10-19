@@ -121,18 +121,20 @@ jobs:
           echo "🔍 Verifying system prerequisites..."
           
           # Check if VM is accessible
-          gcloud compute ssh $VM_INSTANCE \ --ssh-key-file=~/.ssh/id_rsa
+          gcloud compute ssh $VM_INSTANCE \
             --zone=$VM_ZONE \
             --quiet \
+            --ssh-key-file=~/.ssh/id_rsa \
             --command="echo '✅ VM is accessible'"
           
           echo ""
           echo "🔍 Checking system components..."
           
           # Get detailed system status
-          SYSTEM_STATUS=$(gcloud compute ssh $VM_INSTANCE \ --ssh-key-file=~/.ssh/id_rsa
+          SYSTEM_STATUS=$(gcloud compute ssh $VM_INSTANCE \
             --zone=$VM_ZONE \
             --quiet \
+            --ssh-key-file=~/.ssh/id_rsa \
             --command="
               echo '=== System Status Check ==='
               
@@ -365,24 +367,28 @@ jobs:
               EOF
               
               # Copy and execute recovery script on VM
-              gcloud compute scp db_recovery.sh \ --ssh-key-file=~/.ssh/id_rsa
+              gcloud compute scp db_recovery.sh \
+                --ssh-key-file=~/.ssh/id_rsa \
                 $VM_INSTANCE:~/db_recovery.sh \
                 --zone=$VM_ZONE \
                 --quiet
               
-              gcloud compute ssh $VM_INSTANCE \ --ssh-key-file=~/.ssh/id_rsa
+              gcloud compute ssh $VM_INSTANCE \
+                --ssh-key-file=~/.ssh/id_rsa \
                 --zone=$VM_ZONE \
                 --quiet \
                 --command="chmod +x ~/db_recovery.sh && ~/db_recovery.sh '$DB_HOST' '$DB_NAME' '$DB_USER' '$DB_PASSWORD'"
               
               # Clean up script
-              gcloud compute ssh $VM_INSTANCE \ --ssh-key-file=~/.ssh/id_rsa
+              gcloud compute ssh $VM_INSTANCE \
+                --ssh-key-file=~/.ssh/id_rsa \
                 --zone=$VM_ZONE \
                 --quiet \
                 --command="rm -f ~/db_recovery.sh" || true
               
               # Check recovery status
-              RECOVERY_STATUS=$(gcloud compute ssh $VM_INSTANCE \ --ssh-key-file=~/.ssh/id_rsa
+              RECOVERY_STATUS=$(gcloud compute ssh $VM_INSTANCE \
+                --ssh-key-file=~/.ssh/id_rsa \
                 --zone=$VM_ZONE \
                 --quiet \
                 --command="cat /tmp/db-recovery-status 2>/dev/null || echo 'FAILED'")
@@ -457,13 +463,15 @@ jobs:
             chmod +x /tmp/create-basic-db.sh
             
             # Copy script to VM using gcloud scp
-            gcloud compute scp /tmp/create-basic-db.sh \ --ssh-key-file=~/.ssh/id_rsa
+            gcloud compute scp /tmp/create-basic-db.sh \
+              --ssh-key-file=~/.ssh/id_rsa \
               $VM_INSTANCE:/tmp/create-basic-db.sh \
               --zone=$VM_ZONE \
               --quiet
             
             # Execute script on VM
-            gcloud compute ssh $VM_INSTANCE \ --ssh-key-file=~/.ssh/id_rsa
+            gcloud compute ssh $VM_INSTANCE \
+              --ssh-key-file=~/.ssh/id_rsa \
               --zone=$VM_ZONE \
               --quiet \
               --command="bash /tmp/create-basic-db.sh && rm /tmp/create-basic-db.sh"
@@ -471,7 +479,8 @@ jobs:
             # Cleanup local script
             rm -f /tmp/create-basic-db.sh
             
-            RECOVERY_STATUS=$(gcloud compute ssh $VM_INSTANCE \ --ssh-key-file=~/.ssh/id_rsa
+            RECOVERY_STATUS=$(gcloud compute ssh $VM_INSTANCE \
+              --ssh-key-file=~/.ssh/id_rsa \
               --zone=$VM_ZONE \
               --quiet \
               --command="cat /tmp/db-recovery-status 2>/dev/null || echo 'FAILED'")
@@ -480,7 +489,8 @@ jobs:
               echo "✅ Basic database setup completed!"
               
               # Get the database info and store it
-              DB_INFO=$(gcloud compute ssh $VM_INSTANCE \ --ssh-key-file=~/.ssh/id_rsa
+              DB_INFO=$(gcloud compute ssh $VM_INSTANCE \
+                --ssh-key-file=~/.ssh/id_rsa \
                 --zone=$VM_ZONE \
                 --quiet \
                 --command="cat /tmp/db-info 2>/dev/null")
@@ -682,7 +692,8 @@ jobs:
           chmod 600 ~/.ssh/config
           
           # Copy script to VM
-          if ! gcloud compute scp configure-nginx.sh \ --ssh-key-file=~/.ssh/id_rsa
+          if ! gcloud compute scp configure-nginx.sh \
+            --ssh-key-file=~/.ssh/id_rsa \
             $VM_INSTANCE:~/configure-nginx.sh \
             --zone=$VM_ZONE \
             --quiet \
@@ -692,7 +703,8 @@ jobs:
           fi
           
           # Execute script
-          if ! gcloud compute ssh $VM_INSTANCE \ --ssh-key-file=~/.ssh/id_rsa
+          if ! gcloud compute ssh $VM_INSTANCE \
+            --ssh-key-file=~/.ssh/id_rsa \
             --zone=$VM_ZONE \
             --quiet \
             --ssh-key-file=~/.ssh/id_rsa \
@@ -784,7 +796,8 @@ jobs:
           chmod 600 ~/.ssh/config
           
           # Execute database security setup with proper error handling
-          if ! gcloud compute ssh $VM_INSTANCE \ --ssh-key-file=~/.ssh/id_rsa
+          if ! gcloud compute ssh $VM_INSTANCE \
+            --ssh-key-file=~/.ssh/id_rsa \
             --zone=$VM_ZONE \
             --quiet \
             --ssh-key-file=~/.ssh/id_rsa \
@@ -965,7 +978,8 @@ jobs:
           printf "Host *\n  IdentityFile ~/.ssh/id_rsa\n  StrictHostKeyChecking no\n  UserKnownHostsFile /dev/null\n" > ~/.ssh/config
           chmod 600 ~/.ssh/config
           
-          if ! gcloud compute ssh $VM_INSTANCE \ --ssh-key-file=~/.ssh/id_rsa
+          if ! gcloud compute ssh $VM_INSTANCE \
+            --ssh-key-file=~/.ssh/id_rsa \
             --zone=$VM_ZONE \
             --quiet \
             --ssh-key-file=~/.ssh/id_rsa \
@@ -1315,7 +1329,8 @@ jobs:
           printf "Host *\n  IdentityFile ~/.ssh/id_rsa\n  StrictHostKeyChecking no\n  UserKnownHostsFile /dev/null\n" > ~/.ssh/config
           chmod 600 ~/.ssh/config
           
-          if ! gcloud compute ssh $VM_INSTANCE \ --ssh-key-file=~/.ssh/id_rsa
+          if ! gcloud compute ssh $VM_INSTANCE \
+            --ssh-key-file=~/.ssh/id_rsa \
             --zone=$VM_ZONE \
             --quiet \
             --ssh-key-file=~/.ssh/id_rsa \
@@ -1485,7 +1500,8 @@ jobs:
           
           # Check if SSL was actually configured by checking nginx config
           echo "🔍 Verifying SSL configuration on VM..."
-          if ! SSL_CONFIGURED=$(gcloud compute ssh $VM_INSTANCE \ --ssh-key-file=~/.ssh/id_rsa
+          if ! SSL_CONFIGURED=$(gcloud compute ssh $VM_INSTANCE \
+            --ssh-key-file=~/.ssh/id_rsa \
             --zone=$VM_ZONE \
             --quiet \
             --ssh-key-file=~/.ssh/id_rsa \
@@ -1517,7 +1533,8 @@ jobs:
           else
             echo "⚠️ SSL not configured in Nginx - certbot may have failed"
             echo "🔍 Checking certbot logs..."
-            gcloud compute ssh $VM_INSTANCE \ --ssh-key-file=~/.ssh/id_rsa
+            gcloud compute ssh $VM_INSTANCE \
+              --ssh-key-file=~/.ssh/id_rsa \
               --zone=$VM_ZONE \
               --quiet \
               --ssh-key-file=~/.ssh/id_rsa \

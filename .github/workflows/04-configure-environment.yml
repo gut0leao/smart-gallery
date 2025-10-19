@@ -874,65 +874,86 @@ jobs:
           # Generate admin password
           ADMIN_PASSWORD=$(openssl rand -base64 24)
           
+          # Get database credentials from GitHub Variables/Secrets
+          DB_NAME="${{ vars.WP_DB_NAME || 'wordpress' }}"
+          DB_USER="${{ vars.WP_DB_USER || 'wordpress' }}"
+          DB_PASS="${{ secrets.WP_DB_PASSWORD }}"
+          
+          # If no password in secret, generate a temporary one (shouldn't happen)
+          if [ -z "$DB_PASS" ]; then
+            echo "⚠️ No WP_DB_PASSWORD secret found, using fallback"
+            DB_PASS="wordpress_temp_$(openssl rand -base64 12)"
+          fi
+          
+          echo "📋 Database Configuration:"
+          echo "- Database: $DB_NAME"
+          echo "- User: $DB_USER"
+          echo "- Password: ${#DB_PASS} characters"
+          
           gcloud compute ssh $VM_INSTANCE \
             --zone=$VM_ZONE \
             --quiet \
             --command="
-              # Load database credentials from GitHub Variables
-              if [ -f ~/.GitHub Variables ]; then
-                DB_HOST=\$(jq -r '.db_host // "localhost"' ~/.GitHub Variables)
-                DB_NAME=\$(jq -r '.db_name // "wordpress"' ~/.GitHub Variables)
-                DB_USER=\$(jq -r '.db_user // "wordpress"' ~/.GitHub Variables)
-                DB_PASS=\$(jq -r '.db_password // ""' ~/.GitHub Variables)
-              else
-                # Fallback to standard values
-                DB_HOST='localhost'
-                DB_NAME='wordpress'
-                DB_USER='wordpress'
-                DB_PASS='wordpress_password'
-              fi
+              set -e
+              
+              echo '📥 Starting WordPress installation...'
               
               cd /var/www/html
               
               # Remove any existing files
-              rm -rf *
+              echo '🗑️ Cleaning existing files...'
+              sudo rm -rf *
               
               # Download WordPress
-              /usr/local/bin/wp core download --allow-root
+              echo '⬇️ Downloading WordPress...'
+              sudo -u www-data /usr/local/bin/wp core download
               
               # Create wp-config.php
-              /usr/local/bin/wp config create \
-                  --dbname=\$DB_NAME \
-                  --dbuser=\$DB_USER \
-                  --dbpass=\$DB_PASS \
-                  --dbhost=localhost \
-                  --allow-root
+              echo '⚙️ Creating wp-config.php...'
+              sudo -u www-data /usr/local/bin/wp config create \
+                  --dbname='$DB_NAME' \
+                  --dbuser='$DB_USER' \
+                  --dbpass='$DB_PASS' \
+                  --dbhost=localhost
+              
+              # Add security constants to wp-config.php
+              sudo -u www-data /usr/local/bin/wp config set WP_DEBUG false --raw
+              sudo -u www-data /usr/local/bin/wp config set WP_DEBUG_LOG false --raw
+              sudo -u www-data /usr/local/bin/wp config set DISALLOW_FILE_EDIT true --raw
               
               # Install WordPress
-              /usr/local/bin/wp core install \
+              echo '🚀 Installing WordPress...'
+              sudo -u www-data /usr/local/bin/wp core install \
                   --url=\"http://$DOMAIN_NAME\" \
                   --title=\"$SITE_TITLE\" \
                   --admin_user=$ADMIN_USER \
                   --admin_password='$ADMIN_PASSWORD' \
-                  --admin_email=$ADMIN_EMAIL \
-                  --allow-root
+                  --admin_email=$ADMIN_EMAIL
               
               # Configure WordPress settings
-              echo '⚙️ Configuring WordPress...'
+              echo '⚙️ Configuring WordPress settings...'
               
               # Set permalink structure
-              /usr/local/bin/wp option update permalink_structure '/%postname%/' --allow-root
+              sudo -u www-data /usr/local/bin/wp option update permalink_structure '/%postname%/'
               
               # Configure timezone
-              /usr/local/bin/wp option update timezone_string 'UTC' --allow-root
+              sudo -u www-data /usr/local/bin/wp option update timezone_string 'UTC'
+              
+              # Disable pingbacks
+              sudo -u www-data /usr/local/bin/wp option update default_ping_status 'closed'
+              sudo -u www-data /usr/local/bin/wp option update default_comment_status 'closed'
               
               # Set proper file permissions
-              chown -R www-data:www-data /var/www/html
-              find /var/www/html -type d -exec chmod 755 {} \;
-              find /var/www/html -type f -exec chmod 644 {} \;
-              chmod 600 /var/www/html/wp-config.php
+              echo '🔒 Setting file permissions...'
+              sudo chown -R www-data:www-data /var/www/html
+              sudo find /var/www/html -type d -exec chmod 755 {} \;
+              sudo find /var/www/html -type f -exec chmod 644 {} \;
+              sudo chmod 600 /var/www/html/wp-config.php
               
-              echo '✅ WordPress installation completed!'
+              echo '✅ WordPress installation completed successfully!'
+              echo '📊 WordPress Info:'
+              sudo -u www-data /usr/local/bin/wp core version
+              sudo -u www-data /usr/local/bin/wp option get siteurl
             "
           
           echo "admin_password=$ADMIN_PASSWORD" >> $GITHUB_OUTPUT

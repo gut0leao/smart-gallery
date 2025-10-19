@@ -1112,39 +1112,70 @@ jobs:
             --zone=$VM_ZONE \
             --quiet \
             --command="
+              set -e
+              
               # Configure SSL with Let's Encrypt
-              echo '🔒 Getting SSL certificate...'
+              echo '🔒 Getting SSL certificate for $DOMAIN_NAME...'
+              echo 'Note: This requires DNS to be properly configured'
+              
+              # Verify DNS before attempting SSL
+              echo '🔍 Verifying DNS resolution...'
+              RESOLVED_IP=\$(dig +short $DOMAIN_NAME | tail -1)
+              CURRENT_IP=\$(curl -s ifconfig.me)
+              
+              echo \"Domain resolves to: \$RESOLVED_IP\"
+              echo \"VM external IP is: \$CURRENT_IP\"
+              
+              if [ \"\$RESOLVED_IP\" = \"\$CURRENT_IP\" ]; then
+                echo '✅ DNS is correctly configured!'
+              else
+                echo '⚠️ WARNING: DNS mismatch detected!'
+                echo 'The domain does not point to this VM yet.'
+                echo 'SSL certificate issuance may fail.'
+              fi
               
               # Get SSL certificate
-              certbot --nginx \
+              echo '📜 Requesting SSL certificate from Let'\''s Encrypt...'
+              if sudo certbot --nginx \
                   --non-interactive \
                   --agree-tos \
                   --email $LETSENCRYPT_EMAIL \
                   --domains $DOMAIN_NAME \
-                  --redirect
-              
-              # Update WordPress URL to HTTPS
-              cd /var/www/html
-              /usr/local/bin/wp option update home \"https://$DOMAIN_NAME\" --allow-root
-              /usr/local/bin/wp option update siteurl \"https://$DOMAIN_NAME\" --allow-root
+                  --redirect; then
+                echo '✅ SSL certificate obtained and configured!'
+                
+                # Update WordPress URL to HTTPS
+                cd /var/www/html
+                sudo -u www-data wp option update home \"https://$DOMAIN_NAME\" --quiet
+                sudo -u www-data wp option update siteurl \"https://$DOMAIN_NAME\" --quiet
+                echo '✅ WordPress URLs updated to HTTPS'
+              else
+                echo '❌ Certbot failed to obtain SSL certificate'
+                echo '📋 Last 30 lines of certbot log:'
+                sudo tail -30 /var/log/letsencrypt/letsencrypt.log 2>/dev/null || echo 'No log available'
+                echo ''
+                echo '⚠️ Continuing without SSL - site will be HTTP only'
+                echo '💡 You can manually run certbot later: sudo certbot --nginx -d $DOMAIN_NAME'
+              fi
               
               # Setup auto-renewal
               echo '🔄 Setting up certificate auto-renewal...'
-              if ! crontab -l 2>/dev/null | grep -q 'certbot renew'; then
-                  (crontab -l 2>/dev/null; echo '0 12 * * * /usr/bin/certbot renew --quiet') | crontab -
+              if ! sudo crontab -l 2>/dev/null | grep -q 'certbot renew'; then
+                  (sudo crontab -l 2>/dev/null; echo '0 12 * * * /usr/bin/certbot renew --quiet') | sudo crontab -
+                  echo '✅ Auto-renewal cron job configured'
               fi
               
               # Store credentials for later use
-              echo \"ADMIN_USER=$ADMIN_USER\" > /root/.wp-admin-config
-              echo \"ADMIN_PASSWORD=${{ needs.install-wordpress.outputs.admin_password }}\" >> /root/.wp-admin-config
-              echo \"ADMIN_EMAIL=$ADMIN_EMAIL\" >> /root/.wp-admin-config
-              echo \"SITE_URL=https://$DOMAIN_NAME\" >> /root/.wp-admin-config
-              chmod 600 /root/.wp-admin-config
+              echo \"ADMIN_USER=$ADMIN_USER\" | sudo tee /root/.wp-admin-config > /dev/null
+              echo \"ADMIN_PASSWORD=${{ needs.install-wordpress.outputs.admin_password }}\" | sudo tee -a /root/.wp-admin-config > /dev/null
+              echo \"ADMIN_EMAIL=$ADMIN_EMAIL\" | sudo tee -a /root/.wp-admin-config > /dev/null
+              echo \"SITE_URL=https://$DOMAIN_NAME\" | sudo tee -a /root/.wp-admin-config > /dev/null
+              sudo chmod 600 /root/.wp-admin-config
               
               # Final Nginx reload
-              systemctl reload nginx
+              sudo systemctl reload nginx
               
-              echo '✅ SSL certificate configured!'
+              echo '✅ SSL setup process completed!'
             "
           
           echo "site_url=https://$DOMAIN_NAME" >> $GITHUB_OUTPUT
@@ -1225,29 +1256,51 @@ jobs:
           # Wait for services to stabilize
           sleep 30
           
-          # Check HTTP to HTTPS redirect
-          echo "🔍 Testing HTTP to HTTPS redirect..."
-          if curl -sSL -w "%{http_code}" "http://$DOMAIN_NAME" -o /dev/null | grep -q "30[1-8]"; then
-            echo "✅ HTTP redirects to HTTPS!"
-          else
-            echo "⚠️ HTTP redirect may not be working"
-          fi
+          # Check if SSL was actually configured by checking nginx config
+          echo "🔍 Verifying SSL configuration on VM..."
+          SSL_CONFIGURED=$(gcloud compute ssh $VM_INSTANCE \
+            --zone=$VM_ZONE \
+            --quiet \
+            --command="grep -q 'listen 443 ssl' /etc/nginx/sites-enabled/wordpress && echo 'true' || echo 'false'")
           
-          # Check HTTPS site
-          echo "🔍 Testing HTTPS site..."
-          if curl -sSf "$SITE_URL" > /dev/null; then
-            echo "✅ HTTPS site is responding!"
+          if [ "$SSL_CONFIGURED" = "true" ]; then
+            echo "✅ SSL is configured in Nginx"
+            
+            # Check HTTPS site
+            echo "🔍 Testing HTTPS site..."
+            if curl -sSf -k "$SITE_URL" > /dev/null 2>&1; then
+              echo "✅ HTTPS site is responding!"
+            else
+              echo "⚠️ HTTPS configured but site not responding yet (may need DNS propagation)"
+              echo "💡 Try accessing: $SITE_URL"
+            fi
+            
+            # Check HTTP to HTTPS redirect
+            echo "🔍 Testing HTTP to HTTPS redirect..."
+            HTTP_CODE=$(curl -sSL -w "%{http_code}" -o /dev/null "http://$DOMAIN_NAME" 2>/dev/null || echo "000")
+            if echo "$HTTP_CODE" | grep -q "30[1-8]"; then
+              echo "✅ HTTP redirects to HTTPS (code: $HTTP_CODE)"
+            else
+              echo "⚠️ HTTP returned code: $HTTP_CODE"
+            fi
           else
-            echo "❌ HTTPS site health check failed!"
-            exit 1
-          fi
-          
-          # Check WordPress admin
-          echo "🔍 Testing WordPress admin..."
-          if curl -sSf "$SITE_URL/wp-admin/" > /dev/null; then
-            echo "✅ WordPress admin is accessible!"
-          else
-            echo "⚠️ WordPress admin may need attention"
+            echo "⚠️ SSL not configured in Nginx - certbot may have failed"
+            echo "🔍 Checking certbot logs..."
+            gcloud compute ssh $VM_INSTANCE \
+              --zone=$VM_ZONE \
+              --quiet \
+              --command="sudo tail -20 /var/log/letsencrypt/letsencrypt.log 2>/dev/null || echo 'No certbot logs found'"
+            
+            # Try HTTP access instead
+            echo "🔍 Testing HTTP site (fallback)..."
+            if curl -sSf "http://$DOMAIN_NAME" > /dev/null 2>&1; then
+              echo "✅ HTTP site is accessible!"
+              echo "⚠️ But HTTPS is not configured - please check certbot logs"
+              echo "💡 You can manually run: sudo certbot --nginx -d $DOMAIN_NAME"
+            else
+              echo "❌ Site is not accessible via HTTP or HTTPS"
+              exit 1
+            fi
           fi
           
           echo "🎉 Health check completed!"

@@ -1144,11 +1144,16 @@ jobs:
                   --redirect; then
                 echo '✅ SSL certificate obtained and configured!'
                 
-                # Update WordPress URL to HTTPS
-                cd /var/www/html
-                sudo -u www-data wp option update home \"https://$DOMAIN_NAME\" --quiet
-                sudo -u www-data wp option update siteurl \"https://$DOMAIN_NAME\" --quiet
-                echo '✅ WordPress URLs updated to HTTPS'
+                # Update WordPress URL to HTTPS (if WordPress is installed)
+                if [ -f /var/www/html/wp-config.php ]; then
+                  echo '🔧 Updating WordPress URLs to HTTPS...'
+                  cd /var/www/html
+                  sudo -u www-data /usr/local/bin/wp option update home \"https://$DOMAIN_NAME\" --quiet 2>/dev/null || echo '⚠️ Could not update home URL (will be set during WP install)'
+                  sudo -u www-data /usr/local/bin/wp option update siteurl \"https://$DOMAIN_NAME\" --quiet 2>/dev/null || echo '⚠️ Could not update siteurl (will be set during WP install)'
+                  echo '✅ WordPress URLs updated to HTTPS'
+                else
+                  echo 'ℹ️ WordPress not yet installed - URLs will be set during installation'
+                fi
               else
                 echo '❌ Certbot failed to obtain SSL certificate'
                 echo '📋 Last 30 lines of certbot log:'

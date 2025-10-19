@@ -1135,35 +1135,59 @@ jobs:
             --ssh-key-file=~/.ssh/id_rsa \
             --command="
               set -e
+              
+              # Ensure we're in the WordPress directory
               cd /var/www/html
               
-              # Fix wp-config.php permissions for WP-CLI
-              echo '🔧 Adjusting wp-config.php permissions for WP-CLI...'
-              if ! sudo chmod 644 /var/www/html/wp-config.php; then
-                echo '❌ Failed to adjust wp-config.php permissions'
+              # Set proper file ownership and permissions for WP-CLI operations
+              echo '🔧 Setting proper file ownership and permissions...'
+              sudo chown -R www-data:www-data /var/www/html
+              sudo chmod 755 /var/www/html
+              sudo chmod 644 /var/www/html/wp-config.php
+              sudo find /var/www/html -type d -exec chmod 755 {} \;
+              sudo find /var/www/html -type f -exec chmod 644 {} \;
+              
+              # Verify WordPress installation and file structure
+              echo '🔍 Verifying WordPress installation and file structure...'
+              if [ ! -f '/var/www/html/wp-config.php' ]; then
+                echo '❌ wp-config.php not found'
                 exit 1
               fi
               
-              # Verify WordPress installation is working
-              echo '🔍 Verifying WordPress installation...'
-              if ! sudo -u www-data /usr/local/bin/wp core is-installed; then
-                echo '❌ WordPress is not properly installed'
-                echo '💡 Please run the WordPress installation step again'
+              if [ ! -f '/var/www/html/wp-settings.php' ]; then
+                echo '❌ wp-settings.php not found'
                 exit 1
               fi
-              echo '✅ WordPress installation verified'
+              
+              # Check wp-config.php content
+              if ! grep -q 'wp-settings.php' /var/www/html/wp-config.php; then
+                echo '⚠️ wp-config.php may be corrupted, checking...'
+                sudo tail -5 /var/www/html/wp-config.php
+              fi
+              
+              # Test WP-CLI with explicit path and user context
+              echo '🔍 Testing WP-CLI functionality...'
+              if ! sudo -u www-data /usr/local/bin/wp --path=/var/www/html core is-installed --quiet; then
+                echo '❌ WordPress is not properly installed or WP-CLI cannot access it'
+                echo '� WP-CLI debug info:'
+                sudo -u www-data /usr/local/bin/wp --path=/var/www/html --info 2>&1 || true
+                exit 1
+              fi
+              echo '✅ WordPress installation and WP-CLI access verified'
               
               # Install Elementor
               echo '📦 Installing Elementor...'
-              if ! sudo -u www-data /usr/local/bin/wp plugin install elementor --activate; then
+              if ! sudo -u www-data /usr/local/bin/wp --path=/var/www/html plugin install elementor --activate --quiet; then
                 echo '❌ Failed to install Elementor plugin'
+                echo '📋 WP-CLI debug output:'
+                sudo -u www-data /usr/local/bin/wp --path=/var/www/html plugin install elementor --activate 2>&1 || true
                 exit 1
               fi
               echo '✅ Elementor installed successfully'
               
               # Install Pods (required for Smart Gallery)
               echo '📦 Installing Pods Framework...'
-              if ! sudo -u www-data /usr/local/bin/wp plugin install pods --activate; then
+              if ! sudo -u www-data /usr/local/bin/wp --path=/var/www/html plugin install pods --activate --quiet; then
                 echo '❌ Failed to install Pods Framework plugin'
                 exit 1
               fi
@@ -1171,7 +1195,7 @@ jobs:
               
               # Install WordPress SEO
               echo '📦 Installing WordPress SEO...'
-              if ! sudo -u www-data /usr/local/bin/wp plugin install wordpress-seo --activate; then
+              if ! sudo -u www-data /usr/local/bin/wp --path=/var/www/html plugin install wordpress-seo --activate --quiet; then
                 echo '❌ Failed to install WordPress SEO plugin'
                 exit 1
               fi
@@ -1179,7 +1203,7 @@ jobs:
               
               # Install security plugin
               echo '📦 Installing Wordfence Security...'
-              if ! sudo -u www-data /usr/local/bin/wp plugin install wordfence --activate; then
+              if ! sudo -u www-data /usr/local/bin/wp --path=/var/www/html plugin install wordfence --activate --quiet; then
                 echo '❌ Failed to install Wordfence Security plugin'
                 exit 1
               fi
@@ -1187,11 +1211,12 @@ jobs:
               
               # Create demo content
               echo '📝 Creating demo content...'
-              if ! sudo -u www-data /usr/local/bin/wp post create \
+              if ! sudo -u www-data /usr/local/bin/wp --path=/var/www/html post create \
                   --post_type=page \
                   --post_title='Smart Gallery Demo' \
                   --post_content='<p>This page will showcase the Smart Gallery plugin functionality.</p>' \
-                  --post_status=publish; then
+                  --post_status=publish \
+                  --quiet; then
                 echo '❌ Failed to create demo content'
                 exit 1
               fi
@@ -1199,10 +1224,7 @@ jobs:
               
               # Restore secure wp-config.php permissions
               echo '🔒 Restoring secure wp-config.php permissions...'
-              if ! sudo chmod 600 /var/www/html/wp-config.php; then
-                echo '❌ Failed to restore wp-config.php permissions'
-                exit 1
-              fi
+              sudo chmod 600 /var/www/html/wp-config.php
               
               echo '🎉 Essential plugins installation completed successfully!'
             "; then

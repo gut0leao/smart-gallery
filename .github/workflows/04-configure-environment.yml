@@ -1129,7 +1129,7 @@ jobs:
           printf "Host *\n  IdentityFile ~/.ssh/id_rsa\n  StrictHostKeyChecking no\n  UserKnownHostsFile /dev/null\n" > ~/.ssh/config
           chmod 600 ~/.ssh/config
           
-          if ! gcloud compute ssh $VM_INSTANCE \ --ssh-key-file=~/.ssh/id_rsa
+          if ! gcloud compute ssh $VM_INSTANCE \
             --zone=$VM_ZONE \
             --quiet \
             --ssh-key-file=~/.ssh/id_rsa \

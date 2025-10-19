@@ -898,11 +898,16 @@ jobs:
               
               echo '📥 Starting WordPress installation...'
               
-              cd /var/www/html
-              
-              # Remove any existing files
+              # Remove any existing files (with sudo)
               echo '🗑️ Cleaning existing files...'
-              sudo rm -rf *
+              sudo rm -rf /var/www/html/*
+              
+              # Ensure /var/www/html exists and has correct ownership
+              sudo mkdir -p /var/www/html
+              sudo chown -R www-data:www-data /var/www/html
+              sudo chmod 755 /var/www/html
+              
+              cd /var/www/html
               
               # Download WordPress
               echo '⬇️ Downloading WordPress...'

@@ -696,22 +696,42 @@ jobs:
         run: |
           echo "🌐 Configuring Nginx..."
           
+          # Exit immediately if any command fails
+          set -e
+          
+          # Use SSH key from provision-infra workflow (prevent gcloud from generating new keys)
+          echo "🔧 Configuring gcloud to use existing SSH key..."
+          gcloud config set compute/region ${VM_ZONE%-*}
+          gcloud config set compute/zone $VM_ZONE
+          
+          # Force use of our existing SSH key
+          printf "Host *\n  IdentityFile ~/.ssh/id_rsa\n  StrictHostKeyChecking no\n  UserKnownHostsFile /dev/null\n" > ~/.ssh/config
+          chmod 600 ~/.ssh/config
+          
           # Copy script to VM
-          gcloud compute scp configure-nginx.sh \
+          if ! gcloud compute scp configure-nginx.sh \
             $VM_INSTANCE:~/configure-nginx.sh \
             --zone=$VM_ZONE \
-            --quiet
+            --quiet \
+            --ssh-key-file=~/.ssh/id_rsa; then
+            echo "❌ Failed to copy Nginx configuration script to VM"
+            exit 1
+          fi
           
           # Execute script
-          gcloud compute ssh $VM_INSTANCE \
+          if ! gcloud compute ssh $VM_INSTANCE \
             --zone=$VM_ZONE \
             --quiet \
+            --ssh-key-file=~/.ssh/id_rsa \
             --command="
               sudo chmod +x ~/configure-nginx.sh
               sudo ~/configure-nginx.sh '$DOMAIN_NAME'
-            "
+            "; then
+            echo "❌ Nginx configuration failed!"
+            exit 1
+          fi
           
-          echo "✅ Nginx configuration completed!"
+          echo "✅ Nginx configuration completed successfully!"
 
   setup-database:
     name: "🗃️ Setup Database & Security"
@@ -783,11 +803,33 @@ jobs:
         run: |
           echo "🗃️ Setting up database security..."
           
-          gcloud compute ssh $VM_INSTANCE \
+          # Exit immediately if any command fails
+          set -e
+          
+          # Use SSH key from provision-infra workflow (prevent gcloud from generating new keys)
+          echo "🔧 Configuring gcloud to use existing SSH key..."
+          gcloud config set compute/region ${VM_ZONE%-*}
+          gcloud config set compute/zone $VM_ZONE
+          
+          # Force use of our existing SSH key (prevent new key generation)
+          printf "Host *\n  IdentityFile ~/.ssh/id_rsa\n  StrictHostKeyChecking no\n  UserKnownHostsFile /dev/null\n" > ~/.ssh/config
+          chmod 600 ~/.ssh/config
+          
+          # Execute database security setup with proper error handling
+          if ! gcloud compute ssh $VM_INSTANCE \
             --zone=$VM_ZONE \
             --quiet \
+            --ssh-key-file=~/.ssh/id_rsa \
             --command="
               set -e  # Exit on any error
+              
+              echo '🔍 Checking database service status...'
+              if ! systemctl is-active mariadb >/dev/null 2>&1; then
+                echo '❌ MariaDB service is not running!'
+                echo '💡 Please run the Install Packages workflow first'
+                exit 1
+              fi
+              echo '✅ MariaDB service is running'
               
               # Use database credentials from GitHub Variables
               DB_HOST='localhost'
@@ -795,9 +837,10 @@ jobs:
               DB_USER='${{ vars.WP_DB_USER || 'wordpress' }}'
               DB_PASS='${{ secrets.WP_DB_PASSWORD }}'
               
-              # If no password in secret, generate a temporary one (shouldn't happen)
+              # If no password in secret, generate a temporary one
               if [ -z \"\$DB_PASS\" ]; then
-                DB_PASS='wordpress_password'
+                echo '⚠️ No WP_DB_PASSWORD secret found, generating temporary password'
+                DB_PASS='wordpress_temp_\$(openssl rand -base64 12)'
               fi
               
               # Generate secure root password
@@ -807,10 +850,13 @@ jobs:
               echo '🔒 Setting MariaDB root password...'
               if ! sudo mysql -e \"ALTER USER 'root'@'localhost' IDENTIFIED BY '\$DB_ROOT_PASSWORD';\"; then
                 echo '❌ Failed to set MariaDB root password'
+                echo '💡 This usually means MariaDB is not properly configured'
+                echo '💡 Please run the Install Packages workflow first'
                 exit 1
               fi
+              echo '✅ MariaDB root password set successfully'
               
-              # Store root password with sudo and error handling
+              # Store root password configuration with proper error handling
               echo '💾 Storing root password configuration...'
               if ! echo '[client]' | sudo tee /root/.my.cnf > /dev/null; then
                 echo '❌ Failed to create MySQL config file'
@@ -831,16 +877,25 @@ jobs:
                 echo '❌ Failed to set MySQL config permissions'
                 exit 1
               fi
+              echo '✅ MySQL configuration file created successfully'
               
               # Verify configuration works
               echo '🔍 Verifying MySQL configuration...'
-              if sudo mysql -e 'SELECT 1;' > /dev/null 2>&1; then
-                echo '✅ Database security configured successfully!'
-              else
+              if ! sudo mysql -e 'SELECT 1;' > /dev/null 2>&1; then
                 echo '❌ Database security verification failed'
+                echo '💡 MySQL configuration is not working properly'
                 exit 1
               fi
-            "
+              echo '✅ Database security verification successful'
+              
+              echo '🎉 Database security configured successfully!'
+            "; then
+            echo "❌ Database security setup failed!"
+            echo "💡 Please check the Install Packages workflow completed successfully"
+            exit 1
+          fi
+          
+          echo "✅ Database security setup completed successfully!"
 
   install-wordpress:
     name: "📥 Install WordPress"
@@ -916,6 +971,9 @@ jobs:
         run: |
           echo "📥 Installing WordPress..."
           
+          # Exit immediately if any command fails
+          set -e
+          
           # Generate admin password
           ADMIN_PASSWORD=$(openssl rand -base64 24)
           
@@ -935,9 +993,19 @@ jobs:
           echo "- User: $DB_USER"
           echo "- Password: ${#DB_PASS} characters"
           
-          gcloud compute ssh $VM_INSTANCE \
+          # Use SSH key from provision-infra workflow (prevent gcloud from generating new keys)
+          echo "🔧 Configuring gcloud to use existing SSH key..."
+          gcloud config set compute/region ${VM_ZONE%-*}
+          gcloud config set compute/zone $VM_ZONE
+          
+          # Force use of our existing SSH key
+          printf "Host *\n  IdentityFile ~/.ssh/id_rsa\n  StrictHostKeyChecking no\n  UserKnownHostsFile /dev/null\n" > ~/.ssh/config
+          chmod 600 ~/.ssh/config
+          
+          if ! gcloud compute ssh $VM_INSTANCE \
             --zone=$VM_ZONE \
             --quiet \
+            --ssh-key-file=~/.ssh/id_rsa \
             --command="
               set -e
               
@@ -956,15 +1024,21 @@ jobs:
               
               # Download WordPress
               echo '⬇️ Downloading WordPress...'
-              sudo -u www-data /usr/local/bin/wp core download
+              if ! sudo -u www-data /usr/local/bin/wp core download; then
+                echo '❌ Failed to download WordPress'
+                exit 1
+              fi
               
               # Create wp-config.php
               echo '⚙️ Creating wp-config.php...'
-              sudo -u www-data /usr/local/bin/wp config create \
+              if ! sudo -u www-data /usr/local/bin/wp config create \
                   --dbname='$DB_NAME' \
                   --dbuser='$DB_USER' \
                   --dbpass='$DB_PASS' \
-                  --dbhost=localhost
+                  --dbhost=localhost; then
+                echo '❌ Failed to create wp-config.php'
+                exit 1
+              fi
               
               # Add security constants to wp-config.php
               sudo -u www-data /usr/local/bin/wp config set WP_DEBUG false --raw
@@ -973,12 +1047,15 @@ jobs:
               
               # Install WordPress
               echo '🚀 Installing WordPress...'
-              sudo -u www-data /usr/local/bin/wp core install \
+              if ! sudo -u www-data /usr/local/bin/wp core install \
                   --url=\"http://$DOMAIN_NAME\" \
                   --title=\"$SITE_TITLE\" \
                   --admin_user=$ADMIN_USER \
                   --admin_password='$ADMIN_PASSWORD' \
-                  --admin_email=$ADMIN_EMAIL
+                  --admin_email=$ADMIN_EMAIL; then
+                echo '❌ Failed to install WordPress'
+                exit 1
+              fi
               
               # Configure WordPress settings
               echo '⚙️ Configuring WordPress settings...'
@@ -1004,10 +1081,13 @@ jobs:
               echo '📊 WordPress Info:'
               sudo -u www-data /usr/local/bin/wp core version
               sudo -u www-data /usr/local/bin/wp option get siteurl
-            "
+            "; then
+            echo "❌ WordPress installation failed!"
+            exit 1
+          fi
           
           echo "admin_password=$ADMIN_PASSWORD" >> $GITHUB_OUTPUT
-          echo "✅ WordPress installation completed!"
+          echo "✅ WordPress installation completed successfully!"
 
   install-plugins:
     name: "🔌 Install Essential Plugins"
@@ -1079,39 +1159,73 @@ jobs:
         run: |
           echo "🔌 Installing essential plugins..."
           
-          gcloud compute ssh $VM_INSTANCE \
+          # Exit immediately if any command fails
+          set -e
+          
+          # Use SSH key from provision-infra workflow (prevent gcloud from generating new keys)
+          echo "🔧 Configuring gcloud to use existing SSH key..."
+          gcloud config set compute/region ${VM_ZONE%-*}
+          gcloud config set compute/zone $VM_ZONE
+          
+          # Force use of our existing SSH key
+          printf "Host *\n  IdentityFile ~/.ssh/id_rsa\n  StrictHostKeyChecking no\n  UserKnownHostsFile /dev/null\n" > ~/.ssh/config
+          chmod 600 ~/.ssh/config
+          
+          if ! gcloud compute ssh $VM_INSTANCE \
             --zone=$VM_ZONE \
             --quiet \
+            --ssh-key-file=~/.ssh/id_rsa \
             --command="
+              set -e
               cd /var/www/html
               
               # Install Elementor
               echo '📦 Installing Elementor...'
-              /usr/local/bin/wp plugin install elementor --activate --allow-root
+              if ! /usr/local/bin/wp plugin install elementor --activate --allow-root; then
+                echo '❌ Failed to install Elementor plugin'
+                exit 1
+              fi
               
               # Install Pods (required for Smart Gallery)
               echo '📦 Installing Pods Framework...'
-              /usr/local/bin/wp plugin install pods --activate --allow-root
+              if ! /usr/local/bin/wp plugin install pods --activate --allow-root; then
+                echo '❌ Failed to install Pods Framework plugin'
+                exit 1
+              fi
               
               # Install WordPress SEO
               echo '📦 Installing WordPress SEO...'
-              /usr/local/bin/wp plugin install wordpress-seo --activate --allow-root
+              if ! /usr/local/bin/wp plugin install wordpress-seo --activate --allow-root; then
+                echo '❌ Failed to install WordPress SEO plugin'
+                exit 1
+              fi
               
               # Install security plugin
               echo '📦 Installing Wordfence Security...'
-              /usr/local/bin/wp plugin install wordfence --activate --allow-root
+              if ! /usr/local/bin/wp plugin install wordfence --activate --allow-root; then
+                echo '❌ Failed to install Wordfence Security plugin'
+                exit 1
+              fi
               
               # Create demo content
               echo '📝 Creating demo content...'
-              /usr/local/bin/wp post create \
+              if ! /usr/local/bin/wp post create \
                   --post_type=page \
                   --post_title='Smart Gallery Demo' \
                   --post_content='<p>This page will showcase the Smart Gallery plugin functionality.</p>' \
                   --post_status=publish \
-                  --allow-root
+                  --allow-root; then
+                echo '❌ Failed to create demo content'
+                exit 1
+              fi
               
-              echo '✅ Essential plugins installed!'
-            "
+              echo '✅ Essential plugins installed successfully!'
+            "; then
+            echo "❌ Plugin installation failed!"
+            exit 1
+          fi
+          
+          echo "✅ Essential plugins installation completed successfully!"
 
   setup-ssl:
     name: "🔒 Setup SSL Certificate"
@@ -1187,9 +1301,22 @@ jobs:
         run: |
           echo "🔒 Setting up SSL certificate..."
           
-          gcloud compute ssh $VM_INSTANCE \
+          # Exit immediately if any command fails
+          set -e
+          
+          # Use SSH key from provision-infra workflow (prevent gcloud from generating new keys)
+          echo "🔧 Configuring gcloud to use existing SSH key..."
+          gcloud config set compute/region ${VM_ZONE%-*}
+          gcloud config set compute/zone $VM_ZONE
+          
+          # Force use of our existing SSH key
+          printf "Host *\n  IdentityFile ~/.ssh/id_rsa\n  StrictHostKeyChecking no\n  UserKnownHostsFile /dev/null\n" > ~/.ssh/config
+          chmod 600 ~/.ssh/config
+          
+          if ! gcloud compute ssh $VM_INSTANCE \
             --zone=$VM_ZONE \
             --quiet \
+            --ssh-key-file=~/.ssh/id_rsa \
             --command="
               set -e
               
@@ -1260,10 +1387,13 @@ jobs:
               sudo systemctl reload nginx
               
               echo '✅ SSL setup process completed!'
-            "
+            "; then
+            echo "❌ SSL setup failed!"
+            exit 1
+          fi
           
           echo "site_url=https://$DOMAIN_NAME" >> $GITHUB_OUTPUT
-          echo "✅ SSL setup completed!"
+          echo "✅ SSL setup completed successfully!"
 
   health-check:
     name: "🏥 Health Check & Summary"
@@ -1341,15 +1471,31 @@ jobs:
         run: |
           echo "🏥 Running health check..."
           
+          # Exit immediately if any command fails
+          set -e
+          
           # Wait for services to stabilize
           sleep 30
           
+          # Use SSH key from provision-infra workflow (prevent gcloud from generating new keys)
+          echo "🔧 Configuring gcloud to use existing SSH key..."
+          gcloud config set compute/region ${VM_ZONE%-*}
+          gcloud config set compute/zone $VM_ZONE
+          
+          # Force use of our existing SSH key
+          printf "Host *\n  IdentityFile ~/.ssh/id_rsa\n  StrictHostKeyChecking no\n  UserKnownHostsFile /dev/null\n" > ~/.ssh/config
+          chmod 600 ~/.ssh/config
+          
           # Check if SSL was actually configured by checking nginx config
           echo "🔍 Verifying SSL configuration on VM..."
-          SSL_CONFIGURED=$(gcloud compute ssh $VM_INSTANCE \
+          if ! SSL_CONFIGURED=$(gcloud compute ssh $VM_INSTANCE \
             --zone=$VM_ZONE \
             --quiet \
-            --command="grep -q 'listen 443 ssl' /etc/nginx/sites-enabled/wordpress && echo 'true' || echo 'false'")
+            --ssh-key-file=~/.ssh/id_rsa \
+            --command="grep -q 'listen 443 ssl' /etc/nginx/sites-enabled/wordpress && echo 'true' || echo 'false'"); then
+            echo "❌ Failed to check SSL configuration on VM"
+            exit 1
+          fi
           
           if [ "$SSL_CONFIGURED" = "true" ]; then
             echo "✅ SSL is configured in Nginx"
@@ -1377,6 +1523,7 @@ jobs:
             gcloud compute ssh $VM_INSTANCE \
               --zone=$VM_ZONE \
               --quiet \
+              --ssh-key-file=~/.ssh/id_rsa \
               --command="sudo tail -20 /var/log/letsencrypt/letsencrypt.log 2>/dev/null || echo 'No certbot logs found'"
             
             # Try HTTP access instead
@@ -1391,7 +1538,7 @@ jobs:
             fi
           fi
           
-          echo "🎉 Health check completed!"
+          echo "🎉 Health check completed successfully!"
 
       # Display configuration summary
       - name: 📊 Configuration Summary

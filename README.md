@@ -326,74 +326,13 @@ The Smart Gallery plugin is designed with a modern, modular architecture:
 - Maintain high performance with large datasets
 - Follow WordPress and Elementor best practices
 
-## 🚀 CI/CD & Deployment
+## 🚀 Local-Only Development
 
-Smart Gallery includes a comprehensive CI/CD pipeline with modular deployment architecture using **Terraform + GitHub Actions**.
+This repository now focuses exclusively on local development using DDEV. All CI/CD, Terraform, and cloud deployment automation have been removed. For working locally:
 
-### 🏗️ **Modular Deployment Architecture**
-
-The project implements a professional 5-stage deployment pipeline:
-
-#### **1️⃣ Cleanup GCP** (`1-cleanup-gcp.yml`)
-- 🧹 Automated GCP resource cleanup with safety checks
-- 🔒 Dry-run mode for safe resource inspection
-- ⚡ Manual execution with confirmation prompts
-
-#### **2️⃣ Provision Infrastructure** (`2-provision-infra.yml`)
-- 🏗️ Terraform-managed infrastructure (VM + Network + Firewall)
-- 🆓 Optimized for GCP free tier (e2-micro instances)
-- 🔑 Automatic SSH key generation and management
-- 📊 Structured outputs for dependent workflows
-
-#### **3️⃣ Install Packages** (`3-install-packages.yml`)
-- 📦 Server stack installation (Nginx + PHP 8.3 + MariaDB + WP-CLI)
-- 🐘 DDEV-compatible environment with all required extensions
-- 🗄️ Secure database configuration with auto-generated credentials
-- 🛠️ Essential tools (Composer, Certbot, security tools)
-
-#### **4️⃣ Configure Environment** (`4-configure-env.yml`)
-- ⚙️ Complete WordPress installation and configuration
-- 🔒 Automatic SSL certificates with Let's Encrypt
-- 🔌 Essential plugin installation (Elementor, Pods, SEO, Security)
-- 🌐 Nginx optimization and security headers
-
-#### **5️⃣ Deploy Plugin** (`5-deploy-plugin.yml`)
-- 🚀 Smart Gallery plugin deployment from latest version
-- 📦 Support for specific versions or latest builds
-- ✅ Automatic plugin activation and verification
-- 🔄 Automatic triggers on releases and main branch pushes
-
-### 🎯 **Deployment Features**
-
-- **🔒 Security-First**: SSL mandatory, firewall restrictions, fail2ban protection
-- **💰 Cost-Optimized**: Designed for GCP free tier (zero cost infrastructure)
-- **🔄 Automated**: Complete deployment from repository to running WordPress site
-- **📊 Modular**: Independent workflows with granular control
-- **🛡️ Safe**: Dry-run modes, confirmations, and rollback capabilities
-
-### 🌐 **Supported Platforms**
-
-- **☁️ Google Cloud Platform**: Primary deployment target with free tier optimization
-- **🦆 DuckDNS Integration**: Free domain management for testing and demos
-- **🔐 Let's Encrypt**: Automatic SSL certificate provisioning and renewal
-- **📱 Mobile-Ready**: Responsive deployment with mobile-optimized infrastructure
-
-### 📋 **Getting Started with Deployment**
-
-For detailed deployment instructions, see [`docs/modular-deployment.md`](docs/modular-deployment.md).
-
-**Quick deployment overview:**
-1. Configure GitHub Secrets (`GCP_SA_KEY`)
-2. Set up domain (DuckDNS recommended for testing)
-3. Execute workflows sequentially: Cleanup → Provision → Install → Configure → Deploy
-4. Access your live WordPress site with Smart Gallery installed
-
-### 🔧 **Infrastructure as Code**
-
-- **Terraform Configuration**: Complete infrastructure definition in `terraform/`
-- **Automated Provisioning**: VM, networking, firewall, and DNS management
-- **State Management**: Terraform state management for infrastructure versioning
-- **Resource Cleanup**: Automated cleanup scripts for cost management
+- Use `./init.sh` for a full local setup
+- Use scripts under `scripts/` for WordPress setup, demo data, reset, backup and restore
+- No cloud or remote automation is included in this project anymore
 
 ## 🤝 Contributing
 

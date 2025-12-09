@@ -76,12 +76,12 @@ wp-config.php
 # Contains temporary files and final packages
 /dist/
 
-# GCP Credentials
-# Service account keys and other sensitive GCP credentials
+# Credentials
+# Service account keys and other sensitive credentials
 .credentials/
 *.json
 !package*.json
 !composer*.json
 
-# Deployment information (may contain sensitive data)
-.deployment-info/
+# Local metadata (optional, legacy)
+# .deployment-info/

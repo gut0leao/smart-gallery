@@ -3,6 +3,10 @@
 # Smart Gallery - WordPress Setup Script
 # This script configures WordPress from scratch with required plugins
 
+# Enable strict error handling
+set -e
+set -o pipefail
+
 echo "🚀 Smart Gallery - WordPress Setup"
 echo "========================================"
 
@@ -12,16 +16,19 @@ if ! command -v ddev &> /dev/null; then
     exit 1
 fi
 
+# Set explicit WordPress path
+WP_PATH="/var/www/html"
+
 # Check if WordPress is accessible
-if ! ddev exec wp core is-installed --quiet 2>/dev/null; then
+if ! ddev exec wp core is-installed --path="$WP_PATH" --quiet 2>/dev/null; then
     echo "ℹ️ WordPress not installed. Installing WordPress first..."
     
-    # First, download WordPress
+    # First, download WordPress (using curl directly to bypass SSL issues)
     echo "📥 Downloading WordPress core files..."
-    ddev exec wp core download --force
+    ddev exec bash -c "cd '$WP_PATH' && curl -skL https://wordpress.org/latest.tar.gz | tar xz --strip-components=1"
     
     echo "🔧 Creating wp-config.php..."
-    ddev exec wp config create \
+    ddev exec wp config create --path="$WP_PATH" \
         --dbname="db" \
         --dbuser="db" \
         --dbpass="db" \
@@ -29,7 +36,7 @@ if ! ddev exec wp core is-installed --quiet 2>/dev/null; then
         --force
     
     echo "📦 Installing WordPress..."
-    ddev exec wp core install \
+    ddev exec wp core install --path="$WP_PATH" \
         --url="https://smart-gallery.ddev.site" \
         --title="Smart Gallery Demo" \
         --admin_user="admin" \
@@ -65,13 +72,13 @@ else
     fi
     
     echo "🗑️ Removing existing WordPress..."
-    ddev exec wp db reset --yes
+    ddev exec wp db reset --path="$WP_PATH" --yes
     
     echo "📥 Downloading WordPress core files..."
-    ddev exec wp core download --force
+    ddev exec bash -c "cd '$WP_PATH' && curl -skL https://wordpress.org/latest.tar.gz | tar xz --strip-components=1"
     
     echo "🔧 Creating wp-config.php..."
-    ddev exec wp config create \
+    ddev exec wp config create --path="$WP_PATH" \
         --dbname="db" \
         --dbuser="db" \
         --dbpass="db" \
@@ -79,7 +86,7 @@ else
         --force
     
     echo "📦 Reinstalling WordPress..."
-    ddev exec wp core install \
+    ddev exec wp core install --path="$WP_PATH" \
         --url="https://smart-gallery.ddev.site" \
         --title="Smart Gallery Demo" \
         --admin_user="admin" \
@@ -92,11 +99,11 @@ echo "🧹 Removing default WordPress plugins..."
 
 # Remove Akismet Anti-spam
 echo "   🗑️ Removing Akismet Anti-spam..."
-ddev exec wp plugin delete akismet --quiet 2>/dev/null || true
+ddev exec wp plugin delete akismet --path="$WP_PATH" --quiet 2>/dev/null || true
 
 # Remove Hello Dolly
 echo "   🗑️ Removing Hello Dolly..."
-ddev exec wp plugin delete hello --quiet 2>/dev/null || true
+ddev exec wp plugin delete hello --path="$WP_PATH" --quiet 2>/dev/null || true
 
 echo ""
 echo "🔌 Installing required plugins..."
@@ -104,24 +111,23 @@ echo "🔌 Installing required plugins..."
 # Install Elementor
 echo "   📦 Installing Elementor..."
 ddev exec rm -rf /var/www/html/wp-content/plugins/elementor 2>/dev/null || true
-ddev exec wp plugin install elementor --activate
+ddev exec bash -c "cd '$WP_PATH/wp-content/plugins' && curl -skL https://downloads.wordpress.org/plugin/elementor.latest-stable.zip -o elementor.zip && unzip -q elementor.zip && rm elementor.zip"
+ddev exec wp plugin activate elementor --path="$WP_PATH"
 
-# Activate Hello Plus (Elementor's additional plugin)
-echo "   🎨 Activating Hello Plus (Elementor addon)..."
-ddev exec wp plugin activate hello-plus --quiet 2>/dev/null || true
-
-# Activate Hello Biz theme (Elementor's business theme)
-echo "   🎨 Activating Hello Biz theme..."
-ddev exec wp theme activate hello-biz --quiet 2>/dev/null || true
+# Install and activate Hello Elementor theme (Elementor's default theme)
+echo "   🎨 Installing Hello Elementor theme..."
+ddev exec bash -c "cd '$WP_PATH/wp-content/themes' && curl -skL https://downloads.wordpress.org/theme/hello-elementor.latest-stable.zip -o hello-elementor.zip && unzip -q hello-elementor.zip && rm hello-elementor.zip"
+ddev exec wp theme activate hello-elementor --path="$WP_PATH"
 
 # Install Pods
 echo "   📦 Installing Pods Framework..."
 ddev exec rm -rf /var/www/html/wp-content/plugins/pods 2>/dev/null || true
-ddev exec wp plugin install pods --activate
+ddev exec bash -c "cd '$WP_PATH/wp-content/plugins' && curl -skL https://downloads.wordpress.org/plugin/pods.latest-stable.zip -o pods.zip && unzip -q pods.zip && rm pods.zip"
+ddev exec wp plugin activate pods --path="$WP_PATH"
 
 # Activate main plugin
 echo "   🎯 Activating Smart Gallery..."
-ddev exec wp plugin activate smart-gallery
+ddev exec wp plugin activate smart-gallery --path="$WP_PATH"
 
 echo ""
 echo "🔧 Configuring HTTPS with mkcert..."

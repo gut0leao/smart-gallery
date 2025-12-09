@@ -162,10 +162,16 @@ echo -e "${YELLOW}⚠️ Important: This will replace any existing local WordPre
 echo -e "${YELLOW}   (Your source code and configuration files are safe)${NC}"
 echo ""
 
+# Enable strict error handling
+set -e  # Exit immediately if any command fails
+set -o pipefail  # Exit if any command in a pipeline fails
+
 # Function to check if command succeeded
 check_success() {
-    if [ $? -ne 0 ]; then
+    local exit_code=$?
+    if [ $exit_code -ne 0 ]; then
         echo -e "${RED}❌ Error in step: $1${NC}"
+        echo -e "${RED}❌ Exit code: $exit_code${NC}"
         echo -e "${YELLOW}💡 Check the logs above for more details.${NC}"
         echo ""
         echo -e "${CYAN}🆘 TROUBLESHOOTING TIPS:${NC}"
@@ -183,6 +189,7 @@ check_success() {
             "WordPress configuration")
                 echo "   • Check wp-setup.sh script exists and is executable"
                 echo "   • Verify DDEV is running: ddev status"
+                echo "   • Check for errors in wp-setup.sh output above"
                 ;;
             "Demo data import")
                 echo "   • Check pods-import.sh script exists"
